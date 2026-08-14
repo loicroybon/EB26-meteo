@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v2 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -62,6 +62,13 @@ tr.consensus td{background:var(--panneau);font-weight:600;border-bottom:1px soli
 .gros s{display:block;font-family:var(--sans);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;
   color:var(--brume);text-decoration:none;margin-top:5px}
 .spread{font-size:11px;color:var(--brume);margin-top:2px}
+.grille{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:1px;
+  background:var(--trace);border:1px solid var(--trace);border-radius:3px;margin:12px 0 4px}
+.cel{background:var(--roche);padding:9px 10px}
+.cel s{display:block;font-family:var(--sans);font-size:9px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--brume);text-decoration:none}
+.cel b{display:block;font-size:17px;font-weight:600;letter-spacing:-.03em;margin-top:3px}
+.cel em{display:block;font-family:var(--sans);font-style:normal;font-size:10px;color:var(--brume);margin-top:2px}
 
 .chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 8px;-webkit-overflow-scrolling:touch}
 .chip{flex:0 0 auto;background:var(--panneau);border:1px solid var(--trace);border-radius:3px;
@@ -86,7 +93,7 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
 <header>
   <div class="eyebrow">Sonde multi-modèles · dossard 348</div>
   <h1>Échappée Belle Intégrale <span>2026</span></h1>
-  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+</div>
+  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 2 · bulletin étendu</b></div>
   <div class="ctl">
     <label for="scen">Scénario</label>
     <select id="scen"></select>
@@ -147,8 +154,21 @@ const MODELES = [
   ["metno_seamless","MET Norway",1],
   ["jma_seamless","JMA",0]
 ];
-const VARS = ["temperature_2m","apparent_temperature","precipitation","wind_speed_10m",
-              "wind_gusts_10m","wind_direction_10m","cloud_cover","freezing_level_height","cape"];
+const VARS = ["temperature_2m","apparent_temperature","dew_point_2m","relative_humidity_2m",
+              "precipitation","precipitation_probability","rain","snowfall","weather_code",
+              "cloud_cover","cloud_cover_low","cloud_cover_mid","cloud_cover_high",
+              "sunshine_duration","shortwave_radiation","uv_index","visibility",
+              "wind_speed_10m","wind_gusts_10m","wind_direction_10m",
+              "freezing_level_height","cape","surface_pressure"];
+
+const WMO={0:"ciel clair",1:"peu nuageux",2:"passages nuageux",3:"couvert",45:"brouillard",
+ 48:"brouillard givrant",51:"bruine faible",53:"bruine",55:"bruine forte",56:"bruine verglaçante",
+ 57:"bruine verglaçante forte",61:"pluie faible",63:"pluie",65:"pluie forte",66:"pluie verglaçante",
+ 67:"pluie verglaçante forte",71:"neige faible",73:"neige",75:"neige forte",77:"grains de neige",
+ 80:"averses faibles",81:"averses",82:"averses violentes",85:"averses de neige",86:"fortes averses de neige",
+ 95:"orage",96:"orage avec grêle",99:"orage violent avec grêle"};
+const ROSE=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSO","SO","OSO","O","ONO","NO","NNO"];
+const cap = d => d===null||d===undefined? "—" : ROSE[Math.round(d/22.5)%16];
 
 const PRECHARGE = /*__PRECHARGE__*/ null;
 let SCENARIO = 43, SEL = 0, DATA = {}, ECHECS = [];
@@ -189,7 +209,8 @@ const MEM = (window.storage) ? window.storage : {
 
 /* ---------- interrogation Open-Meteo ---------- */
 async function unModele(id, pois){
-  const lots=[]; for(let i=0;i<pois.length;i+=13) lots.push(pois.slice(i,i+13));
+  const LOT=26;
+  const lots=[]; for(let i=0;i<pois.length;i+=LOT) lots.push(pois.slice(i,i+LOT));
   const res = pois.map(()=>null);
   for(const [n,lot] of lots.entries()){
     const qp = new URLSearchParams();
@@ -202,11 +223,18 @@ async function unModele(id, pois){
     qp.set('start_date','2026-08-20');
     qp.set('end_date','2026-08-24');
     const u = 'https://api.open-meteo.com/v1/forecast?' + qp.toString();
-    const r = await fetch(u);
+    let r=null;
+    for(let essai=0; essai<3; essai++){
+      r = await fetch(u);
+      if(r.status!==429) break;
+      log('Quota atteint, reprise dans '+(2*(essai+1))+' s…');
+      await new Promise(z=>setTimeout(z, 2000*(essai+1)));
+    }
     if(!r.ok) throw new Error(id+' HTTP '+r.status);
     let j = await r.json();
     if(!Array.isArray(j)) j=[j];
-    j.forEach((o,k)=>{ res[n*13+k]=o; });
+    j.forEach((o,k)=>{ res[n*LOT+k]=o; });
+    await new Promise(z=>setTimeout(z,350));
   }
   return res;
 }
@@ -219,9 +247,13 @@ function extrait(rep, isoCible){
   for(let i=0;i<T.length;i++){ const d=Math.abs(new Date(T[i]).getTime()-cible); if(d<dt){dt=d;best=i;} }
   if(best<0 || dt>2*3600*1000) return null;
   const g=v=>{const a=rep.hourly[v]; return a&&a[best]!==null&&a[best]!==undefined?a[best]:null;};
-  return {t:g('temperature_2m'), res:g('apparent_temperature'), pr:g('precipitation'),
+  return {t:g('temperature_2m'), res:g('apparent_temperature'), ros:g('dew_point_2m'),
+          hum:g('relative_humidity_2m'), pr:g('precipitation'), pp:g('precipitation_probability'),
+          neige:g('snowfall'), code:g('weather_code'),
+          nu:g('cloud_cover'), nub:g('cloud_cover_low'), num:g('cloud_cover_mid'), nuh:g('cloud_cover_high'),
+          sol:g('sunshine_duration'), ray:g('shortwave_radiation'), uv:g('uv_index'), vis:g('visibility'),
           v:g('wind_speed_10m'), raf:g('wind_gusts_10m'), dir:g('wind_direction_10m'),
-          nu:g('cloud_cover'), iso0:g('freezing_level_height'), cape:g('cape'),
+          iso0:g('freezing_level_height'), cape:g('cape'), pres:g('surface_pressure'),
           alt_modele:rep.elevation};
 }
 
@@ -274,8 +306,12 @@ function sonde(i){
   if(!out.length) return null;
   const col=k=>out.map(o=>o[k]).filter(v=>v!==null);
   const stat=k=>{const c=col(k); return c.length? {m:med(c), lo:Math.min(...c), hi:Math.max(...c), n:c.length}:null;};
-  return {p, lignes:out, t:stat('t'), res:stat('res'), pr:stat('pr'),
-          v:stat('v'), raf:stat('raf'), cape:stat('cape'), iso0:stat('iso0'), nu:stat('nu')};
+  const S={}; ['t','res','ros','hum','pr','pp','neige','nu','nub','num','nuh','sol','ray','uv',
+    'vis','v','raf','dir','iso0','cape','pres'].forEach(k=>S[k]=stat(k));
+  const codes=out.map(o=>o.code).filter(c=>c!==null);
+  S.code = codes.length? codes.sort((a,b)=>
+    codes.filter(x=>x===b).length-codes.filter(x=>x===a).length)[0] : null;
+  return {p, lignes:out, ...S};
 }
 
 /* ---------- ruban signature ---------- */
@@ -362,38 +398,73 @@ function fiche(){
     +p.lat.toFixed(5)+', '+p.lon.toFixed(5)+'</div>';
   if(!s){ h+='<div class="note" style="margin-top:12px">Pas encore de données. Lance « Interroger les modèles ».</div>';
     f.innerHTML=h; return; }
-  const u=(x,d,su)=>x===null?'—':x.toFixed(d)+su;
+
+  /* null-safe : un modèle qui ne fournit pas la variable ne casse plus le rendu */
+  const V=(o,d=1,su='')=> (o&&o.m!==null&&o.m!==undefined)? o.m.toFixed(d)+su : '—';
+  const E=(o,d=0,su='')=> (o&&o.lo!==null&&o.lo!==undefined)? o.lo.toFixed(d)+' à '+o.hi.toFixed(d)+su : '';
+
+  if(s.code!==null) h+='<div style="margin:10px 0 2px;font-size:15px">'+(WMO[s.code]||'—')+'</div>';
+
   h+='<div class="gros">'
-   +'<div><b style="color:'+couleurT(s.t.m)+'">'+u(s.t.m,1,'°')+'</b><s>température</s>'
-     +'<div class="spread">'+u(s.t.lo,0,'')+' à '+u(s.t.hi,0,'°')+'</div></div>'
-   +'<div><b>'+u(s.res.m,1,'°')+'</b><s>ressenti</s></div>'
-   +'<div><b style="color:'+(s.pr.m>0.2?'var(--pluie)':'')+'">'+u(s.pr.m,1,' mm')+'</b><s>pluie / h</s>'
-     +'<div class="spread">max '+u(s.pr.hi,1,' mm')+'</div></div>'
-   +'<div><b>'+u(s.v.m,0,'')+'</b><s>vent km/h</s>'
-     +'<div class="spread">rafales '+u(s.raf.m,0,'')+' · max '+u(s.raf.hi,0,'')+'</div></div>'
-   +'<div><b>'+u(s.iso0.m,0,'')+'</b><s>iso 0 °C (m)</s></div>'
+   +'<div><b style="color:'+couleurT(s.t?s.t.m:null)+'">'+V(s.t,1,'°')+'</b><s>température</s>'
+     +'<div class="spread">'+E(s.t,0,'°')+'</div></div>'
+   +'<div><b>'+V(s.res,1,'°')+'</b><s>ressenti</s></div>'
+   +'<div><b style="color:'+(s.pr&&s.pr.m>0.2?'var(--pluie)':'')+'">'+V(s.pr,1,'')+'</b><s>pluie mm/h</s>'
+     +'<div class="spread">'+(s.pp&&s.pp.m!==null? V(s.pp,0,' % de risque') : (s.pr?'max '+V(s.pr,1,' mm'):''))+'</div></div>'
+   +'<div><b>'+V(s.raf,0,'')+'</b><s>rafales km/h</s>'
+     +'<div class="spread">moyen '+V(s.v,0,'')+' de '+cap(s.dir?s.dir.m:null)+'</div></div>'
    +'</div>';
+
+  /* grille secondaire : ce qu'on ne lit pas d'un coup d'oeil mais qui décide de l'équipement */
+  const soleil = s.sol&&s.sol.m!==null? Math.round(s.sol.m/36) : null;
+  const cellules=[
+    ['couverture nuageuse', s.nu&&s.nu.m!==null? V(s.nu,0,' %'):'—',
+      s.nub&&s.nub.m!==null? 'basses '+V(s.nub,0)+' · moy '+V(s.num,0)+' · hautes '+V(s.nuh,0):''],
+    ['ensoleillement', soleil!==null? soleil+' %':'—',
+      s.ray&&s.ray.m!==null? V(s.ray,0)+' W/m²':''],
+    ['humidité', V(s.hum,0,' %'), s.ros&&s.ros.m!==null? 'rosée '+V(s.ros,1,'°'):''],
+    ['vent moyen', V(s.v,0,' km/h'), 'de '+cap(s.dir?s.dir.m:null)+' · '+E(s.raf,0,' en rafales')],
+    ['visibilité', s.vis&&s.vis.m!==null? (s.vis.m/1000).toFixed(1)+' km':'—',
+      s.vis&&s.vis.m<1000? 'brouillard' : ''],
+    ['indice UV', V(s.uv,1), soleil!==null&&soleil>50? 'crème et lunettes':''],
+    ['isotherme 0 °C', V(s.iso0,0,' m'), s.iso0&&s.iso0.m!==null? (s.iso0.m-p.alt).toFixed(0)+' m au-dessus':'non fourni'],
+    ['instabilité (CAPE)', V(s.cape,0,' J/kg'), s.cape&&s.cape.m>800?'convection possible':''],
+    ['neige', V(s.neige,1,' cm'), ''],
+    ['pression', V(s.pres,0,' hPa'), '']
+  ].filter(c=>c[1]!=='—' || c[0]==='isotherme 0 °C');
+
+  h+='<div class="grille">';
+  cellules.forEach(c=>{ h+='<div class="cel"><s>'+c[0]+'</s><b>'+c[1]+'</b>'
+    +(c[2]?'<em>'+c[2]+'</em>':'')+'</div>'; });
+  h+='</div>';
 
   const risques=[];
   if(s.cape&&s.cape.hi>800) risques.push('CAPE jusqu\'à '+s.cape.hi.toFixed(0)+' J/kg — potentiel orageux');
   if(s.raf&&s.raf.hi>55) risques.push('rafales possibles à '+s.raf.hi.toFixed(0)+' km/h');
-  if(s.iso0&&s.iso0.lo<p.alt+200) risques.push('isotherme 0 °C proche du point ('+s.iso0.lo.toFixed(0)+' m)');
-  if(s.res&&s.res.lo<3) risques.push('ressenti jusqu\'à '+s.res.lo.toFixed(0)+' °C');
-  if(s.t&&(s.t.hi-s.t.lo)>8) risques.push('désaccord des modèles : '+(s.t.hi-s.t.lo).toFixed(0)+' °C d\'écart');
-  if(risques.length) h+='<div class="note alerte" style="margin:6px 0 10px">⚠ '+risques.join(' · ')+'</div>';
+  if(s.iso0&&s.iso0.lo!==null&&s.iso0.lo<p.alt+200) risques.push('isotherme 0 °C proche du point ('+s.iso0.lo.toFixed(0)+' m)');
+  if(s.res&&s.res.lo!==null&&s.res.lo<3) risques.push('ressenti jusqu\'à '+s.res.lo.toFixed(0)+' °C');
+  if(s.vis&&s.vis.lo!==null&&s.vis.lo<500) risques.push('visibilité réduite à '+(s.vis.lo/1000).toFixed(1)+' km');
+  if(s.t&&s.t.hi-s.t.lo>8) risques.push('désaccord des modèles : '+(s.t.hi-s.t.lo).toFixed(0)+' °C d\'écart');
+  if(risques.length) h+='<div class="note alerte" style="margin:10px 0">⚠ '+risques.join(' · ')+'</div>';
 
-  h+='<div class="tw"><table><thead><tr><th>Modèle</th><th>T</th><th>Ress.</th><th>Pluie</th>'
-   +'<th>Vent</th><th>Raf.</th><th>Nuages</th><th>Iso 0</th></tr></thead><tbody>';
-  h+='<tr class="consensus"><td>Consensus ('+s.lignes.length+')</td><td>'+u(s.t.m,1,'')+'</td><td>'+u(s.res.m,1,'')
-   +'</td><td>'+u(s.pr.m,1,'')+'</td><td>'+u(s.v.m,0,'')+'</td><td>'+u(s.raf.m,0,'')+'</td><td>'
-   +u(s.nu.m,0,'%')+'</td><td>'+u(s.iso0.m,0,'')+'</td></tr>';
+  h+='<div class="tw"><table><thead><tr><th>Modèle</th><th>T</th><th>Ress.</th><th>Hum.</th>'
+   +'<th>Nuages</th><th>Soleil</th><th>Pluie</th><th>Vent</th><th>Raf.</th><th>Dir.</th><th>Vis.</th></tr></thead><tbody>';
+  const L=(o,k,d,su)=> (o[k]===null||o[k]===undefined)? '—' : o[k].toFixed(d)+su;
+  h+='<tr class="consensus"><td>Consensus ('+s.lignes.length+')</td><td>'+V(s.t,1)+'</td><td>'+V(s.res,1)
+   +'</td><td>'+V(s.hum,0)+'</td><td>'+V(s.nu,0)+'</td><td>'+(soleil!==null?soleil:'—')+'</td><td>'+V(s.pr,1)
+   +'</td><td>'+V(s.v,0)+'</td><td>'+V(s.raf,0)+'</td><td>'+cap(s.dir?s.dir.m:null)+'</td><td>'
+   +(s.vis&&s.vis.m!==null?(s.vis.m/1000).toFixed(1):'—')+'</td></tr>';
   s.lignes.forEach(l=>{
-    h+='<tr><td>'+l.nom+'<div class="res">maille à '+(l.alt_modele!==undefined?Math.round(l.alt_modele)+' m':'?')+'</div></td>'
-     +'<td>'+u(l.t,1,'')+'</td><td>'+u(l.res,1,'')+'</td><td>'+u(l.pr,1,'')+'</td><td>'+u(l.v,0,'')
-     +'</td><td>'+u(l.raf,0,'')+'</td><td>'+u(l.nu,0,'')+'</td><td>'+u(l.iso0,0,'')+'</td></tr>';
+    h+='<tr><td>'+l.nom+'<div class="res">maille à '+(l.alt_modele!==undefined&&l.alt_modele!==null?Math.round(l.alt_modele)+' m':'?')+'</div></td>'
+     +'<td>'+L(l,'t',1,'')+'</td><td>'+L(l,'res',1,'')+'</td><td>'+L(l,'hum',0,'')+'</td>'
+     +'<td>'+L(l,'nu',0,'')+'</td><td>'+(l.sol!==null&&l.sol!==undefined?Math.round(l.sol/36):'—')+'</td>'
+     +'<td>'+L(l,'pr',1,'')+'</td><td>'+L(l,'v',0,'')+'</td><td>'+L(l,'raf',0,'')+'</td>'
+     +'<td>'+cap(l.dir)+'</td><td>'+(l.vis!==null&&l.vis!==undefined?(l.vis/1000).toFixed(1):'—')+'</td></tr>';
   });
-  h+='</tbody></table></div><div class="note" style="margin-top:8px">T et ressenti en °C · pluie en mm/h · '
-   +'vent et rafales en km/h · « maille » = altitude que le modèle attribue au point, écart avec '+p.alt+' m à garder en tête.</div>';
+  h+='</tbody></table></div><div class="note" style="margin-top:8px">T, ressenti et rosée en °C · humidité, '
+   +'nuages et soleil en % · pluie en mm/h · vent et rafales en km/h · visibilité en km. '
+   +'« Maille » = altitude que le modèle attribue au point ; écart avec '+p.alt+' m à garder en tête. '
+   +'Un tiret signifie que le modèle ne fournit pas la variable, pas qu\'elle vaut zéro.</div>';
   f.innerHTML=h;
 }
 
@@ -414,15 +485,22 @@ function chips(){
 /* ---------- tableau global ---------- */
 function tableauTous(){
   const tb=q('#tousp').querySelector('tbody');
-  let h='<tr><th>Point</th><th>km</th><th>Alt</th><th>Passage</th><th>T</th><th>Ress.</th><th>Pluie</th><th>Raf.</th></tr>';
+  let h='<tr><th>Point</th><th>km</th><th>Alt</th><th>Passage</th><th>T</th><th>Ress.</th>'
+   +'<th>Hum.</th><th>Nuages</th><th>Soleil</th><th>Pluie</th><th>Vent</th><th>Raf.</th><th>Dir.</th></tr>';
+  const V=(o,d=0)=> (o&&o.m!==null&&o.m!==undefined)? o.m.toFixed(d) : '—';
   POIS.forEach((p,i)=>{
     const s=Object.keys(DATA).length? sonde(i):null;
-    const u=(x,d)=>x===null||x===undefined?'—':x.toFixed(d);
+    const sol = s&&s.sol&&s.sol.m!==null? Math.round(s.sol.m/36) : null;
     h+='<tr><td>'+p.nom+'</td><td>'+p.km.toFixed(1)+'</td><td>'+p.alt+'</td><td>'+hhmm(p.t[SCENARIO])+'</td>'
-     +'<td'+(s&&s.t?' style="color:'+couleurT(s.t.m)+'"':'')+'>'+(s?u(s.t.m,1):'—')+'</td>'
-     +'<td>'+(s?u(s.res.m,1):'—')+'</td>'
-     +'<td'+(s&&s.pr&&s.pr.m>0.2?' style="color:var(--pluie)"':'')+'>'+(s?u(s.pr.m,1):'—')+'</td>'
-     +'<td>'+(s?u(s.raf.m,0):'—')+'</td></tr>';
+     +'<td'+(s&&s.t&&s.t.m!==null?' style="color:'+couleurT(s.t.m)+'"':'')+'>'+(s?V(s.t,1):'—')+'</td>'
+     +'<td>'+(s?V(s.res,1):'—')+'</td>'
+     +'<td>'+(s?V(s.hum):'—')+'</td>'
+     +'<td>'+(s?V(s.nu):'—')+'</td>'
+     +'<td>'+(sol!==null?sol:'—')+'</td>'
+     +'<td'+(s&&s.pr&&s.pr.m>0.2?' style="color:var(--pluie)"':'')+'>'+(s?V(s.pr,1):'—')+'</td>'
+     +'<td>'+(s?V(s.v):'—')+'</td>'
+     +'<td'+(s&&s.raf&&s.raf.m>50?' style="color:var(--alerte)"':'')+'>'+(s?V(s.raf):'—')+'</td>'
+     +'<td>'+(s&&s.dir?cap(s.dir.m):'—')+'</td></tr>';
   });
   tb.innerHTML=h;
 }
@@ -431,8 +509,10 @@ function tableauTous(){
 async function archive(){
   const cle='snapshot:'+new Date().toISOString().slice(0,13).replace(/[-T:]/g,'');
   const inst={};
-  POIS.forEach((p,i)=>{ const s=sonde(i); if(s&&s.t) inst[p.nom]={t:s.t.m, tlo:s.t.lo, thi:s.t.hi,
-    pr:s.pr?s.pr.m:null, prhi:s.pr?s.pr.hi:null, raf:s.raf?s.raf.m:null}; });
+  const g=(o,k)=>o&&o[k]!==null&&o[k]!==undefined?o[k]:null;
+  POIS.forEach((p,i)=>{ const s=sonde(i); if(s&&s.t) inst[p.nom]={
+    t:g(s.t,'m'), tlo:g(s.t,'lo'), thi:g(s.t,'hi'), pr:g(s.pr,'m'), prhi:g(s.pr,'hi'),
+    raf:g(s.raf,'m'), nu:g(s.nu,'m'), hum:g(s.hum,'m'), v:g(s.v,'m')}; });
   try{ await MEM.set(cle, JSON.stringify({date:new Date().toISOString(), scen:SCENARIO, pts:inst})); }
   catch(e){}
   convergence();
@@ -450,13 +530,15 @@ async function convergence(){
   if(!snaps.length){ el.textContent='Aucun relevé lisible.'; return; }
   const cible=POIS[SEL].nom;
   let h='<div class="tw"><table><thead><tr><th>Relevé</th><th>T médiane</th><th>Écart modèles</th>'
-   +'<th>Pluie méd.</th><th>Rafales</th></tr></thead><tbody>';
+   +'<th>Pluie méd.</th><th>Nuages</th><th>Vent</th><th>Rafales</th></tr></thead><tbody>';
   snaps.forEach(s=>{
     const v=s.pts[cible];
     h+='<tr><td>'+new Date(s.date).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+'</td>'
      +'<td>'+(v&&v.t!=null?v.t.toFixed(1)+' °':'—')+'</td>'
      +'<td>'+(v&&v.thi!=null?(v.thi-v.tlo).toFixed(1)+' °':'—')+'</td>'
      +'<td>'+(v&&v.pr!=null?v.pr.toFixed(1):'—')+'</td>'
+     +'<td>'+(v&&v.nu!=null?v.nu.toFixed(0)+' %':'—')+'</td>'
+     +'<td>'+(v&&v.v!=null?v.v.toFixed(0):'—')+'</td>'
      +'<td>'+(v&&v.raf!=null?v.raf.toFixed(0):'—')+'</td></tr>';
   });
   h+='</tbody></table></div><div class="note" style="margin-top:8px">Convergence sur <b>'+cible
