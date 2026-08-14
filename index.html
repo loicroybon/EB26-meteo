@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v5 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v7 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -37,6 +37,15 @@ h2::after{content:"";flex:1;height:1px;background:var(--trace)}
 
 /* ---- bandeau signature ---- */
 .cadre{position:relative}
+.smsbarre{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:9px}
+.smsbarre b{font-size:14px;margin-right:auto}
+.smsbarre button{padding:5px 10px;font-size:11px}
+.smsbarre button[aria-pressed="true"]{border-color:var(--accord);color:var(--neige);background:#182C28}
+#smstexte{width:100%;background:#0C1424;color:var(--neige);border:1px solid var(--trace);
+  border-radius:3px;padding:10px;font-family:var(--mono);font-size:12.5px;line-height:1.5;
+  resize:vertical;-webkit-user-select:text;user-select:text}
+.smspied{display:flex;align-items:center;gap:10px;margin-top:9px;font-size:11px;color:var(--brume)}
+.smspied button{margin-left:auto;border-color:var(--accord);padding:7px 14px}
 #gouttiere{position:absolute;left:0;top:0;z-index:2;pointer-events:none}
 .segchip{flex:0 0 auto;background:var(--panneau);border:1px solid var(--trace);border-radius:3px;
   padding:6px 10px;font-size:11.5px;cursor:pointer;color:var(--brume);line-height:1.25;text-align:left}
@@ -105,7 +114,7 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
 <header>
   <div class="eyebrow">Sonde multi-modèles · dossard 348</div>
   <h1>Échappée Belle Intégrale <span>2026</span></h1>
-  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 5 · vue par segment</b></div>
+  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 7 · export pour analyse</b></div>
   <div class="ctl">
     <label for="scen">Scénario</label>
     <select id="scen"></select>
@@ -119,6 +128,19 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
 <h2 id="hmg">Météogramme de course</h2>
 <div class="chips" id="segchips"></div>
 <div class="fiche" id="segresume" style="margin-bottom:10px;display:none"></div>
+<div class="fiche" id="smszone" style="margin-bottom:10px">
+  <div class="smsbarre">
+    <b>SMS pour mes proches</b>
+    <button id="smscourt" aria-pressed="true">Court</button>
+    <button id="smscomplet" aria-pressed="false">Tous les points</button>
+  </div>
+  <textarea id="smstexte" readonly rows="7" spellcheck="false"></textarea>
+  <div class="smspied"><span id="smsinfo"></span><button id="smscopie">Copier le SMS</button></div>
+  <div class="smspied" style="border-top:1px solid var(--trace);padding-top:10px;margin-top:12px">
+    <span>Toutes les valeurs, tous les modèles, plus l'historique des relevés</span>
+    <button id="exportmd">Fichier Markdown pour analyse</button>
+  </div>
+</div>
 <div class="bandeau">
   <div class="cadre"><svg id="gouttiere"></svg>
     <div class="scroller" id="scroller"><svg id="ruban"></svg></div></div>
@@ -329,7 +351,7 @@ async function interroger(){
       + (ECHECS.length? ' · en échec : '+ECHECS.join(' | ') : ''));
   afficheDispo(dispo);
   majEtat();
-  dessine(); fiche(); tableauTous(); resumeSegment();
+  dessine(); fiche(); tableauTous(); resumeSegment(); majSMS();
   await cacheEcrire();
   await archive();
 }
@@ -783,7 +805,7 @@ function segChips(){
     b.innerHTML=titre+'<small>'+sous+'</small>';
     b.onclick=function(){ SEG=n;
       const dedans=segPois(); if(dedans.length) SEL=dedans[0];
-      segChips(); chips(); dessine(); fiche(); tableauTous(); resumeSegment(); };
+      segChips(); chips(); dessine(); fiche(); tableauTous(); resumeSegment(); majSMS(); };
     c.appendChild(b);
   };
   faire(0,'Tout le parcours','149,5 km \u00b7 11 000 m D+');
@@ -837,6 +859,340 @@ function chips(){
     b.onclick=function(){SEL=i; majChips(); fiche(); dessine();};
     c.appendChild(b);
   });
+}
+
+/* ---------- message SMS pour les proches ---------- */
+/* Contrainte : pas de réseau data en course. Le message doit être court,
+   lisible d'un coup d'oeil, et sans jargon. */
+
+const CIEL_COURT={0:'ciel clair',1:'peu nuageux',2:'nuageux',3:'couvert',
+  45:'brouillard',48:'brouillard givrant',
+  51:'bruine',53:'bruine',55:'bruine forte',56:'bruine verglacante',57:'bruine verglacante',
+  61:'pluie faible',63:'pluie',65:'pluie forte',66:'pluie verglacante',67:'pluie verglacante',
+  71:'neige faible',73:'neige',75:'neige forte',77:'neige',
+  80:'averses',81:'averses',82:'averses fortes',85:'averses de neige',86:'averses de neige',
+  95:'orage',96:'orage et grele',99:'orage violent'};
+
+function descMeteo(s){
+  if(!s||!s.t) return 'pas de donnees';
+  const p=[];
+  let ciel = (s.code!==null&&s.code!==undefined)? (CIEL_COURT[s.code]||'') : '';
+  /* la couche basse est ce qui compte en montagne : brouillard sur les crêtes */
+  if(s.nub&&s.nub.m>=65&&s.code<=3) ciel='nuages bas';
+  else if(s.nu&&s.nu.m<=25&&s.code<=1) ciel='ciel degage';
+  if(ciel) p.push(ciel);
+  if(s.pr&&s.pr.m>=0.05) p.push('pluie '+s.pr.m.toFixed(1)+'mm');
+  if(s.neige&&s.neige.m>=0.2) p.push('neige '+s.neige.m.toFixed(1)+'cm');
+  if(s.v&&s.v.m!==null){
+    let v='vent '+Math.round(s.v.m);
+    if(s.raf&&s.raf.m!==null) v+=' raf '+Math.round(s.raf.m);
+    p.push(v+'km/h');
+  }
+  if(s.t&&s.t.m!==null){
+    let t=Math.round(s.t.m)+'\u00b0';
+    if(s.res&&s.res.m!==null&&Math.abs(s.res.m-s.t.m)>=2) t+=' ressenti '+Math.round(s.res.m)+'\u00b0';
+    p.push(t);
+  }
+  if(s.vis&&s.vis.m!==null&&s.vis.m<1200) p.push('visi '+(s.vis.m/1000).toFixed(1)+'km');
+  /* inutile de répéter : si le ciel dit déjà « orage », on n'ajoute rien */
+  if(s.code<95 && s.cape && s.cape.hi>900) p.push('risque orage');
+  return p.join(', ');
+}
+
+function hCourt(iso){
+  const d=new Date(iso);
+  return String(d.getHours()).padStart(2,'0')+'h'+String(d.getMinutes()).padStart(2,'0');
+}
+
+/* mode court : ravitos et points clés seulement, pour tenir en 2 SMS */
+function pointsSMS(complet){
+  const idx=segPois();
+  if(complet) return idx;
+  const CLEFS=['Croix de Belledonne','Col de Mor\u00e9tan','Col de la Vache','Sommet du Grand Chat',
+               'Col de la Mine de Fer'];
+  let gardes=idx.filter(i=>POIS[i].type==='Ravito'||CLEFS.indexOf(POIS[i].nom)>=0);
+  if(gardes.length>=2){
+    /* plus de 2h30 entre deux points : on intercale le sommet du trou */
+    const sortie=[];
+    for(let k=0;k<gardes.length;k++){
+      sortie.push(gardes[k]);
+      if(k===gardes.length-1) break;
+      const a=gardes[k], b=gardes[k+1];
+      const ecart=(new Date(POIS[b].t[SCENARIO])-new Date(POIS[a].t[SCENARIO]))/3.6e6;
+      if(ecart>2.5){
+        const entre=idx.filter(i=>i>a&&i<b);
+        if(entre.length){
+          const haut=entre.slice().sort((u,v)=>POIS[v].alt-POIS[u].alt)[0];
+          sortie.push(haut);
+        }
+      }
+    }
+    return sortie;
+  }
+  /* segment sans deux ravitos : on garde le début, la fin et le point haut */
+  const haut=idx.slice().sort((a,b)=>POIS[b].alt-POIS[a].alt)[0];
+  return [...new Set([idx[0], haut, idx[idx.length-1]])].sort((a,b)=>a-b);
+}
+
+function texteSMS(complet){
+  const idx=pointsSMS(complet);
+  if(!idx.length) return '';
+  const L=[];
+  if(SEG){
+    const s=SEGMENTS[SEG-1];
+    L.push('S'+String(s.n).padStart(2,'0')+' '+abrege(s.de)+'-'+abrege(s.vers));
+  } else {
+    L.push('EB26 parcours complet');
+  }
+  let jourPrec=null;
+  idx.forEach(i=>{
+    const p=POIS[i], s=Object.keys(DATA).length? sonde(i):null;
+    const d=new Date(p.t[SCENARIO]);
+    const jr=['dim','lun','mar','mer','jeu','ven','sam'][d.getDay()];
+    const marq = (jr!==jourPrec)? jr+' ' : '';
+    jourPrec=jr;
+    L.push(abrege(p.nom)+' '+marq+hCourt(p.t[SCENARIO])+' - '+descMeteo(s));
+  });
+  if(TS_DONNEES) L.push('(prev. '+new Date(TS_DONNEES).toLocaleString('fr-FR',
+    {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+')');
+  return L.join('\n');
+}
+
+function majSMS(){
+  const el=q('#smszone'); if(!el) return;
+  const complet = q('#smscomplet') && q('#smscomplet').getAttribute('aria-pressed')==='true';
+  const txt=texteSMS(complet);
+  const ta=q('#smstexte'); ta.value=txt;
+  const n=txt.length, parts=n? Math.ceil(n/153) : 0;
+  q('#smsinfo').textContent = n+' caract\u00e8res \u00b7 '+parts+' SMS'
+    + (n>306? ' \u2014 pense au mode court' : '');
+}
+
+function copierSMS(){
+  const txt=q('#smstexte').value;
+  const fini=ok=>{ const b=q('#smscopie');
+    b.textContent = ok? 'Copi\u00e9' : 'S\u00e9lectionne le texte';
+    setTimeout(()=>{ b.textContent='Copier le SMS'; }, 2200); };
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(()=>fini(true)).catch(()=>{
+      try{ q('#smstexte').select(); document.execCommand('copy'); fini(true); }
+      catch(e){ fini(false); }
+    });
+  } else {
+    try{ q('#smstexte').select(); document.execCommand('copy'); fini(true); }
+    catch(e){ fini(false); }
+  }
+}
+
+/* ---------- export Markdown pour analyse ---------- */
+/* Objectif : un seul fichier lisible par un modèle de langage, contenant
+   toutes les valeurs brutes par modèle, plus l'historique des relevés
+   pour qu'il puisse juger la dérive des prévisions d'un jour à l'autre. */
+
+const COLS = [
+  ['t','T °C',1],['res','Ress °C',1],['ros','Rosée °C',1],['hum','Hum %',0],
+  ['nub','Nb %',0],['num','Nm %',0],['nuh','Nh %',0],['nu','Ntot %',0],
+  ['sol','Soleil %',0],['pr','Pluie mm/h',2],['pp','P.pluie %',0],['neige','Neige cm',1],
+  ['v','Vent km/h',0],['raf','Raf km/h',0],['dir','Dir °',0],
+  ['vis','Visi m',0],['iso0','Iso0 m',0],['cape','CAPE',0],['uv','UV',1],['pres','P hPa',0]
+];
+
+function cel(e, cle, dec){
+  if(!e) return '';
+  let v = e[cle];
+  if(cle==='sol' && v!==null && v!==undefined) v = v/36;   // secondes -> % de l'heure
+  if(v===null||v===undefined) return '';
+  return typeof v==='number'? v.toFixed(dec) : String(v);
+}
+
+function ligneMD(prefixe, e){
+  return '| '+prefixe+' | '+COLS.map(c=>cel(e,c[0],c[2])).join(' | ')+' |';
+}
+function enteteMD(prefixe){
+  return '| '+prefixe+' | '+COLS.map(c=>c[1]).join(' | ')+' |\n'
+       + '|'+'---|'.repeat(prefixe.split('|').length+COLS.length);
+}
+
+async function exportMD(){
+  const b=q('#exportmd');
+  b.disabled=true; b.textContent='Génération…';
+  const maintenant=new Date();
+  const horod=maintenant.getFullYear()+String(maintenant.getMonth()+1).padStart(2,'0')
+    +String(maintenant.getDate()).padStart(2,'0')+'-'+String(maintenant.getHours()).padStart(2,'0')
+    +String(maintenant.getMinutes()).padStart(2,'0');
+  const ids=Object.keys(DATA);
+  const M=[];
+
+  M.push('# Échappée Belle Intégrale 2026 — relevé météo multi-modèles');
+  M.push('');
+  M.push('- **Généré le** : '+maintenant.toLocaleString('fr-FR')+' (Europe/Paris)');
+  M.push('- **Relevé des modèles** : '+(TS_DONNEES? new Date(TS_DONNEES).toLocaleString('fr-FR')
+    +' ('+ageTexte()+')' : 'inconnu'));
+  M.push('- **Course** : départ Vizille vendredi 21 août 2026 06:30, arrivée Aiguebelle. '
+    +'149,5 km, ~11 000 m D+, dossard 348.');
+  M.push('- **Scénario horaire retenu** : '+SCENARIO+' h (issu du road book officiel, '
+    +'une colonne d\'horaires par temps total visé).');
+  M.push('- **Jours avant le départ** : '
+    +((new Date(POIS[0].t[SCENARIO])-maintenant)/864e5).toFixed(1));
+  M.push('');
+  M.push('Les altitudes des points sont celles du road book. Chaque modèle est interrogé '
+    +'à la position exacte du point et à l\'heure de passage prévue, avec descente d\'échelle '
+    +'sur l\'altitude réelle. La colonne `alt_modele` donne l\'altitude que le modèle attribue '
+    +'au point : plus l\'écart est grand, plus la température est extrapolée.');
+  M.push('');
+
+  M.push('## Modèles interrogés');
+  M.push('');
+  M.push('| Modèle | Identifiant | Portée annoncée | Données à cette échéance |');
+  M.push('|---|---|---|---|');
+  MODELES.forEach(function(m){
+    const dedans = ids.indexOf(m[0])>=0;
+    const rep = dedans? 'oui'
+      : (REPORTES.filter(r=>r[0]===m[1]).length? 'non — hors de portée'
+      : (ECHECS.filter(e=>e.indexOf(m[1])===0).length? 'non — requête en échec' : 'non'));
+    M.push('| '+m[1]+' | `'+m[0]+'` | '+m[2]+' j | '+rep+' |');
+  });
+  M.push('');
+  M.push('> Un modèle absent n\'est pas un modèle en désaccord : à J-'
+    +Math.round((new Date(POIS[0].t[SCENARIO])-maintenant)/864e5)
+    +', les mailles fines (AROME, ICON-D2, ICON-CH, HARMONIE) n\'atteignent pas encore '
+    +'l\'échéance. Le consensus ne porte que sur les modèles présents.');
+  M.push('');
+
+  M.push('## Segments du road book');
+  M.push('');
+  M.push('| Seg | De | À | km | D+ | D− | Passage début | Passage fin |');
+  M.push('|---|---|---|--:|--:|--:|---|---|');
+  SEGMENTS.forEach(function(s){
+    const dedans=POIS.map((p,i)=>i).filter(i=>POIS[i].km>=s.km0-0.4&&POIS[i].km<=s.km1+0.4);
+    const a=dedans.length? POIS[dedans[0]].t[SCENARIO].replace('T',' ') : '';
+    const z=dedans.length? POIS[dedans[dedans.length-1]].t[SCENARIO].replace('T',' ') : '';
+    M.push('| S'+String(s.n).padStart(2,'0')+' | '+s.de+' | '+s.vers+' | '+s.dist.toFixed(1)
+      +' | '+s.dp+' | '+s.dm+' | '+a+' | '+z+' |');
+  });
+  M.push('');
+
+  /* ---- A. heure par heure le long du parcours ---- */
+  M.push('## A. Heure par heure, à la position du coureur');
+  M.push('');
+  M.push('Une ligne par heure de course et par modèle. La position est celle où le coureur '
+    +'devrait se trouver à cette heure selon le scénario '+SCENARIO+' h.');
+  M.push('');
+  M.push(enteteMD('H | Heure locale | km | alt m | Modèle'));
+  JALONS.forEach(function(jl,k){
+    const cons=sondeJalon(k);
+    const pre='H+'+jl.h+' | '+jl.t.replace('T',' ')+' | '+jl.km.toFixed(1)+' | '+jl.alt+' | ';
+    if(cons) M.push(ligneMD(pre+'**consensus ('+cons.lignes.length+')**',
+      Object.fromEntries(COLS.map(c=>[c[0], cons[c[0]]? cons[c[0]].m : null]))));
+    ids.forEach(function(id){
+      const e=extraitJalonD(DATA_J[id], k);
+      if(e) M.push(ligneMD(pre+DATA[id].nom, e));
+    });
+  });
+  M.push('');
+
+  /* ---- B. points d'intérêt ---- */
+  M.push('## B. Points du parcours, à l\'heure de passage');
+  M.push('');
+  M.push(enteteMD('Point | Type | km | alt m | Passage | alt_modele | Modèle'));
+  POIS.forEach(function(p,i){
+    const cons=sonde(i);
+    const pre=p.nom+' | '+p.type+' | '+p.km.toFixed(1)+' | '+p.alt+' | '
+      +p.t[SCENARIO].replace('T',' ')+' | ';
+    if(cons) M.push(ligneMD(pre+' | **consensus ('+cons.lignes.length+')**',
+      Object.fromEntries(COLS.map(c=>[c[0], cons[c[0]]? cons[c[0]].m : null]))));
+    ids.forEach(function(id){
+      const e=extraitPoi(DATA[id], i);
+      if(e && e.t!==null && e.t!==undefined)
+        M.push(ligneMD(pre+(e.alt_modele!==undefined&&e.alt_modele!==null?Math.round(e.alt_modele):'')
+          +' | '+DATA[id].nom, e));
+    });
+  });
+  M.push('');
+
+  /* ---- C. dérive des relevés successifs ---- */
+  M.push('## C. Évolution des prévisions, relevé après relevé');
+  M.push('');
+  let cles=[];
+  try{ const r=await MEM.list('snapshot:'); cles=(r&&r.keys)||[]; }catch(e){}
+  cles.sort();
+  const snaps=[];
+  for(const k of cles){ try{ const r=await MEM.get(k); if(r) snaps.push(JSON.parse(r.value)); }catch(e){} }
+  if(!snaps.length){
+    M.push('_Aucun relevé archivé pour l\'instant. Chaque actualisation en ajoute un ; '
+      +'l\'intérêt de cette section apparaît après quelques jours._');
+  } else {
+    M.push('Consensus enregistré à chaque actualisation. Ce qui compte n\'est pas la valeur '
+      +'mais le **resserrement de l\'écart inter-modèles** à mesure que la date approche.');
+    M.push('');
+    M.push('| Relevé | Point | T méd | T min | T max | Écart | Pluie méd | Nuages % | Vent | Rafales |');
+    M.push('|---|---|--:|--:|--:|--:|--:|--:|--:|--:|');
+    const n2=v=>(v===null||v===undefined)?'':(+v).toFixed(1);
+    snaps.forEach(function(s){
+      const q2=new Date(s.date).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',
+        hour:'2-digit',minute:'2-digit'});
+      POIS.forEach(function(p){
+        const v=s.pts&&s.pts[p.nom]; if(!v) return;
+        M.push('| '+q2+' | '+p.nom+' | '+n2(v.t)+' | '+n2(v.tlo)+' | '+n2(v.thi)+' | '
+          +((v.thi!=null&&v.tlo!=null)?(v.thi-v.tlo).toFixed(1):'')+' | '+n2(v.pr)+' | '
+          +n2(v.nu)+' | '+n2(v.v)+' | '+n2(v.raf)+' |');
+      });
+    });
+    /* détail par modèle sur les points de décision, s'il a été archivé */
+    const avecDetail=snaps.filter(s=>s.detail&&Object.keys(s.detail).length);
+    if(avecDetail.length){
+      M.push('');
+      M.push('### C.2 Détail par modèle sur les points de décision');
+      M.push('');
+      M.push('| Relevé | Point | Modèle | T | Pluie | Rafales | Nuages |');
+      M.push('|---|---|---|--:|--:|--:|--:|');
+      avecDetail.forEach(function(s){
+        const q2=new Date(s.date).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',
+          hour:'2-digit',minute:'2-digit'});
+        Object.keys(s.detail).forEach(function(nom){
+          Object.keys(s.detail[nom]).forEach(function(mod){
+            const d=s.detail[nom][mod];
+            M.push('| '+q2+' | '+nom+' | '+mod+' | '+n2(d.t)+' | '+n2(d.pr)+' | '
+              +n2(d.raf)+' | '+n2(d.nu)+' |');
+          });
+        });
+      });
+    }
+  }
+  M.push('');
+
+  M.push('## Ce que j\'attends de l\'analyse');
+  M.push('');
+  M.push('1. **Régime météo dominant** sur la fenêtre de course, et son degré de certitude.');
+  M.push('2. **Points de décision** : Croix de Belledonne 2887 m (ven ~13h18, heure du '
+    +'déclenchement orageux en août), col de la Vache 2542 m (ven ~19h32), col de Morétan '
+    +'2493 m (sam ~06h58, après 24 h de course, au nadir circadien), Sommet du Grand Chat '
+    +'(sam ~20h39, deuxième nuit).');
+  M.push('3. **Dérive entre relevés** : les modèles convergent-ils ou divergent-ils ? '
+    +'Sur quelles variables et à quelles heures ?');
+  M.push('4. **Désaccords entre modèles** : lesquels sont isolés, et sur quoi ?');
+  M.push('5. **Conséquences matériel** : veste, gants, seconde couche, ce qui part dans '
+    +'les sacs de Fond de France (km 66,9) et du Super Collet (km 99,8).');
+  M.push('');
+  M.push('> Réserves connues : les modèles sous-estiment le vent en crête (majorer de 30 à 50 % '
+    +'sur les cols) ; la couverture nuageuse est la variable la moins fiable à longue échéance ; '
+    +'la convection d\'après-midi sur Belledonne n\'est résolue par aucune maille au-delà de 2 jours.');
+
+  const txt=M.join('\n');
+  const nom='EB26_meteo_'+horod+'.md';
+  try{
+    const blob=new Blob([txt],{type:'text/markdown;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download=nom; document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1500);
+    log('Fichier '+nom+' généré — '+(txt.length/1024).toFixed(0)+' ko, '
+      +M.length+' lignes, '+ids.length+' modèles.');
+  }catch(e){
+    log('Téléchargement impossible ('+e.message+'). Le texte est dans la zone SMS, à copier.');
+    q('#smstexte').value=txt;
+  }
+  b.disabled=false; b.textContent='Fichier Markdown pour analyse';
 }
 
 /* ---------- fiche POI ---------- */
@@ -956,11 +1312,21 @@ function tableauTous(){
 async function archive(){
   const cle='snapshot:'+new Date().toISOString().slice(0,13).replace(/[-T:]/g,'');
   const inst={};
+  const DECISION=['Croix de Belledonne','Col de la Mine de Fer','Col de la Vache',
+    'R5 Fond de France Base vie','Col de Morétan','R8 Super Collet',
+    'Sommet du Grand Chat','Arrivée Aiguebelle'];
+  const detail={};
+  POIS.forEach((p,i)=>{
+    if(DECISION.indexOf(p.nom)<0) return;
+    const s=sonde(i); if(!s) return;
+    detail[p.nom]={};
+    s.lignes.forEach(l=>{ detail[p.nom][l.nom]={t:l.t, pr:l.pr, raf:l.raf, nu:l.nu}; });
+  });
   const g=(o,k)=>o&&o[k]!==null&&o[k]!==undefined?o[k]:null;
   POIS.forEach((p,i)=>{ const s=sonde(i); if(s&&s.t) inst[p.nom]={
     t:g(s.t,'m'), tlo:g(s.t,'lo'), thi:g(s.t,'hi'), pr:g(s.pr,'m'), prhi:g(s.pr,'hi'),
     raf:g(s.raf,'m'), nu:g(s.nu,'m'), hum:g(s.hum,'m'), v:g(s.v,'m')}; });
-  try{ await MEM.set(cle, JSON.stringify({date:new Date().toISOString(), scen:SCENARIO, pts:inst})); }
+  try{ await MEM.set(cle, JSON.stringify({date:new Date().toISOString(), scen:SCENARIO, pts:inst, detail:detail})); }
   catch(e){}
   convergence();
 }
@@ -1026,6 +1392,12 @@ async function convergence(){
     const sc=q('#scen'); [...sc.options].forEach(o=>{ if(!PRECHARGE.scenarios.includes(+o.value)) o.disabled=true; });
   }
   segChips(); chips();
+  q('#smscopie').onclick=copierSMS;
+  q('#exportmd').onclick=exportMD;
+  q('#smscourt').onclick=()=>{ q('#smscourt').setAttribute('aria-pressed','true');
+    q('#smscomplet').setAttribute('aria-pressed','false'); majSMS(); };
+  q('#smscomplet').onclick=()=>{ q('#smscomplet').setAttribute('aria-pressed','true');
+    q('#smscourt').setAttribute('aria-pressed','false'); majSMS(); };
 
   /* 1. on affiche immédiatement ce qu'on a en mémoire, même périmé */
   (async()=>{
@@ -1039,7 +1411,7 @@ async function convergence(){
         log('Données restaurées depuis la mémoire du téléphone, relevé '+ageTexte()+'.');
       }
     }
-    dessine(); fiche(); tableauTous(); resumeSegment(); convergence(); majEtat();
+    dessine(); fiche(); tableauTous(); resumeSegment(); majSMS(); convergence(); majEtat();
 
     /* 2. puis on rafraîchit tout seul si c'est vieux, sans effacer l'affichage */
     if(!(PRECHARGE && PRECHARGE.modeles) && ageHeures()>PERIME_H) interroger();
