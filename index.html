@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v7 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v8 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -114,7 +114,7 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
 <header>
   <div class="eyebrow">Sonde multi-modèles · dossard 348</div>
   <h1>Échappée Belle Intégrale <span>2026</span></h1>
-  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 7 · export pour analyse</b></div>
+  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 8 · pondération et niveaux de pression</b></div>
   <div class="ctl">
     <label for="scen">Scénario</label>
     <select id="scen"></select>
@@ -203,7 +203,15 @@ const VARS = ["temperature_2m","apparent_temperature","dew_point_2m","relative_h
               "cloud_cover","cloud_cover_low","cloud_cover_mid","cloud_cover_high",
               "sunshine_duration","shortwave_radiation","uv_index","visibility",
               "wind_speed_10m","wind_gusts_10m","wind_direction_10m",
-              "freezing_level_height","cape","surface_pressure"];
+              "freezing_level_height","cape","convective_inhibition","lifted_index",
+              "boundary_layer_height","surface_pressure",
+              "temperature_850hPa","temperature_800hPa","temperature_750hPa",
+              "temperature_700hPa","temperature_600hPa",
+              "geopotential_height_850hPa","geopotential_height_800hPa",
+              "geopotential_height_750hPa","geopotential_height_700hPa",
+              "geopotential_height_600hPa",
+              "wind_speed_850hPa","wind_speed_800hPa","wind_speed_750hPa","wind_speed_700hPa",
+              "wind_direction_700hPa","relative_humidity_700hPa"];
 
 const WMO={0:"ciel clair",1:"peu nuageux",2:"passages nuageux",3:"couvert",45:"brouillard",
  48:"brouillard givrant",51:"bruine faible",53:"bruine",55:"bruine forte",56:"bruine verglaçante",
@@ -255,6 +263,28 @@ const MEM = (window.storage) ? window.storage : {
 };
 
 /* ---------- interrogation Open-Meteo ---------- */
+async function altitudesNatives(id, pts){
+  /* sans le paramètre elevation, l'API renvoie l'altitude réelle de la maille :
+     c'est le seul moyen de savoir à quel point la température est extrapolée */
+  const out=new Array(pts.length).fill(null);
+  const LOT=26;
+  for(let d=0;d<pts.length;d+=LOT){
+    const lot=pts.slice(d,d+LOT);
+    const qp=new URLSearchParams();
+    qp.set('latitude', lot.map(x=>x.lat).join(','));
+    qp.set('longitude', lot.map(x=>x.lon).join(','));
+    qp.set('models', id); qp.set('current','temperature_2m'); qp.set('forecast_days','1');
+    try{
+      const r=await fetch('https://api.open-meteo.com/v1/forecast?'+qp.toString());
+      if(!r.ok) return out;
+      let j=await r.json(); if(!Array.isArray(j)) j=[j];
+      j.forEach((o,k)=>{ if(o&&o.elevation!==undefined) out[d+k]=o.elevation; });
+    }catch(e){ return out; }
+    await new Promise(z=>setTimeout(z,250));
+  }
+  return out;
+}
+
 async function unModele(id, pois){
   const LOT=26;
   const lots=[]; for(let i=0;i<pois.length;i+=LOT) lots.push(pois.slice(i,i+LOT));
@@ -267,8 +297,8 @@ async function unModele(id, pois){
     qp.set('hourly', VARS.join(','));
     qp.set('models', id);
     qp.set('timezone','Europe/Paris');
-    qp.set('start_date','2026-08-20');
-    qp.set('end_date','2026-08-24');
+    qp.set('start_date','2026-08-21');
+    qp.set('end_date','2026-08-23');
     const u = 'https://api.open-meteo.com/v1/forecast?' + qp.toString();
     let r=null;
     for(let essai=0; essai<3; essai++){
@@ -301,12 +331,34 @@ function extrait(rep, isoCible){
           sol:g('sunshine_duration'), ray:g('shortwave_radiation'), uv:g('uv_index'), vis:g('visibility'),
           v:g('wind_speed_10m'), raf:g('wind_gusts_10m'), dir:g('wind_direction_10m'),
           iso0:g('freezing_level_height'), cape:g('cape'), pres:g('surface_pressure'),
-          alt_modele:rep.elevation};
+          cin:g('convective_inhibition'), li:g('lifted_index'), pcl:g('boundary_layer_height'),
+          t850:g('temperature_850hPa'), t800:g('temperature_800hPa'), t750:g('temperature_750hPa'),
+          t700:g('temperature_700hPa'), t600:g('temperature_600hPa'),
+          z850:g('geopotential_height_850hPa'), z800:g('geopotential_height_800hPa'),
+          z750:g('geopotential_height_750hPa'), z700:g('geopotential_height_700hPa'),
+          z600:g('geopotential_height_600hPa'),
+          v850:g('wind_speed_850hPa'), v800:g('wind_speed_800hPa'),
+          v750:g('wind_speed_750hPa'), v700:g('wind_speed_700hPa'),
+          dir700:g('wind_direction_700hPa'), hum700:g('relative_humidity_700hPa'),
+          alt_demandee:rep.elevation};
 }
 
+function enrichir(e, alt, altNative){
+  if(!e) return e;
+  e.alt_modele = (altNative===null||altNative===undefined)? null : altNative;
+  e.ecart_relief = (altNative===null||altNative===undefined)? null : Math.round(alt-altNative);
+  const tl=tAuNiveau(e, alt);
+  if(tl!==null) e.tlibre=Math.round(tl*10)/10;
+  const vc=ventCrete(e, alt);
+  if(vc!==null&&vc!==undefined) e.vcrete=Math.round(vc);
+  const z0=isothermeZero(e);
+  if(z0!==null) e.iso0calc=z0;
+  if(e.cape!==null&&e.cape!==undefined&&e.cape<0) e.cape=0;
+  return e;
+}
 function extraitPoi(d, i){
   if(d.pts) return (d.pts[SCENARIO]||{})[i] || null;
-  return extrait(d.reps[i], POIS[i].t[SCENARIO]);
+  return enrichir(extrait(d.reps[i], POIS[i].t[SCENARIO]), POIS[i].alt, d.altNative&&d.altNative[i]);
 }
 
 async function interroger(){
@@ -326,6 +378,11 @@ async function interroger(){
       const rp = await unModele(id, POIS);
       const rj = await unModele(id, JALONS);
       const dp={nom, reps:rp}, dj={nom, reps:rj};
+      try{
+        dp.altNative = await altitudesNatives(id, POIS);
+        dj.altNativeJ = await altitudesNatives(id, JALONS);
+        dp.altNativeJ = dj.altNativeJ;
+      }catch(e){}
       /* on compte les points où le modèle donne réellement une température */
       const couvre = POIS.filter((p,i)=>{ const e=extraitPoi(dp, i);
         return e && e.t!==null && e.t!==undefined; }).length;
@@ -345,8 +402,14 @@ async function interroger(){
         + (ECHECS.length? ' Détail : '+ECHECS.join(' | ') : ''));
     afficheDispo(dispo); return;
   }
+  try{
+    log('Interrogation des ensembles (probabilités)…');
+    ENS = await ensembles(POIS, p=>p.t[SCENARIO]);
+  }catch(e){ ENS={}; }
   const n=Object.keys(DATA).length;
+  const nEns=Object.keys(ENS).length;
   log(n+' modèle'+(n>1?'s':'')+' avec données le '+new Date().toLocaleString('fr-FR')
+      + (nEns? ' \u00b7 ensembles sur '+nEns+' points' : '')
       + (REPORTES.length? ' · trop loin pour l\'instant : '+REPORTES.map(r=>r[0]).join(', ') : '')
       + (ECHECS.length? ' · en échec : '+ECHECS.join(' | ') : ''));
   afficheDispo(dispo);
@@ -383,14 +446,48 @@ function agrege(out){
   /* une ligne sans température est une ligne vide : le modèle n'atteint pas l'échéance */
   out = out.filter(o=>o.t!==null&&o.t!==undefined);
   if(!out.length) return null;
-  const col=k=>out.map(o=>o[k]).filter(v=>v!==null&&v!==undefined);
-  const stat=k=>{const c=col(k); return c.length? {m:med(c), lo:Math.min(...c), hi:Math.max(...c), n:c.length}:null;};
+
+  const ids=out.map(o=>o.id);
+  const wFam=poidsFamille(ids);
+  out.forEach(o=>{ o.poids=wFam[o.id]!==undefined? wFam[o.id] : 0.5; o.divergent=false; });
+
+  const CLES=['t','res','ros','hum','pr','pp','neige','nu','nub','num','nuh','sol','ray','uv',
+    'vis','v','raf','dir','iso0','cape','pres','tlibre','vcrete','iso0calc','li','ecart_relief'];
+
   const S={};
-  ['t','res','ros','hum','pr','pp','neige','nu','nub','num','nuh','sol','ray','uv',
-   'vis','v','raf','dir','iso0','cape','pres'].forEach(k=>S[k]=stat(k));
-  const codes=out.map(o=>o.code).filter(c=>c!==null&&c!==undefined);
-  S.code = codes.length? codes.slice().sort((a,b)=>
-    codes.filter(x=>x===b).length-codes.filter(x=>x===a).length || b-a)[0] : null;
+  CLES.forEach(function(k){
+    const vals=out.map(o=>(o[k]===null||o[k]===undefined)?null:o[k]);
+    const w0=out.map(o=>o.poids);
+    const bruts=vals.filter(v=>v!==null);
+    if(!bruts.length){ S[k]=null; return; }
+    const m0=medPond(vals.map((v,i)=>[v,w0[i]]));
+    /* les rafales n'ont pas la même définition d'un modèle à l'autre :
+       on ne pénalise pas la divergence dessus, on la montre */
+    const pen = (k==='raf')? w0.map(()=>1) : penaliteDivergence(vals, w0, m0);
+    const w1=w0.map((w,i)=>w*pen[i]);
+    if(k==='t') out.forEach((o,i)=>{ if(pen[i]<0.7) o.divergent=true; });
+    const m=medPond(vals.map((v,i)=>[v,w1[i]]));
+    S[k]={ m:m, lo:Math.min.apply(null,bruts), hi:Math.max.apply(null,bruts),
+           n:bruts.length,
+           brut: bruts.slice().sort((a,b)=>a-b)[Math.floor(bruts.length/2)] };
+  });
+
+  const codes=out.map(o=>[o.code, o.poids]).filter(c=>c[0]!==null&&c[0]!==undefined);
+  if(codes.length){
+    const score={};
+    codes.forEach(c=>{ score[c[0]]=(score[c[0]]||0)+c[1]; });
+    S.code = +Object.keys(score).sort((a,b)=>score[b]-score[a]||b-a)[0];
+  } else S.code=null;
+
+  /* confiance : nombre de familles indépendantes présentes, et resserrement en T */
+  const familles={}; ids.forEach(id=>familles[famille(id)]=1);
+  const nFam=Object.keys(familles).length;
+  const etendue = S.t? (S.t.hi-S.t.lo) : 99;
+  let conf = 'faible';
+  if(nFam>=3 && etendue<=3) conf='bonne';
+  else if(nFam>=2 && etendue<=5) conf='moyenne';
+  S.confiance={niveau:conf, familles:nFam, etendue:Math.round(etendue*10)/10,
+               poidsTotal:Math.round(out.reduce((a,o)=>a+o.poids,0)*100)/100};
   return {lignes:out, ...S};
 }
 function sonde(i){
@@ -401,7 +498,8 @@ function sonde(i){
 function extraitJalonD(d, k){
   if(!d) return null;
   if(d.jal) return d.jal[k]||null;
-  const r=d.reps&&d.reps[k]; return r? extrait(r, JALONS[k].t) : null;
+  const r=d.reps&&d.reps[k];
+  return r? enrichir(extrait(r, JALONS[k].t), JALONS[k].alt, d.altNativeJ&&d.altNativeJ[k]) : null;
 }
 function sondeJalon(k){
   if(!JALONS[k]) return null;
@@ -409,6 +507,188 @@ function sondeJalon(k){
   for(const id in DATA_J){ const e=extraitJalonD(DATA_J[id], k);
     if(e) out.push({id, nom:DATA_J[id].nom, ...e}); }
   return agrege(out);
+}
+
+/* ================= PONDÉRATION DES MODÈLES ================= */
+/* Deux corrections au simple médian :
+   1. tous les modèles ne se valent pas sur les Alpes ;
+   2. IFS, AIFS et MET Norway partagent l'analyse d'ECMWF — les compter
+      séparément revient à faire voter trois fois la même famille. */
+const POIDS = {
+  meteofrance_arome_france_hd:    [1.15,'MF',   'maille 1,3 km sur le relief'],
+  meteofrance_arome_france:       [1.00,'MF',   'maille 2,5 km'],
+  meteofrance_arpege_europe:      [0.80,'MF',   'maille 11 km'],
+  dwd_icon_d2:                    [1.10,'DWD',  'maille 2,2 km, Alpes du Nord'],
+  dwd_icon_eu:                    [0.85,'DWD',  'maille 7 km'],
+  dwd_icon_global:                [0.60,'DWD',  'maille 11 km globale'],
+  meteoswiss_icon_ch1:            [1.15,'CH',   'maille 1 km, arc alpin'],
+  meteoswiss_icon_ch2:            [1.00,'CH',   'maille 2 km, arc alpin'],
+  italia_meteo_arpae_icon_2i:     [0.95,'IT',   'maille 2,2 km, versant alpin'],
+  knmi_harmonie_arome_europe:     [0.75,'KNMI', 'domaine centré plus au nord'],
+  ecmwf_ifs025:                   [1.00,'ECMWF','meilleur global'],
+  ecmwf_aifs025_single:           [0.70,'ECMWF','IA, même analyse qu\'IFS'],
+  metno_seamless:                 [0.55,'ECMWF','post-traitement d\'ECMWF'],
+  ukmo_global_deterministic_10km: [0.70,'UKMO', 'global solide'],
+  gfs_seamless:                   [0.60,'NOAA', 'faible sur le relief alpin'],
+  gfs_graphcast025:               [0.50,'NOAA', 'IA, même analyse que GFS'],
+  jma_seamless:                   [0.35,'JMA',  'peu adapté aux Alpes'],
+  cma_grapes_global:              [0.25,'CMA',  'peu adapté aux Alpes'],
+  bom_access_global:              [0.25,'BOM',  'peu adapté aux Alpes']
+};
+const poidsBase = id => (POIDS[id]||[0.5,'?',''])[0];
+const famille   = id => (POIDS[id]||[0.5,'?',''])[1];
+
+/* une famille ne peut pas peser plus que 1,4 fois son meilleur membre */
+function poidsFamille(ids){
+  const parFam={};
+  ids.forEach(id=>{ const f=famille(id); (parFam[f]=parFam[f]||[]).push(id); });
+  const w={};
+  Object.keys(parFam).forEach(f=>{
+    const membres=parFam[f];
+    const somme=membres.reduce((a,id)=>a+poidsBase(id),0);
+    const plafond=Math.max.apply(null,membres.map(poidsBase))*1.4;
+    const k = somme>plafond? plafond/somme : 1;
+    membres.forEach(id=>{ w[id]=poidsBase(id)*k; });
+  });
+  return w;
+}
+
+function medPond(paires){        // [[valeur, poids], …]
+  const v=paires.filter(p=>p[0]!==null&&p[0]!==undefined&&p[1]>0)
+                .sort((a,b)=>a[0]-b[0]);
+  if(!v.length) return null;
+  const tot=v.reduce((a,p)=>a+p[1],0);
+  let c=0;
+  for(const p of v){ c+=p[1]; if(c>=tot/2) return p[0]; }
+  return v[v.length-1][0];
+}
+
+/* un modèle très éloigné du groupe voit son poids réduit, jamais annulé :
+   il peut avoir raison, mais il ne doit pas tirer la médiane à lui seul */
+function penaliteDivergence(valeurs, poids, mediane){
+  const ecarts=valeurs.map(v=>v===null?null:Math.abs(v-mediane));
+  const bruts=valeurs.filter(v=>v!==null);
+  if(bruts.length<3) return poids.map(()=>1);
+  const mad=medPond(ecarts.map((e,i)=>[e,poids[i]]));
+  const etendue=Math.max.apply(null,bruts)-Math.min.apply(null,bruts);
+  /* plancher : plusieurs modèles partagent la même analyse et se ressemblent
+     beaucoup ; sans plancher, un écart normal passerait pour une aberration */
+  const sigma=Math.max((mad||0)*1.4826, etendue*0.15, 1e-6);
+  return ecarts.map(e=>{
+    if(e===null) return 1;
+    const z=e/sigma;
+    return z<=1.8? 1 : 1/(1+(z-1.8));
+  });
+}
+
+/* ================= NIVEAUX DE PRESSION ================= */
+/* À 2887 m, la température « 2 m » d'un modèle à 11 km de maille est une
+   extrapolation depuis une orographie à ~1900 m. Le profil de pression donne
+   la température de l'air libre au bon niveau, et le vent de crête. */
+const NIVEAUX = [850, 800, 750, 700, 600];
+
+function profil(e){
+  const P=[];
+  NIVEAUX.forEach(n=>{
+    const z=e['z'+n], t=e['t'+n];
+    if(z!==null&&z!==undefined&&t!==null&&t!==undefined) P.push({n, z, t});
+  });
+  return P.sort((a,b)=>a.z-b.z);
+}
+function tAuNiveau(e, alt){
+  const P=profil(e);
+  if(P.length<2) return null;
+  if(alt<=P[0].z) return P[0].t + (P[0].z-alt)*0.0065;
+  if(alt>=P[P.length-1].z) return P[P.length-1].t - (alt-P[P.length-1].z)*0.0065;
+  for(let i=0;i<P.length-1;i++) if(alt>=P[i].z&&alt<=P[i+1].z){
+    const f=(alt-P[i].z)/((P[i+1].z-P[i].z)||1);
+    return P[i].t + f*(P[i+1].t-P[i].t);
+  }
+  return null;
+}
+function isothermeZero(e){
+  const P=profil(e);
+  for(let i=0;i<P.length-1;i++){
+    if(P[i].t>=0&&P[i+1].t<0){
+      const f=P[i].t/((P[i].t-P[i+1].t)||1);
+      return Math.round(P[i].z + f*(P[i+1].z-P[i].z));
+    }
+  }
+  if(P.length&&P[P.length-1].t>0) return null;
+  return null;
+}
+/* vent au niveau de pression le plus proche au-dessus du point : c'est celui
+   qui souffle sur la crête, pas le vent 10 m d'une vallée fictive */
+function ventCrete(e, alt){
+  const cand=[[700,e.v700,e.z700],[750,e.v750,e.z750],[800,e.v800,e.z800],[850,e.v850,e.z850]]
+    .filter(c=>c[1]!==null&&c[1]!==undefined&&c[2]!==null&&c[2]!==undefined);
+  if(!cand.length) return null;
+  const dessus=cand.filter(c=>c[2]>=alt-150).sort((a,b)=>a[2]-b[2]);
+  return (dessus[0]||cand.sort((a,b)=>Math.abs(a[2]-alt)-Math.abs(b[2]-alt))[0])[1];
+}
+
+/* ================= ENSEMBLES ================= */
+let ENS = {};   // par nom de point : probabilités issues des ensembles
+
+async function ensembles(points, cible){
+  const modeles=[['ecmwf_ifs025','ECMWF ENS'],['gfs025','GEFS'],
+                 ['icon_eu','ICON-EU EPS'],['meteofrance_arpege_europe','ARPEGE EPS']];
+  const acc={};
+  for(const m of modeles){
+    for(let d=0;d<points.length;d+=10){
+      const lot=points.slice(d,d+10);
+      const qp=new URLSearchParams();
+      qp.set('latitude',  lot.map(p=>p.lat).join(','));
+      qp.set('longitude', lot.map(p=>p.lon).join(','));
+      qp.set('elevation', lot.map(p=>p.alt).join(','));
+      qp.set('hourly','temperature_2m,precipitation,wind_gusts_10m');
+      qp.set('models', m[0]); qp.set('timezone','Europe/Paris');
+      qp.set('start_date','2026-08-21'); qp.set('end_date','2026-08-23');
+      let j=null;
+      try{
+        const r=await fetch('https://ensemble-api.open-meteo.com/v1/ensemble?'+qp.toString());
+        if(!r.ok) throw new Error('HTTP '+r.status);
+        j=await r.json();
+      }catch(e){ continue; }
+      if(!Array.isArray(j)) j=[j];
+      j.forEach((o,k)=>{
+        const p=lot[k]; if(!o||!o.hourly) return;
+        const T=o.hourly.time||[]; if(!T.length) return;
+        const vise=new Date(cible(p)).getTime();
+        let bi=-1, dt=1e15;
+        for(let i2=0;i2<T.length;i2++){ const dd=Math.abs(new Date(T[i2]).getTime()-vise);
+          if(dd<dt){dt=dd;bi=i2;} }
+        if(bi<0||dt>2*3.6e6) return;
+        const rec=acc[p.nom]=acc[p.nom]||{t:[],pr:[],raf:[],src:[]};
+        Object.keys(o.hourly).forEach(cle=>{
+          if(cle==='time') return;
+          const v=o.hourly[cle][bi];
+          if(v===null||v===undefined) return;
+          if(cle.indexOf('temperature_2m')===0) rec.t.push(v);
+          else if(cle.indexOf('precipitation')===0) rec.pr.push(v);
+          else if(cle.indexOf('wind_gusts_10m')===0) rec.raf.push(v);
+        });
+        if(rec.src.indexOf(m[1])<0) rec.src.push(m[1]);
+      });
+      await new Promise(z=>setTimeout(z,300));
+    }
+  }
+  const out={};
+  Object.keys(acc).forEach(nom=>{
+    const r=acc[nom];
+    if(!r.t.length) return;
+    const s=r.t.slice().sort((a,b)=>a-b);
+    const pct=q2=>s[Math.min(s.length-1, Math.max(0, Math.floor(q2*s.length)))];
+    out[nom]={
+      membres:r.t.length, sources:r.src,
+      t10:+pct(.1).toFixed(1), t50:+pct(.5).toFixed(1), t90:+pct(.9).toFixed(1),
+      pluie02: r.pr.length? Math.round(100*r.pr.filter(v=>v>0.2).length/r.pr.length) : null,
+      pluie1:  r.pr.length? Math.round(100*r.pr.filter(v=>v>1.0).length/r.pr.length) : null,
+      pluie5:  r.pr.length? Math.round(100*r.pr.filter(v=>v>5.0).length/r.pr.length) : null,
+      raf50:   r.raf.length? Math.round(100*r.raf.filter(v=>v>50).length/r.raf.length) : null
+    };
+  });
+  return out;
 }
 
 /* ================= CACHE LOCAL ================= */
@@ -436,7 +716,7 @@ async function cacheEcrire(){
            jal:JALONS.map((j,k)=>compacte(extraitJalonD(DATA_J[id], k)))};
   }
   const paquet={ts:Date.now(), scenario:SCENARIO, jalons:JALONS,
-                reportes:REPORTES, echecs:ECHECS, modeles:m};
+                reportes:REPORTES, echecs:ECHECS, modeles:m, ens:ENS};
   try{ await MEM.set(CLE_CACHE, JSON.stringify(paquet)); }
   catch(e){ log('Cache non écrit ('+e.message+') — les données restent affichées.'); }
 }
@@ -454,7 +734,7 @@ function appliqueCache(c){
     DATA[id]  ={nom:c.modeles[id].nom, pts:{[c.scenario]:c.modeles[id].pts}};
     DATA_J[id]={nom:c.modeles[id].nom, jal:c.modeles[id].jal};
   }
-  REPORTES=c.reportes||[]; ECHECS=c.echecs||[];
+  REPORTES=c.reportes||[]; ECHECS=c.echecs||[]; ENS=c.ens||{};
   TS_DONNEES=c.ts; SCENARIO=c.scenario;
   const sel=q('#scen'); if(sel) sel.value=String(SCENARIO);
 }
@@ -516,7 +796,7 @@ function construireJalons(){
   for(let h=0;h<=D;h++){
     const km=kmDeH(h), g=surTrace(km);
     J.push({h, km:+km.toFixed(2), ...g,
-            t:new Date(t0+h*3.6e6).toISOString().slice(0,16),
+            t:isoLocal(new Date(t0+h*3.6e6)),   /* heure locale : les modèles répondent en Europe/Paris */
             nom:'H+'+h});
   }
   return J;
@@ -994,7 +1274,9 @@ const COLS = [
   ['nub','Nb %',0],['num','Nm %',0],['nuh','Nh %',0],['nu','Ntot %',0],
   ['sol','Soleil %',0],['pr','Pluie mm/h',2],['pp','P.pluie %',0],['neige','Neige cm',1],
   ['v','Vent km/h',0],['raf','Raf km/h',0],['dir','Dir °',0],
-  ['vis','Visi m',0],['iso0','Iso0 m',0],['cape','CAPE',0],['uv','UV',1],['pres','P hPa',0]
+  ['vis','Visi m',0],['iso0','Iso0 m',0],['iso0calc','Iso0 calculé m',0],
+  ['cape','CAPE',0],['li','LI',1],['uv','UV',1],['pres','P hPa',0],
+  ['tlibre','T air libre °C',1],['vcrete','Vent crête km/h',0],['ecart_relief','Écart relief m',0]
 ];
 
 function cel(e, cle, dec){
@@ -1110,6 +1392,46 @@ async function exportMD(){
   });
   M.push('');
 
+  /* ---- B2. probabilités d'ensemble ---- */
+  const nomsEns=Object.keys(ENS);
+  if(nomsEns.length){
+    M.push('## B2. Probabilités issues des ensembles');
+    M.push('');
+    M.push('Membres perturbés d\'ECMWF ENS, GEFS, ICON-EU EPS et ARPEGE EPS, à l\'heure de '
+      +'passage. À cette échéance, une probabilité vaut mieux qu\'une valeur déterministe.');
+    M.push('');
+    M.push('| Point | Membres | Sources | T p10 | T p50 | T p90 | P(pluie>0,2mm) | P(>1mm) | P(>5mm) | P(rafales>50) |');
+    M.push('|---|--:|---|--:|--:|--:|--:|--:|--:|--:|');
+    POIS.forEach(function(p){
+      const e=ENS[p.nom]; if(!e) return;
+      const u=v=>(v===null||v===undefined)?'':v+' %';
+      M.push('| '+p.nom+' | '+e.membres+' | '+e.sources.join(', ')+' | '+e.t10+' | '+e.t50+' | '
+        +e.t90+' | '+u(e.pluie02)+' | '+u(e.pluie1)+' | '+u(e.pluie5)+' | '+u(e.raf50)+' |');
+    });
+    M.push('');
+  }
+
+  /* ---- pondération appliquée ---- */
+  M.push('## Pondération appliquée au consensus');
+  M.push('');
+  M.push('Le consensus n\'est pas une médiane simple. Chaque modèle reçoit un poids selon la '
+    +'finesse de sa maille sur le relief alpin, et les modèles partageant la même analyse '
+    +'(IFS, AIFS et MET Norway pour ECMWF ; GFS et GraphCast pour la NOAA) sont regroupés en '
+    +'familles dont le poids total est plafonné à 1,4 fois celui du meilleur membre. Un modèle '
+    +'qui s\'écarte fortement du groupe voit ensuite son poids réduit, sans jamais être exclu.');
+  M.push('');
+  M.push('| Modèle | Poids de base | Famille | Motif |');
+  M.push('|---|--:|---|---|');
+  ids.forEach(function(id){
+    const P=POIDS[id]||[0.5,'?',''];
+    M.push('| '+DATA[id].nom+' | '+P[0].toFixed(2)+' | '+P[1]+' | '+P[2]+' |');
+  });
+  M.push('');
+  M.push('Les rafales échappent à la pénalité de divergence : les modèles n\'exposent pas la '
+    +'même grandeur (maximum sur l\'intervalle chez les uns, valeur instantanée chez les autres). '
+    +'Elles sont montrées telles quelles, modèle par modèle.');
+  M.push('');
+
   /* ---- C. dérive des relevés successifs ---- */
   M.push('## C. Évolution des prévisions, relevé après relevé');
   M.push('');
@@ -1210,6 +1532,20 @@ function fiche(){
   const E=(o,d=0,su='')=> (o&&o.lo!==null&&o.lo!==undefined)? o.lo.toFixed(d)+' à '+o.hi.toFixed(d)+su : '';
 
   if(s.code!==null) h+='<div style="margin:10px 0 2px;font-size:15px">'+(WMO[s.code]||'—')+'</div>';
+  if(s.confiance){
+    const c=s.confiance;
+    const coul = c.niveau==='bonne'?'var(--accord)':c.niveau==='moyenne'?'var(--chaud)':'var(--alerte)';
+    h+='<div class="note" style="margin:6px 0 0">Confiance <b style="color:'+coul+'">'+c.niveau
+      +'</b> \u00b7 '+c.familles+' famille'+(c.familles>1?'s':'')+' de mod\u00e8les ind\u00e9pendantes \u00b7 '
+      +c.etendue+' \u00b0C entre les extr\u00eames</div>';
+  }
+  const en=ENS[p.nom];
+  if(en) h+='<div class="note" style="margin:6px 0 0;color:var(--froid)">Ensembles ('+en.membres
+    +' membres) : pluie '+(en.pluie02!==null?en.pluie02+' %':'?')
+    +(en.pluie1!==null? ' \u00b7 >1 mm '+en.pluie1+' %':'')
+    +(en.pluie5!==null? ' \u00b7 >5 mm '+en.pluie5+' %':'')
+    +(en.raf50!==null? ' \u00b7 rafales >50 '+en.raf50+' %':'')
+    +' \u00b7 T '+en.t10+' \u00e0 '+en.t90+' \u00b0C</div>';
 
   h+='<div class="gros">'
    +'<div><b style="color:'+couleurT(s.t?s.t.m:null)+'">'+V(s.t,1,'°')+'</b><s>température</s>'
@@ -1224,6 +1560,9 @@ function fiche(){
   /* grille secondaire : ce qu'on ne lit pas d'un coup d'oeil mais qui décide de l'équipement */
   const soleil = s.sol&&s.sol.m!==null? Math.round(s.sol.m/36) : null;
   const cellules=[
+    ['air libre \u00e0 l\'altitude', V(s.tlibre,1,'\u00b0'),
+      s.ecart_relief&&s.ecart_relief.m!==null? 'relief mod\u00e8le '+(-s.ecart_relief.m).toFixed(0)+' m sous le point':''],
+    ['vent de cr\u00eate', V(s.vcrete,0,' km/h'), 'niveau de pression, pas le 10 m'],
     ['couverture nuageuse', s.nu&&s.nu.m!==null? V(s.nu,0,' %'):'—',
       s.nub&&s.nub.m!==null? 'basses '+V(s.nub,0)+' · moy '+V(s.num,0)+' · hautes '+V(s.nuh,0):''],
     ['ensoleillement', soleil!==null? soleil+' %':'—',
@@ -1233,7 +1572,11 @@ function fiche(){
     ['visibilité', s.vis&&s.vis.m!==null? (s.vis.m/1000).toFixed(1)+' km':'—',
       s.vis&&s.vis.m<1000? 'brouillard' : ''],
     ['indice UV', V(s.uv,1), soleil!==null&&soleil>50? 'crème et lunettes':''],
-    ['isotherme 0 °C', V(s.iso0,0,' m'), s.iso0&&s.iso0.m!==null? (s.iso0.m-p.alt).toFixed(0)+' m au-dessus':'non fourni'],
+    ['isotherme 0 \u00b0C', s.iso0&&s.iso0.m!==null? V(s.iso0,0,' m') : V(s.iso0calc,0,' m'),
+      (s.iso0&&s.iso0.m!==null? (s.iso0.m-p.alt).toFixed(0)
+       : (s.iso0calc&&s.iso0calc.m!==null? (s.iso0calc.m-p.alt).toFixed(0):null))!==null?
+      'au-dessus du point':'au-dessus du sommet du profil'],
+    ['indice de soul\u00e8vement', V(s.li,1), s.li&&s.li.m<-2?'atmosph\u00e8re instable':''],
     ['instabilité (CAPE)', V(s.cape,0,' J/kg'), s.cape&&s.cape.m>800?'convection possible':''],
     ['neige', V(s.neige,1,' cm'), ''],
     ['pression', V(s.pres,0,' hPa'), '']
@@ -1253,23 +1596,32 @@ function fiche(){
   if(s.t&&s.t.hi-s.t.lo>8) risques.push('désaccord des modèles : '+(s.t.hi-s.t.lo).toFixed(0)+' °C d\'écart');
   if(risques.length) h+='<div class="note alerte" style="margin:10px 0">⚠ '+risques.join(' · ')+'</div>';
 
-  h+='<div class="tw"><table><thead><tr><th>Modèle</th><th>T</th><th>Ress.</th><th>Hum.</th>'
-   +'<th>Nuages</th><th>Soleil</th><th>Pluie</th><th>Vent</th><th>Raf.</th><th>Dir.</th><th>Vis.</th></tr></thead><tbody>';
+  h+='<div class="tw"><table><thead><tr><th>Mod\u00e8le</th><th>Poids</th><th>T</th><th>Air libre</th>'
+   +'<th>Ress.</th><th>Hum.</th><th>Nuages</th><th>Pluie</th><th>Vent</th><th>Cr\u00eate</th>'
+   +'<th>Raf.</th><th>Dir.</th></tr></thead><tbody>';
   const L=(o,k,d,su)=> (o[k]===null||o[k]===undefined)? '—' : o[k].toFixed(d)+su;
-  h+='<tr class="consensus"><td>Consensus ('+s.lignes.length+')</td><td>'+V(s.t,1)+'</td><td>'+V(s.res,1)
-   +'</td><td>'+V(s.hum,0)+'</td><td>'+V(s.nu,0)+'</td><td>'+(soleil!==null?soleil:'—')+'</td><td>'+V(s.pr,1)
-   +'</td><td>'+V(s.v,0)+'</td><td>'+V(s.raf,0)+'</td><td>'+cap(s.dir?s.dir.m:null)+'</td><td>'
-   +(s.vis&&s.vis.m!==null?(s.vis.m/1000).toFixed(1):'—')+'</td></tr>';
-  s.lignes.forEach(l=>{
-    h+='<tr><td>'+l.nom+'<div class="res">maille à '+(l.alt_modele!==undefined&&l.alt_modele!==null?Math.round(l.alt_modele)+' m':'?')+'</div></td>'
-     +'<td>'+L(l,'t',1,'')+'</td><td>'+L(l,'res',1,'')+'</td><td>'+L(l,'hum',0,'')+'</td>'
-     +'<td>'+L(l,'nu',0,'')+'</td><td>'+(l.sol!==null&&l.sol!==undefined?Math.round(l.sol/36):'—')+'</td>'
-     +'<td>'+L(l,'pr',1,'')+'</td><td>'+L(l,'v',0,'')+'</td><td>'+L(l,'raf',0,'')+'</td>'
-     +'<td>'+cap(l.dir)+'</td><td>'+(l.vis!==null&&l.vis!==undefined?(l.vis/1000).toFixed(1):'—')+'</td></tr>';
+  h+='<tr class="consensus"><td>Consensus pond\u00e9r\u00e9 ('+s.lignes.length+')</td><td>'
+   +(s.confiance?s.confiance.poidsTotal:'')+'</td><td>'+V(s.t,1)+'</td><td>'+V(s.tlibre,1)+'</td><td>'
+   +V(s.res,1)+'</td><td>'+V(s.hum,0)+'</td><td>'+V(s.nu,0)+'</td><td>'+V(s.pr,1)+'</td><td>'
+   +V(s.v,0)+'</td><td>'+V(s.vcrete,0)+'</td><td>'+V(s.raf,0)+'</td><td>'+cap(s.dir?s.dir.m:null)+'</td></tr>';
+  s.lignes.slice().sort((a,b)=>b.poids-a.poids).forEach(l=>{
+    const rel = (l.ecart_relief===null||l.ecart_relief===undefined)? 'maille non sond\u00e9e'
+      : 'relief mod\u00e8le '+Math.round(l.alt_modele)+' m ('+(l.ecart_relief>0?'+':'')+l.ecart_relief+' m)';
+    h+='<tr'+(l.divergent?' style="opacity:.62"':'')+'><td>'+l.nom
+     +(l.divergent?' <span style="color:var(--chaud)">\u26a0 diverge</span>':'')
+     +'<div class="res">'+rel+' \u00b7 '+((POIDS[l.id]||[0,0,''])[2])+'</div></td>'
+     +'<td>'+l.poids.toFixed(2)+'</td>'
+     +'<td>'+L(l,'t',1,'')+'</td><td>'+L(l,'tlibre',1,'')+'</td><td>'+L(l,'res',1,'')+'</td>'
+     +'<td>'+L(l,'hum',0,'')+'</td><td>'+L(l,'nu',0,'')+'</td><td>'+L(l,'pr',1,'')+'</td>'
+     +'<td>'+L(l,'v',0,'')+'</td><td>'+L(l,'vcrete',0,'')+'</td><td>'+L(l,'raf',0,'')+'</td>'
+     +'<td>'+cap(l.dir)+'</td></tr>';
   });
   h+='</tbody></table></div><div class="note" style="margin-top:8px">T, ressenti et rosée en °C · humidité, '
    +'nuages et soleil en % · pluie en mm/h · vent et rafales en km/h · visibilité en km. '
-   +'« Maille » = altitude que le modèle attribue au point ; écart avec '+p.alt+' m à garder en tête. '
+   +'\u00ab Air libre \u00bb = temp\u00e9rature lue sur le profil de pression \u00e0 '+p.alt
+   +' m, sans extrapolation depuis le relief du mod\u00e8le. \u00ab Cr\u00eate \u00bb = vent au niveau '
+   +'de pression du point, plus repr\u00e9sentatif qu\u2019un vent 10 m. Le poids tient compte de la '
+   +'finesse de maille et du fait que plusieurs mod\u00e8les partagent la m\u00eame analyse. '
    +'Un tiret signifie que le modèle ne fournit pas la variable, pas qu\'elle vaut zéro.</div>';
   f.innerHTML=h;
 }
