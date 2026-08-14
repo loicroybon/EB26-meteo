@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v3 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v4 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -83,6 +83,12 @@ ul.dispo li{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--tr
 ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ok{color:var(--accord)} .ko{color:var(--brume)}
 .log{font-size:11px;color:var(--brume);margin-top:8px;white-space:pre-wrap}
+.etat{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--brume)}
+.etat b{color:var(--neige);font-weight:600}
+.etat .pastille{width:7px;height:7px;border-radius:50%;background:var(--accord);flex:0 0 auto}
+.etat.vieux .pastille{background:var(--chaud)} .etat.charge .pastille{background:var(--froid)}
+.etat.horsligne .pastille{background:var(--alerte)}
+.etat button{padding:4px 9px;font-size:11px;margin-left:auto}
 @media(prefers-reduced-motion:no-preference){.pulse{animation:p 1.4s ease-in-out infinite}}
 @keyframes p{0%,100%{opacity:.35}50%{opacity:1}}
 </style>
@@ -93,14 +99,15 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
 <header>
   <div class="eyebrow">Sonde multi-modèles · dossard 348</div>
   <h1>Échappée Belle Intégrale <span>2026</span></h1>
-  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 3 · météogramme</b></div>
+  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 4 · météogramme et cache</b></div>
   <div class="ctl">
     <label for="scen">Scénario</label>
     <select id="scen"></select>
-    <button id="go">Interroger les modèles</button>
+    <button id="go">Actualiser maintenant</button>
     <button id="raz" title="Efface l'historique de convergence">Vider l'historique</button>
   </div>
-  <div class="log" id="log">Prêt. Appuie sur « Interroger les modèles ». Chaque relevé est archivé sur ce téléphone pour suivre la convergence jour après jour.</div>
+  <div class="etat" id="etat"></div>
+  <div class="log" id="log">Chaque relevé est gardé sur ce téléphone : l'écran s'affiche aussitôt, la mise à jour se fait derrière.</div>
 </header>
 
 <h2>Météogramme de course</h2>
@@ -265,12 +272,17 @@ function extrait(rep, isoCible){
 }
 
 function extraitPoi(d, i){
-  if(d.pts) return (d.pts[SCENARIO]||d.pts[43]||{})[i] || null;
+  if(d.pts) return (d.pts[SCENARIO]||{})[i] || null;
   return extrait(d.reps[i], POIS[i].t[SCENARIO]);
 }
 
 async function interroger(){
-  q('#go').disabled=true; DATA={}; DATA_J={}; ECHECS=[]; REPORTES=[];
+  if(EN_COURS) return;
+  EN_COURS=true; majEtat(); q('#go').disabled=true;
+  /* on garde l'ancien jeu affiché tant que le nouveau n'est pas complet */
+  const anciens={D:DATA, J:DATA_J, ts:TS_DONNEES};
+  const nD={}, nJ={};
+  ECHECS=[]; REPORTES=[];
   JALONS = construireJalons();
   const jours = (new Date(POIS[0].t[SCENARIO]) - Date.now())/864e5;
   const dispo=[];
@@ -280,21 +292,34 @@ async function interroger(){
     try{
       const rp = await unModele(id, POIS);
       const rj = await unModele(id, JALONS);
-      DATA[id]={nom, reps:rp}; DATA_J[id]={nom, reps:rj};
+      const dp={nom, reps:rp}, dj={nom, reps:rj};
       /* on compte les points où le modèle donne réellement une température */
-      const couvre = POIS.filter((p,i)=>{ const e=extraitPoi(DATA[id], i);
+      const couvre = POIS.filter((p,i)=>{ const e=extraitPoi(dp, i);
         return e && e.t!==null && e.t!==undefined; }).length;
-      if(couvre===0){ delete DATA[id]; delete DATA_J[id]; }
+      if(couvre>0){ nD[id]=dp; nJ[id]=dj; }
       dispo.push([nom, couvre, POIS.length]);
     }catch(e){ ECHECS.push(nom+' — '+e.message); }
   }
-  q('#go').disabled=false;
+  q('#go').disabled=false; EN_COURS=false;
+  if(Object.keys(nD).length){
+    DATA=nD; DATA_J=nJ; TS_DONNEES=Date.now(); HORS_LIGNE=false;
+  } else {
+    /* rien n'est revenu : on restaure ce qu'on avait plutôt que de vider l'écran */
+    DATA=anciens.D; DATA_J=anciens.J; TS_DONNEES=anciens.ts;
+    HORS_LIGNE=true;
+    majEtat();
+    log('Aucun modèle joignable. Les données précédentes restent affichées.'
+        + (ECHECS.length? ' Détail : '+ECHECS.join(' | ') : ''));
+    afficheDispo(dispo); return;
+  }
   const n=Object.keys(DATA).length;
   log(n+' modèle'+(n>1?'s':'')+' avec données le '+new Date().toLocaleString('fr-FR')
       + (REPORTES.length? ' · trop loin pour l\'instant : '+REPORTES.map(r=>r[0]).join(', ') : '')
       + (ECHECS.length? ' · en échec : '+ECHECS.join(' | ') : ''));
   afficheDispo(dispo);
+  majEtat();
   dessine(); fiche(); tableauTous();
+  await cacheEcrire();
   await archive();
 }
 
@@ -340,12 +365,95 @@ function sonde(i){
   for(const id in DATA){ const e=extraitPoi(DATA[id], i); if(e) out.push({id, nom:DATA[id].nom, ...e}); }
   const a=agrege(out); return a? {p:POIS[i], ...a} : null;
 }
+function extraitJalonD(d, k){
+  if(!d) return null;
+  if(d.jal) return d.jal[k]||null;
+  const r=d.reps&&d.reps[k]; return r? extrait(r, JALONS[k].t) : null;
+}
 function sondeJalon(k){
   if(!JALONS[k]) return null;
   const out=[];
-  for(const id in DATA_J){ const r=DATA_J[id].reps[k];
-    const e=r? extrait(r, JALONS[k].t):null; if(e) out.push({id, nom:DATA_J[id].nom, ...e}); }
+  for(const id in DATA_J){ const e=extraitJalonD(DATA_J[id], k);
+    if(e) out.push({id, nom:DATA_J[id].nom, ...e}); }
   return agrege(out);
+}
+
+/* ================= CACHE LOCAL ================= */
+const CLE_CACHE='cache:v3';
+const PERIME_H=3;              // au-delà, on rafraîchit tout seul
+let TS_DONNEES=null, EN_COURS=false, HORS_LIGNE=false;
+
+/* on ne stocke pas les réponses brutes (trop volumineuses) mais les valeurs extraites,
+   arrondies et débarrassées des champs vides */
+function compacte(e){
+  if(!e) return null;
+  const o={};
+  for(const k in e){
+    const v=e[k];
+    if(v===null||v===undefined) continue;
+    o[k] = typeof v==='number'? Math.round(v*10)/10 : v;
+  }
+  return o;
+}
+async function cacheEcrire(){
+  const m={};
+  for(const id in DATA){
+    m[id]={nom:DATA[id].nom,
+           pts:POIS.map((p,i)=>compacte(extraitPoi(DATA[id], i))),
+           jal:JALONS.map((j,k)=>compacte(extraitJalonD(DATA_J[id], k)))};
+  }
+  const paquet={ts:Date.now(), scenario:SCENARIO, jalons:JALONS,
+                reportes:REPORTES, echecs:ECHECS, modeles:m};
+  try{ await MEM.set(CLE_CACHE, JSON.stringify(paquet)); }
+  catch(e){ log('Cache non écrit ('+e.message+') — les données restent affichées.'); }
+}
+async function cacheLire(){
+  try{
+    const r=await MEM.get(CLE_CACHE);
+    if(!r) return null;
+    const c=JSON.parse(r.value);
+    return (c&&c.modeles&&Object.keys(c.modeles).length)? c : null;
+  }catch(e){ return null; }
+}
+function appliqueCache(c){
+  DATA={}; DATA_J={}; JALONS=c.jalons||[];
+  for(const id in c.modeles){
+    DATA[id]  ={nom:c.modeles[id].nom, pts:{[c.scenario]:c.modeles[id].pts}};
+    DATA_J[id]={nom:c.modeles[id].nom, jal:c.modeles[id].jal};
+  }
+  REPORTES=c.reportes||[]; ECHECS=c.echecs||[];
+  TS_DONNEES=c.ts; SCENARIO=c.scenario;
+  const sel=q('#scen'); if(sel) sel.value=String(SCENARIO);
+}
+function ageHeures(){ return TS_DONNEES? (Date.now()-TS_DONNEES)/3.6e6 : Infinity; }
+function ageTexte(){
+  if(!TS_DONNEES) return 'aucune donnée';
+  const min=Math.round((Date.now()-TS_DONNEES)/6e4);
+  if(min<2) return 'à l\'instant';
+  if(min<60) return 'il y a '+min+' min';
+  const hh=Math.floor(min/60);
+  if(hh<24) return 'il y a '+hh+' h'+(min%60?String(min%60).padStart(2,'0'):'');
+  return 'il y a '+Math.floor(hh/24)+' j';
+}
+function majEtat(){
+  const el=q('#etat'); if(!el) return;
+  el.className='etat';
+  let txt;
+  if(EN_COURS){ el.classList.add('charge');
+    txt='<span class="pulse">Mise à jour en cours…</span>'
+        + (TS_DONNEES? ' affichage des données de <b>'+ageTexte()+'</b>' : ''); }
+  else if(!TS_DONNEES){ el.classList.add('vieux'); txt='Aucune donnée en mémoire.'; }
+  else {
+    const n=Object.keys(DATA).length;
+    txt='<b>'+n+' modèle'+(n>1?'s':'')+'</b> · relevé '+ageTexte()
+        +' ('+new Date(TS_DONNEES).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',
+          hour:'2-digit',minute:'2-digit'})+')';
+    if(HORS_LIGNE){ el.classList.add('horsligne'); txt+=' · <b>hors ligne</b>, données conservées'; }
+    else if(ageHeures()>PERIME_H) el.classList.add('vieux');
+  }
+  el.innerHTML='<span class="pastille"></span><span>'+txt+'</span>'
+    + (EN_COURS? '' : '<button id="maj">Actualiser</button>');
+  const b=q('#maj'); if(b) b.onclick=()=>interroger();
 }
 
 /* ================= MÉTÉOGRAMME ================= */
@@ -783,7 +891,17 @@ async function convergence(){
 (function(){
   const sel=q('#scen');
   for(let s=36;s<=52;s++){ const o=document.createElement('option'); o.value=s; o.textContent=s+' h'; if(s===43)o.selected=true; sel.appendChild(o); }
-  sel.onchange=()=>{ SCENARIO=+sel.value; dessine(); fiche(); tableauTous(); convergence(); };
+  sel.onchange=()=>{
+    SCENARIO=+sel.value;
+    /* les valeurs du cache sont extraites pour un scénario précis : si on en change,
+       le relief et les horaires se redessinent tout de suite, la météo est réinterrogée */
+    const surCache = Object.keys(DATA).some(id=>DATA[id].pts && !DATA[id].reps);
+    dessine(); fiche(); tableauTous(); convergence();
+    if(surCache && !(PRECHARGE && PRECHARGE.modeles)){
+      log('Scénario '+SCENARIO+' h : les heures de passage changent, réinterrogation des modèles…');
+      interroger();
+    }
+  };
   q('#go').onclick=interroger;
   q('#raz').onclick=async()=>{
       try{ const r=await MEM.list('snapshot:'); for(const k of (r.keys||[])) await MEM.delete(k); }catch(e){}
@@ -800,7 +918,34 @@ async function convergence(){
     q('#go').disabled=true; q('#go').textContent='Données intégrées';
     const sc=q('#scen'); [...sc.options].forEach(o=>{ if(!PRECHARGE.scenarios.includes(+o.value)) o.disabled=true; });
   }
-  chips(); dessine(); fiche(); tableauTous(); convergence();
+  chips();
+
+  /* 1. on affiche immédiatement ce qu'on a en mémoire, même périmé */
+  (async()=>{
+    if(!(PRECHARGE && PRECHARGE.modeles)){
+      const c=await cacheLire();
+      if(c){
+        appliqueCache(c);
+        afficheDispo(Object.keys(DATA).map(id=>[DATA[id].nom,
+          POIS.filter((p,i)=>{const e=extraitPoi(DATA[id],i); return e&&e.t!==null&&e.t!==undefined;}).length,
+          POIS.length]));
+        log('Données restaurées depuis la mémoire du téléphone, relevé '+ageTexte()+'.');
+      }
+    }
+    dessine(); fiche(); tableauTous(); convergence(); majEtat();
+
+    /* 2. puis on rafraîchit tout seul si c'est vieux, sans effacer l'affichage */
+    if(!(PRECHARGE && PRECHARGE.modeles) && ageHeures()>PERIME_H) interroger();
+  })();
+
+  /* 3. au retour sur l'onglet, on revérifie la fraîcheur */
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible'){
+      majEtat();
+      if(!EN_COURS && !(PRECHARGE && PRECHARGE.modeles) && ageHeures()>PERIME_H) interroger();
+    }
+  });
+  setInterval(majEtat, 60000);
 })();
 </script>
 </body>
