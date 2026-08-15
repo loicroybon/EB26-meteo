@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v12 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v13 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -114,7 +114,7 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
 <header>
   <div class="eyebrow">Sonde multi-modèles · dossard 348</div>
   <h1>Échappée Belle Intégrale <span>2026</span></h1>
-  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 12 · Windy</b></div>
+  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 13 · tout automatique</b></div>
   <div class="ctl">
     <label for="scen">Scénario</label>
     <select id="scen"></select>
@@ -122,27 +122,13 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
     <button id="raz" title="Efface l'historique de convergence">Vider l'historique</button>
   </div>
   <div class="etat" id="etat"></div>
-  <div class="log" id="log">Chaque relevé est gardé sur ce téléphone : l'écran s'affiche aussitôt, la mise à jour se fait derrière.</div>
+  <div class="log" id="log">Tout est automatique : modèles, meteoblue, Windy et ensembles s'enchaînent, et l'écran se remplit au fur et à mesure.</div>
 </header>
 
 <h2 id="hmg">Météogramme de course</h2>
 <div class="chips" id="segchips"></div>
 <div class="fiche" id="segresume" style="margin-bottom:10px;display:none"></div>
-<div class="fiche" id="smszone" style="margin-bottom:10px">
-  <div class="smsbarre">
-    <b>SMS pour mes proches</b>
-    <button id="smscourt" aria-pressed="true">Court</button>
-    <button id="smscomplet" aria-pressed="false">Tous les points</button>
-  </div>
-  <textarea id="smstexte" readonly rows="7" spellcheck="false"></textarea>
-  <div class="smspied"><span id="smsinfo"></span><button id="smscopie">Copier le SMS</button></div>
-  <div class="smspied" style="border-top:1px solid var(--trace);padding-top:10px;margin-top:12px">
-    <span>Toutes les valeurs, tous les modèles, plus l'historique des relevés</span>
-    <button id="ensbtn">Ajouter les probabilités</button>
-    <button id="wybtn">Ajouter Windy</button>
-    <button id="exportmd">Fichier Markdown pour analyse</button>
-  </div>
-</div>
+
 <div class="bandeau">
   <div class="cadre"><svg id="gouttiere"></svg>
     <div class="scroller" id="scroller"><svg id="ruban"></svg></div></div>
@@ -161,6 +147,20 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
 <div class="chips" id="chips"></div>
 <div class="fiche" id="fiche">
   <div class="note">Choisis un point ci-dessus, puis lance l'interrogation.</div>
+</div>
+
+<div class="fiche" id="smszone" style="margin-bottom:10px">
+  <div class="smsbarre">
+    <b>SMS pour mes proches</b>
+    <button id="smscourt" aria-pressed="true">Court</button>
+    <button id="smscomplet" aria-pressed="false">Tous les points</button>
+  </div>
+  <textarea id="smstexte" readonly rows="7" spellcheck="false"></textarea>
+  <div class="smspied"><span id="smsinfo"></span><button id="smscopie">Copier le SMS</button></div>
+  <div class="smspied" style="border-top:1px solid var(--trace);padding-top:10px;margin-top:12px">
+    <span>Toutes les valeurs, tous les modèles, plus l'historique des relevés</span>
+    <button id="exportmd">Fichier Markdown pour analyse</button>
+  </div>
 </div>
 
 <h2>Modèles qui atteignent la course</h2>
@@ -300,13 +300,13 @@ async function unModele(id, pois){
     qp.set('end_date','2026-08-23');
     const u = 'https://api.open-meteo.com/v1/forecast?' + qp.toString();
     let r=null;
-    const attentes=[4000,10000,20000,35000];
+    const attentes=[5,12,25,40];
     for(let essai=0; essai<=attentes.length; essai++){
+      await attendreQuota();
       r = await fetch(u);
       if(r.status!==429) break;
       if(essai===attentes.length) break;
-      log('Quota Open-Meteo atteint, reprise dans '+(attentes[essai]/1000)+' s…');
-      await new Promise(z=>setTimeout(z, attentes[essai]));
+      signalerQuota(attentes[essai]);
     }
     if(!r.ok) throw new Error(id+' HTTP '+r.status);
     let j = await r.json();
@@ -359,25 +359,46 @@ function extraitPoi(d, i){
   return enrichir(extrait(d.reps[i], POIS[i].t[SCENARIO]), POIS[i].alt, d.altNative&&d.altNative[i]);
 }
 
+/* ---------- pipeline d'interrogation, en phases ---------- */
+/* Chaque phase est indépendante : ce qui revient est affiché aussitôt, ce qui
+   échoue n'empêche pas la suite. Le quota Open-Meteo est géré globalement,
+   par une pause partagée entre tous les appels. */
+let OM_PAUSE = 0;
+async function attendreQuota(){
+  const reste = OM_PAUSE - Date.now();
+  if(reste>0){ log('Quota Open-Meteo : reprise dans '+Math.ceil(reste/1000)+' s…');
+    await new Promise(z=>setTimeout(z, reste)); }
+}
+function signalerQuota(secondes){ OM_PAUSE = Math.max(OM_PAUSE, Date.now()+secondes*1000); }
+
 async function interroger(){
   if(EN_COURS) return;
   EN_COURS=true; majEtat(); q('#go').disabled=true;
-  /* on garde l'ancien jeu affiché tant que le nouveau n'est pas complet */
   const anciens={D:DATA, J:DATA_J, ts:TS_DONNEES};
   const nD={}, nJ={};
-  ECHECS=[]; REPORTES=[];
+  ECHECS=[]; REPORTES=[]; WY_APPELS=0;
   JALONS = construireJalons();
   const jours = (new Date(POIS[0].t[SCENARIO]) - Date.now())/864e5;
   const dispo=[];
+
+  const rendre=()=>{ try{ afficheDispo(dispo); majEtat(); dessine(); fiche();
+                          tableauTous(); resumeSegment(); majSMS(); }catch(e){} };
+  const commettre=()=>{
+    if(!Object.keys(nD).length) return false;
+    DATA=Object.assign({}, nD); DATA_J=Object.assign({}, nJ);
+    TS_DONNEES=Date.now(); HORS_LIGNE=false;
+    return true;
+  };
+
+  /* ---- phase 1 : modèles déterministes Open-Meteo ---- */
   for(const [id,nom,portee] of MODELES){
-    if(id===MB_ID) continue;                 /* API distincte, traitée plus bas */
+    if(id===MB_ID) continue;
     if(portee < jours){ REPORTES.push([nom, portee]); continue; }
     log('Interrogation : '+nom+' …');
     try{
       const rp = await unModele(id, POIS);
       const rj = await unModele(id, JALONS);
       const dp={nom, reps:rp}, dj={nom, reps:rj};
-      /* l'orographie d'un modèle ne change pas : on la mesure une fois et on la garde */
       try{
         let cacheAlt=null;
         try{ const rr=await MEM.get('altnat:'+id); cacheAlt=JSON.parse(rr.value); }catch(e){}
@@ -390,77 +411,73 @@ async function interroger(){
           try{ await MEM.set('altnat:'+id, JSON.stringify({pois:dp.altNative, jalons:dj.altNativeJ})); }catch(e){}
         }
       }catch(e){}
-      /* on compte les points où le modèle donne réellement une température */
       const couvre = POIS.filter((p,i)=>{ const e=extraitPoi(dp, i);
         return e && e.t!==null && e.t!==undefined; }).length;
       if(couvre>0){ nD[id]=dp; nJ[id]=dj; }
       dispo.push([nom, couvre, POIS.length]);
     }catch(e){ ECHECS.push(nom+' — '+e.message); }
   }
-  q('#go').disabled=false; EN_COURS=false;
-  if(Object.keys(nD).length){
-    DATA=nD; DATA_J=nJ; TS_DONNEES=Date.now(); HORS_LIGNE=false;
-  } else {
-    /* rien n'est revenu : on restaure ce qu'on avait plutôt que de vider l'écran */
-    DATA=anciens.D; DATA_J=anciens.J; TS_DONNEES=anciens.ts;
-    HORS_LIGNE=true;
-    majEtat();
+
+  if(commettre()) rendre();
+  else {
+    DATA=anciens.D; DATA_J=anciens.J; TS_DONNEES=anciens.ts; HORS_LIGNE=true;
+    q('#go').disabled=false; EN_COURS=false; majEtat();
     log('Aucun modèle joignable. Les données précédentes restent affichées.'
         + (ECHECS.length? ' Détail : '+ECHECS.join(' | ') : ''));
     afficheDispo(dispo); return;
   }
-  /* meteoblue : API séparée, quota indépendant d'Open-Meteo */
+
+  /* ---- phase 2 : meteoblue, quota indépendant ---- */
   try{
-    log('Interrogation : meteoblue (point par point)…');
+    log('meteoblue…');
     const mbP = await meteoblueSerie(POIS, p=>p.t[SCENARIO],
-      (f,n)=>log('meteoblue : '+f+' / '+n+' points…'));
+      (f,n)=>log('meteoblue : '+f+' / '+n+' points'));
     const mbJ = await meteoblueSerie(JALONS, p=>p.t,
-      (f,n)=>log('meteoblue : jalons '+f+' / '+n+'…'));
+      (f,n)=>log('meteoblue : jalons '+f+' / '+n));
     const couvre=mbP.filter(e=>e&&e.t!==null&&e.t!==undefined).length;
     if(couvre>0){
       nD[MB_ID]={nom:MB_NOM, pts:{[SCENARIO]:mbP}};
       nJ[MB_ID]={nom:MB_NOM, jal:mbJ};
+      commettre(); rendre();
     }
     dispo.push([MB_NOM, couvre, POIS.length]);
     if(couvre>0&&couvre<POIS.length)
       log('meteoblue couvre '+couvre+' points sur '+POIS.length
-        +' : son horizon gratuit s\'arrête 7 jours après minuit. Couverture complète \u00e0 partir du 17 ao\u00fbt.');
+        +' : horizon gratuit de 7 jours à partir de minuit.');
   }catch(e){ ECHECS.push(MB_NOM+' — '+e.message); }
 
-  if(AVEC_WINDY){
-    const jours2=(new Date(POIS[0].t[SCENARIO]) - Date.now())/864e5;
-    for(const [mid,mnom,portee] of WY_MODELES){
-      if(portee < jours2){ REPORTES.push([mnom, portee]); continue; }
-      try{
-        log('Windy : '+mnom+'…');
-        const s=await windySerie(POIS, p=>p.t[SCENARIO], mid,
-          (f,n)=>log('Windy '+mnom+' : '+f+' / '+n));
-        const couvre=s.filter(e=>e&&e.t!==null).length;
-        if(couvre>0){
-          const enr=s.map((e,i)=>e? enrichir(e, POIS[i].alt, null) : null);
-          nD['windy_'+mid]={nom:mnom, pts:{[SCENARIO]:enr}};
-        }
-        dispo.push([mnom, couvre, POIS.length]);
-      }catch(e){ ECHECS.push(mnom+' — '+e.message); }
-    }
-    log('Windy : '+WY_APPELS+' requêtes consommées sur ce relevé.');
-  }
-
-  if(AVEC_ENS){
+  /* ---- phase 3 : Windy, quota indépendant, modèles utiles seulement ---- */
+  for(const [mid,mnom,portee] of WY_MODELES){
+    if(portee < jours){ REPORTES.push([mnom, portee]); continue; }
     try{
-      log('Interrogation des ensembles (probabilités)…');
-      ENS = await ensembles(POIS, p=>p.t[SCENARIO]);
-    }catch(e){ }
+      log('Windy : '+mnom+'…');
+      const s=await windySerie(POIS, p=>p.t[SCENARIO], mid,
+        (f,n)=>log('Windy '+mnom+' : '+f+' / '+n));
+      const couvre=s.filter(e=>e&&e.t!==null).length;
+      if(couvre>0){
+        nD['windy_'+mid]={nom:mnom, pts:{[SCENARIO]:s.map((e,i)=>e? enrichir(e,POIS[i].alt,null):null)}};
+        commettre(); rendre();
+      }
+      dispo.push([mnom, couvre, POIS.length]);
+    }catch(e){ ECHECS.push(mnom+' — '+e.message); }
   }
-  const n=Object.keys(DATA).length;
-  const nEns=Object.keys(ENS).length;
-  log(n+' modèle'+(n>1?'s':'')+' avec données le '+new Date().toLocaleString('fr-FR')
-      + (nEns? ' \u00b7 ensembles sur '+nEns+' points' : '')
-      + (REPORTES.length? ' · trop loin pour l\'instant : '+REPORTES.map(r=>r[0]).join(', ') : '')
-      + (ECHECS.length? ' · en échec : '+ECHECS.join(' | ') : ''));
-  afficheDispo(dispo);
-  majEtat();
-  dessine(); fiche(); tableauTous(); resumeSegment(); majSMS();
+  if(WY_APPELS) log('Windy : '+WY_APPELS+' requêtes sur ce relevé.');
+
+  /* ---- phase 4 : ensembles, la plus lourde, donc la dernière ---- */
+  try{
+    await attendreQuota();
+    log('Ensembles probabilistes…');
+    const e=await ensembles(POIS, p=>p.t[SCENARIO]);
+    if(Object.keys(e).length){ ENS=e; rendre(); }
+  }catch(e){ }
+
+  q('#go').disabled=false; EN_COURS=false;
+  const n=Object.keys(DATA).length, nEns=Object.keys(ENS).length;
+  log(n+' modèle'+(n>1?'s':'')+' le '+new Date().toLocaleString('fr-FR')
+      + (nEns? ' · ensembles sur '+nEns+' points' : '')
+      + (REPORTES.length? ' · trop loin : '+REPORTES.map(r=>r[0]).join(', ') : '')
+      + (ECHECS.length? ' · en échec : '+ECHECS.map(x=>x.split(' — ')[0]).join(', ') : ''));
+  rendre();
   await cacheEcrire();
   await archive();
 }
@@ -652,8 +669,11 @@ async function meteobluePoint(p, iso){
 /* on limite la concurrence : l'API répond point par point */
 async function meteoblueSerie(points, cible, avance){
   const out=new Array(points.length).fill(null);
+  /* sonde préalable : inutile de lancer 97 requêtes si l'accès est refusé */
+  out[0]=await meteobluePoint(points[0], cible(points[0]));
+  if(!out[0]) return out;
   const FILE=3;
-  let i=0, faits=0;
+  let i=1, faits=1;
   async function ouvrier(){
     while(i<points.length){
       const k=i++;
@@ -678,8 +698,7 @@ const WY_URL = 'https://api.windy.com/api/point-forecast/v2';
 const WY_MODELES = [
   ['arome',   'Windy AROME 1,3 km', 2.1, 'MF'],
   ['iconD2',  'Windy ICON-D2',      2.0, 'DWD'],
-  ['iconEu',  'Windy ICON-EU',      5.0, 'DWD'],
-  ['gfs',     'Windy GFS',         10.0, 'NOAA']
+  ['iconEu',  'Windy ICON-EU',      5.0, 'DWD']
 ];
 const WY_PARAMS = ['temp','dewpoint','rh','precip','convPrecip','snowPrecip',
                    'wind','windGust','cape','ptype','lclouds','mclouds','hclouds',
@@ -778,8 +797,10 @@ async function windyPoint(p, iso, modele){
 
 async function windySerie(points, cible, modele, avance){
   const out=new Array(points.length).fill(null);
+  out[0]=await windyPoint(points[0], cible(points[0]), modele);
+  if(!out[0]) return out;      /* clé refusée ou modèle hors domaine : on s'arrête */
   const FILE=3;
-  let i=0, faits=0;
+  let i=1, faits=1;
   async function ouvrier(){
     while(i<points.length){
       const k=i++;
@@ -917,16 +938,14 @@ function ventCrete(e, alt){
 
 /* ================= ENSEMBLES ================= */
 let ENS = {};   // par nom de point : probabilités issues des ensembles
-let AVEC_ENS = false;
-let AVEC_WINDY = false;
+
 
 async function ensembles(points, cible){
-  const modeles=[['ecmwf_ifs025','ECMWF ENS'],['gfs025','GEFS'],
-                 ['icon_eu','ICON-EU EPS'],['meteofrance_arpege_europe','ARPEGE EPS']];
+  const modeles=[['ecmwf_ifs025','ECMWF ENS'],['gfs025','GEFS']];
   const acc={};
   for(const m of modeles){
-    for(let d=0;d<points.length;d+=10){
-      const lot=points.slice(d,d+10);
+    for(let d=0;d<points.length;d+=26){
+      const lot=points.slice(d,d+26);
       const qp=new URLSearchParams();
       qp.set('latitude',  lot.map(p=>p.lat).join(','));
       qp.set('longitude', lot.map(p=>p.lon).join(','));
@@ -935,11 +954,16 @@ async function ensembles(points, cible){
       qp.set('models', m[0]); qp.set('timezone','Europe/Paris');
       qp.set('start_date','2026-08-21'); qp.set('end_date','2026-08-23');
       let j=null;
-      try{
-        const r=await fetch('https://ensemble-api.open-meteo.com/v1/ensemble?'+qp.toString());
-        if(!r.ok) throw new Error('HTTP '+r.status);
-        j=await r.json();
-      }catch(e){ continue; }
+      for(let essai=0; essai<4 && !j; essai++){
+        await attendreQuota();
+        try{
+          const r=await fetch('https://ensemble-api.open-meteo.com/v1/ensemble?'+qp.toString());
+          if(r.status===429){ signalerQuota(8*(essai+1)); continue; }
+          if(!r.ok) break;
+          j=await r.json();
+        }catch(e){ break; }
+      }
+      if(!j) continue;
       if(!Array.isArray(j)) j=[j];
       j.forEach((o,k)=>{
         const p=lot[k]; if(!o||!o.hourly) return;
@@ -2053,11 +2077,6 @@ async function convergence(){
   segChips(); chips();
   q('#smscopie').onclick=copierSMS;
   q('#exportmd').onclick=exportMD;
-  q('#ensbtn').onclick=()=>{ AVEC_ENS=true; log('Ensembles activés pour cette actualisation.');
-    interroger(); };
-  q('#wybtn').onclick=()=>{ AVEC_WINDY=true;
-    log('Windy activé : environ 52 requêtes par modèle, sur les points seulement.');
-    interroger(); };
   q('#smscourt').onclick=()=>{ q('#smscourt').setAttribute('aria-pressed','true');
     q('#smscomplet').setAttribute('aria-pressed','false'); majSMS(); };
   q('#smscomplet').onclick=()=>{ q('#smscomplet').setAttribute('aria-pressed','true');
