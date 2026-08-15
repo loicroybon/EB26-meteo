@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v24 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v25 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -31,7 +31,7 @@ body{padding:0 0 2.2rem;font-size:14px;line-height:1.4}
 .wrap{max-width:min(1500px,100%);margin:0 auto;padding:0 clamp(12px,2vw,28px)}
 @media (min-width:1100px){ body{font-size:15px} .wrap{padding:0 28px} }
 
-header{padding:10px 0 8px;border-bottom:1px solid var(--trace)}
+header{padding:8px 0 6px;border-bottom:1px solid var(--trace)}
 .titre{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--brume)}
 .titre b{font-size:16px;font-weight:600;color:var(--neige);letter-spacing:-.02em}
 .titre .v{margin-left:auto;font-size:10.5px;opacity:.6}
@@ -40,7 +40,7 @@ h1{font-size:clamp(21px,5.6vw,32px);font-weight:600;letter-spacing:-.035em;margi
 h1 span{color:var(--brume);font-weight:400}
 .sub{font-size:12px;color:var(--brume)}
 
-.ctl{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 0}
+.ctl{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0}
 .ctl .grp{display:inline-flex;align-items:center;gap:7px;flex:0 0 auto}
 .ctl .pousse{flex:1 1 0;min-width:0}
 @media (max-width:600px){
@@ -77,12 +77,12 @@ h2::after{content:"";flex:1;height:1px;background:var(--trace)}
   padding:8px 11px;font-size:12.5px;min-height:44px;cursor:pointer;color:var(--brume);line-height:1.3;text-align:left}
 .segchip[aria-pressed="true"]{border-color:var(--chaud);color:var(--neige);background:#1E2B44}
 .segchip small{display:block;font-size:9.5px;color:var(--brume);margin-top:1px}
-.bandeau{margin-top:12px;border:1px solid var(--trace);border-radius:4px;background:var(--roche);overflow:hidden}
+.bandeau{margin-top:4px;border:1px solid var(--trace);border-radius:4px;background:var(--roche);overflow:hidden}
 .scroller{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch}
 .scroller svg{display:block}
 /* --- résumé grand public --- */
 .hero{border:1px solid var(--trace);border-radius:6px;background:var(--roche);
-  padding:12px 13px 11px;margin-top:10px}
+  padding:12px 13px 11px;margin-top:12px}
 .htete{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
 .hlieu{font-size:17px;font-weight:600;letter-spacing:-.02em}
 .hquand{font-size:11.5px;color:var(--brume)}
@@ -114,6 +114,8 @@ h2::after{content:"";flex:1;height:1px;background:var(--trace)}
 .hcarte .rf{color:var(--brume)} .hcarte .rf.moyen{color:var(--chaud)} .hcarte .rf.fort{color:var(--alerte);font-weight:600}
 .hcarte u{display:block;text-decoration:none;font-size:9.5px;color:var(--brume);opacity:.7}
 
+.detail{border-top:0;margin-top:4px}
+.detail .fiche{margin-top:0}
 .repli{margin-top:10px;border-top:1px solid var(--trace)}
 .repli summary{font-family:var(--sans);font-size:11.5px;color:var(--brume);cursor:pointer;
   padding:9px 0;list-style:none;display:flex;align-items:center;gap:7px;min-height:38px}
@@ -154,7 +156,7 @@ tr.consensus td{background:var(--panneau);font-weight:600;border-bottom:1px soli
 .cel b{display:block;font-size:19px;font-weight:600;letter-spacing:-.03em;margin-top:3px}
 .cel em{display:block;font-family:var(--sans);font-style:normal;font-size:10px;color:var(--brume);margin-top:2px}
 
-.chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 8px;-webkit-overflow-scrolling:touch}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 6px;-webkit-overflow-scrolling:touch}
 .chip{flex:0 0 auto;background:var(--panneau);border:1px solid var(--trace);border-radius:3px;
   padding:9px 11px;font-size:12.5px;min-height:38px;cursor:pointer;color:var(--brume)}
 .chip[aria-pressed="true"]{border-color:var(--froid);color:var(--neige)}
@@ -167,7 +169,7 @@ ul.dispo li{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--tr
 ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ok{color:var(--accord)} .ko{color:var(--brume)}
 .log{font-size:11px;color:var(--brume);margin-top:8px;white-space:pre-wrap}
-.etat{display:flex;align-items:center;gap:7px;margin-top:7px;font-size:11.5px;color:var(--brume)}
+.etat{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--brume);margin-left:4px}
 .etat b{color:var(--neige);font-weight:600}
 .etat .pastille{width:7px;height:7px;border-radius:50%;background:var(--accord);flex:0 0 auto}
 .etat.vieux .pastille{background:var(--chaud)} .etat.charge .pastille{background:var(--froid)}
@@ -185,11 +187,6 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
 <div class="wrap">
 
 <header>
-  <div class="titre">
-    <b>Échappée Belle 2026</b>
-    <span>ven 21/08 06:30 · 149,5 km · 11 000 D+</span>
-    <span class="v">v24</span>
-  </div>
   <div class="ctl">
     <select id="scen" aria-label="Scénario"></select>
     <select id="modele" aria-label="Modèle"><option value="">Multimodèle</option></select>
@@ -199,24 +196,14 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
       <button id="th-auto" title="Système">A</button>
     </span>
     <button id="go" title="Actualiser">⟳</button>
+    <span class="etat" id="etat"></span>
   </div>
-  <div class="etat" id="etat"></div>
   <div class="log" id="log" hidden></div>
   <div class="note" id="fiabilite" hidden></div>
   <span id="fiabresume" hidden></span>
 </header>
 
-<div class="hero" id="hero"></div>
-<div class="heures" id="heures"></div>
-
-<h2>Points du parcours</h2>
-<div class="chips" id="chips"></div>
-<div class="fiche" id="fiche"></div>
-
-<h2 id="hmg">Météogramme</h2>
 <div class="chips" id="segchips"></div>
-<div class="fiche" id="segresume" style="margin-bottom:10px;display:none"></div>
-
 <div class="bandeau">
   <div class="cadre"><svg id="gouttiere"></svg>
     <div class="scroller" id="scroller"><svg id="ruban"></svg></div></div>
@@ -224,20 +211,15 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
   
 </div>
 
+<div class="fiche" id="segresume" style="display:none"></div>
 
-<div class="fiche" id="smszone" style="margin-bottom:10px">
-  <div class="smsbarre">
-    <b>SMS</b>
-    <button id="smscourt" aria-pressed="true">Court</button>
-    <button id="smscomplet" aria-pressed="false">Tous les points</button>
-  </div>
-  <textarea id="smstexte" readonly rows="7" spellcheck="false"></textarea>
-  <div class="smspied"><span id="smsinfo"></span><button id="smscopie">Copier le SMS</button></div>
-  <div class="smspied" style="border-top:1px solid var(--trace);padding-top:10px;margin-top:12px">
-    <button id="exportmd">Export Markdown</button>
-    <button id="raz" title="Effacer l'historique">Vider</button>
-  </div>
-</div>
+<div class="hero" id="hero"></div>
+<div class="heures" id="heures"></div>
+
+<h2>Points du parcours</h2>
+<div class="chips" id="chips"></div>
+<details class="repli detail"><summary>Détail du point et comparaison des modèles</summary>
+  <div class="fiche" id="fiche"></div></details>
 
 <div class="fiche" id="smszone" style="margin-bottom:10px">
   <div class="smsbarre">
