@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v21 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v22 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -13,9 +13,11 @@
   --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
 }
 html[data-theme="clair"]{
-  --nuit:#EEF1F5; --roche:#FFFFFF; --panneau:#E3E9F1; --trace:#C6D0DD;
-  --neige:#16202F; --brume:#5A6A85;
-  --froid:#1B7FA8; --chaud:#B5670F; --pluie:#5A46C8; --alerte:#C33A24; --accord:#1A8A5E;
+  /* pensé pour un écran de téléphone en plein soleil : fond blanc franc,
+     texte quasi noir, bordures assez marquées pour survivre aux reflets */
+  --nuit:#FFFFFF; --roche:#FFFFFF; --panneau:#EDF1F7; --trace:#9FADBF;
+  --neige:#0A1018; --brume:#41506A;
+  --froid:#0E6E96; --chaud:#8F4E06; --pluie:#4632B4; --alerte:#A82A17; --accord:#0F6E48;
 }
 html[data-theme="clair"] .cel b, html[data-theme="clair"] .gros b{color:var(--neige)}
 html[data-theme="clair"] tr.consensus td{background:#DCE6F4}
@@ -26,7 +28,8 @@ html[data-theme="clair"]{color-scheme:light}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--nuit);color:var(--neige);font-family:var(--mono)}
 body{padding:0 0 4rem;font-size:14px;line-height:1.45}
-.wrap{max-width:960px;margin:0 auto;padding:0 14px}
+.wrap{max-width:min(1500px,100%);margin:0 auto;padding:0 clamp(12px,2vw,28px)}
+@media (min-width:1100px){ body{font-size:15px} .wrap{padding:0 28px} }
 
 header{padding:22px 0 14px;border-bottom:1px solid var(--trace)}
 .eyebrow{font-family:var(--sans);font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--brume)}
@@ -34,7 +37,16 @@ h1{font-size:clamp(21px,5.6vw,32px);font-weight:600;letter-spacing:-.035em;margi
 h1 span{color:var(--brume);font-weight:400}
 .sub{font-size:12px;color:var(--brume)}
 
-.ctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:14px 0 4px}
+.ctl{display:flex;gap:8px 10px;align-items:center;flex-wrap:wrap;margin:14px 0 4px}
+.ctl .grp{display:inline-flex;align-items:center;gap:7px;flex:0 0 auto}
+.ctl .pousse{flex:1 1 0;min-width:0}
+@media (max-width:600px){
+  .ctl{gap:8px}
+  .ctl .pousse{display:none}
+  .ctl button,.ctl select{min-height:40px}
+  .ctl .grp{flex:1 1 auto}
+  .ctl select{flex:1 1 auto;min-width:0}
+}
 button,select{font-family:var(--mono);font-size:12.5px;background:var(--panneau);color:var(--neige);
   border:1px solid var(--trace);border-radius:3px;padding:7px 11px;cursor:pointer}
 button:hover,select:hover{border-color:var(--froid)}
@@ -59,12 +71,20 @@ h2::after{content:"";flex:1;height:1px;background:var(--trace)}
 .smspied button{margin-left:auto;border-color:var(--accord);padding:7px 14px}
 #gouttiere{position:absolute;left:0;top:0;z-index:2;pointer-events:none}
 .segchip{flex:0 0 auto;background:var(--panneau);border:1px solid var(--trace);border-radius:3px;
-  padding:6px 10px;font-size:11.5px;cursor:pointer;color:var(--brume);line-height:1.25;text-align:left}
+  padding:8px 11px;font-size:12.5px;min-height:44px;cursor:pointer;color:var(--brume);line-height:1.3;text-align:left}
 .segchip[aria-pressed="true"]{border-color:var(--chaud);color:var(--neige);background:#1E2B44}
 .segchip small{display:block;font-size:9.5px;color:var(--brume);margin-top:1px}
 .bandeau{margin-top:12px;border:1px solid var(--trace);border-radius:4px;background:var(--roche);overflow:hidden}
 .scroller{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch}
 .scroller svg{display:block}
+.repli{margin-top:10px;border-top:1px solid var(--trace)}
+.repli summary{font-family:var(--sans);font-size:11.5px;color:var(--brume);cursor:pointer;
+  padding:9px 0;list-style:none;display:flex;align-items:center;gap:7px;min-height:38px}
+.repli summary::-webkit-details-marker{display:none}
+.repli summary::before{content:"\25B8";font-size:10px;transition:transform .15s}
+.repli[open] summary::before{transform:rotate(90deg)}
+.repli .note{padding-bottom:10px}
+.legrepli{border-top:0;margin:0;padding:0 12px 6px}
 .legende{display:flex;gap:14px;flex-wrap:wrap;padding:8px 12px;border-top:1px solid var(--trace);
   font-family:var(--sans);font-size:10.5px;color:var(--brume)}
 .legende i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:-1px}
@@ -84,21 +104,22 @@ tr.consensus td{background:var(--panneau);font-weight:600;border-bottom:1px soli
 .fiche .meta{font-size:11.5px;color:var(--brume);margin-top:3px}
 .gros{display:flex;gap:20px;flex-wrap:wrap;margin:14px 0 4px}
 .gros div{min-width:74px}
-.gros b{display:block;font-size:27px;font-weight:600;letter-spacing:-.045em;line-height:1}
+.gros b{display:block;font-size:clamp(28px,7vw,34px);font-weight:600;letter-spacing:-.045em;line-height:1}
 .gros s{display:block;font-family:var(--sans);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;
   color:var(--brume);text-decoration:none;margin-top:5px}
 .spread{font-size:11px;color:var(--brume);margin-top:2px}
-.grille{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:1px;
-  background:var(--trace);border:1px solid var(--trace);border-radius:3px;margin:12px 0 4px}
-.cel{background:var(--roche);padding:9px 10px}
+.grille{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0;
+  border:1px solid var(--trace);border-radius:4px;overflow:hidden;margin:12px 0 4px}
+.cel{background:var(--roche);padding:10px 11px;
+  border-right:1px solid var(--trace);border-bottom:1px solid var(--trace)}
 .cel s{display:block;font-family:var(--sans);font-size:9px;letter-spacing:.15em;text-transform:uppercase;
   color:var(--brume);text-decoration:none}
-.cel b{display:block;font-size:17px;font-weight:600;letter-spacing:-.03em;margin-top:3px}
+.cel b{display:block;font-size:19px;font-weight:600;letter-spacing:-.03em;margin-top:3px}
 .cel em{display:block;font-family:var(--sans);font-style:normal;font-size:10px;color:var(--brume);margin-top:2px}
 
 .chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 8px;-webkit-overflow-scrolling:touch}
 .chip{flex:0 0 auto;background:var(--panneau);border:1px solid var(--trace);border-radius:3px;
-  padding:6px 9px;font-size:11.5px;cursor:pointer;color:var(--brume)}
+  padding:9px 11px;font-size:12.5px;min-height:38px;cursor:pointer;color:var(--brume)}
 .chip[aria-pressed="true"]{border-color:var(--froid);color:var(--neige)}
 
 .note{font-family:var(--sans);font-size:11.5px;color:var(--brume);line-height:1.55}
@@ -129,12 +150,12 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
 <header>
   <div class="eyebrow">Sonde multi-modèles · dossard 348</div>
   <h1>Échappée Belle Intégrale <span>2026</span></h1>
-  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 21 · thème clair, sombre, système</b></div>
+  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 22 · lisible en course</b></div>
   <div class="ctl">
-    <label for="scen">Scénario</label>
-    <select id="scen"></select>
-    <label for="modele" style="margin-left:auto">Modèle</label>
-    <select id="modele"><option value="">Multimodèle</option></select>
+    <span class="grp"><label for="scen">Scénario</label><select id="scen"></select></span>
+    <span class="grp"><label for="modele">Modèle</label>
+      <select id="modele"><option value="">Multimodèle</option></select></span>
+    <span class="pousse"></span>
     <span class="theme" role="group" aria-label="Apparence">
       <button id="th-clair" title="Clair">☀</button>
       <button id="th-sombre" title="Sombre">☾</button>
@@ -143,7 +164,8 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
     <button id="go">Actualiser maintenant</button>
     <button id="raz" title="Efface l'historique de convergence">Vider l'historique</button>
   </div>
-  <div class="note" id="fiabilite" style="margin-top:10px;line-height:1.5"></div>
+  <details class="repli" id="boxfiab"><summary id="fiabresume">Fiabilité du mode d'affichage</summary>
+    <div class="note" id="fiabilite"></div></details>
   <div class="etat" id="etat"></div>
   <div class="log" id="log">Tout est automatique : modèles, meteoblue, Windy et ensembles s'enchaînent, et l'écran se remplit au fur et à mesure.</div>
 </header>
@@ -156,14 +178,14 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
   <div class="cadre"><svg id="gouttiere"></svg>
     <div class="scroller" id="scroller"><svg id="ruban"></svg></div></div>
   <div class="legende" id="mgnote" style="border:0;padding:6px 12px 0"></div>
-  <div class="legende">
+  <details class="repli legrepli"><summary>Comment lire ce graphique</summary><div class="legende">
     <span>de gauche à droite : <b style="color:var(--neige)">le temps de course</b>, pas la distance</span>
     <span><i style="background:#E4ECF7"></i>nuages, 3 étages</span>
     <span><i style="background:var(--pluie)"></i>pluie mm/h · % = risque</span>
     <span><i style="background:var(--chaud)"></i>rafales &gt; 40 km/h</span>
     <span><i style="background:var(--alerte)"></i>rafales &gt; 60</span>
     <span>fond = couleur du ciel à l'heure réelle · relief délavé = les modèles se contredisent</span>
-  </div>
+  </div></details>
 </div>
 
 <h2>Sonde du point</h2>
@@ -283,13 +305,17 @@ const PALETTES = {
            nuage:'#DCE6F4', nuageChiffre:'#28334C', nuageChiffreFaible:'#8FA0B8',
            tige:'#E9EEF6', point:'#DCE6F4', pointActif:'#FFD98A', bord:'#26344E',
            pluie:'#8E7CF0', pluieTexte:'#A99BF5', chaud:'#F0A24B', alerte:'#F0553D',
-           tempTexte:'#F2F6FC' },
+           tempTexte:'#F2F6FC', jour:'sombre',
+           pNuage:'#C9D3E2', pNuageF:'#9FAEC4', pNuageS:'#7C8CA5', pGoutte:'#7FB2E8',
+           pSoleil:'#F2C14E', pLune:'#D8DEEA', pFlocon:'#DCE7F5' },
   clair:{  fond:'#FFFFFF', nuagesFond:'#E8EDF4', grille:'#B4C0D0', contour:'#FFFFFF',
            texte:'#25324A', texteFaible:'#67758C', libelle:'#5A6A85', libelleFort:'#31405C',
-           nuage:'#7E8FA8', nuageChiffre:'#FFFFFF', nuageChiffreFaible:'#3E4C64',
+           nuage:'#46586F', nuageChiffre:'#FFFFFF', nuageChiffreFaible:'#1E2A3E',
            tige:'#3E4C64', point:'#31405C', pointActif:'#B5670F', bord:'#C6D0DD',
            pluie:'#5A46C8', pluieTexte:'#4B3AA8', chaud:'#A85C0A', alerte:'#B32E1B',
-           tempTexte:'#FFFFFF' }
+           tempTexte:'#FFFFFF', jour:'clair',
+           pNuage:'#5E7090', pNuageF:'#4A5C76', pNuageS:'#36455C',
+           pGoutte:'#12518F', pSoleil:'#C88A08', pLune:'#36455C', pFlocon:'#36455C' }
 };
 let PAL = PALETTES.sombre;
 let THEME_PREF = 'auto';
@@ -661,6 +687,15 @@ function majSelecteurModele(){
 
 function majNoteFiabilite(){
   const el=q('#fiabilite'); if(!el) return;
+  const r=q('#fiabresume');
+  if(r){
+    const n=modelesDisponibles().length;
+    r.textContent = MODELE_ACTIF
+      ? 'Modèle isolé : '+((DATA[MODELE_ACTIF]&&DATA[MODELE_ACTIF].nom)||MODELE_ACTIF)
+        +' — aucune mesure d\'incertitude'
+      : (n>1? 'Multimodèle : médiane pondérée de '+n+' modèles, familles plafonnées'
+            : 'Un seul modèle disponible : ce n\'est pas un consensus');
+  }
   const dispo=modelesDisponibles();
   let t = FIABILITE[MODELE_ACTIF] || 'Modèle sans note de fiabilité renseignée.';
   if(MODELE_ACTIF===''){
@@ -1503,9 +1538,21 @@ function heureAuKm(km){
 }
 
 /* couleur du ciel selon l'heure locale — lit le jour et la nuit d'un coup d'oeil */
+function luminance(hex){
+  const v=[1,3,5].map(k=>parseInt(hex.substr(k,2),16)/255)
+    .map(c=>c<=0.03928? c/12.92 : Math.pow((c+0.055)/1.055,2.4));
+  return 0.2126*v[0]+0.7152*v[1]+0.0722*v[2];
+}
+/* noir ou blanc selon le fond : sur la même ligne le ciel passe du bleu pâle
+   de midi à l'indigo de minuit, une couleur fixe serait illisible quelque part */
+function contraste(hex){ return luminance(hex)>0.42? '#0A1018' : '#FFFFFF'; }
+
 function couleurCiel(hLoc){
-  const s=[[0,'#0A1020'],[4.5,'#101B33'],[6.2,'#4A3B55'],[7.2,'#6E5A66'],[8.5,'#2F5F87'],
-           [13,'#3C7CA8'],[17,'#3A6E94'],[19.5,'#7A5147'],[20.8,'#3A2E43'],[21.8,'#111B31'],[24,'#0A1020']];
+  const s = (PAL.jour==='clair')
+    ? [[0,'#22314C'],[4.5,'#35496B'],[6.2,'#C89A80'],[7.2,'#E4C6B0'],[8.5,'#BCDBF0'],
+       [13,'#A9D4F3'],[17,'#B5D9F0'],[19.5,'#E1B18A'],[20.8,'#8D7A8C'],[21.8,'#3C4A67'],[24,'#22314C']]
+    : [[0,'#0A1020'],[4.5,'#101B33'],[6.2,'#4A3B55'],[7.2,'#6E5A66'],[8.5,'#2F5F87'],
+       [13,'#3C7CA8'],[17,'#3A6E94'],[19.5,'#7A5147'],[20.8,'#3A2E43'],[21.8,'#111B31'],[24,'#0A1020']];
   const x=Math.max(0,Math.min(23.999,hLoc));
   for(let i=0;i<s.length-1;i++) if(x>=s[i][0]&&x<=s[i+1][0]){
     const f=(x-s[i][0])/(s[i+1][0]-s[i][0]);
@@ -1520,41 +1567,41 @@ function couleurCiel(hLoc){
 function picto(code, cx, cy, r, nuit){
   if(code===null||code===undefined) return '';
   const g=[];
-  const soleil=(x,y,rr)=>{ let o='<circle cx="'+x+'" cy="'+y+'" r="'+rr+'" fill="#F2C14E"/>'; return o; };
+  const soleil=(x,y,rr)=>{ let o='<circle cx="'+x+'" cy="'+y+'" r="'+rr+'" fill="'+PAL.pSoleil+'"/>'; return o; };
   const astre=(x,y,rr)=>{
     if(nuit) return '<path d="M '+(x+rr*.45)+' '+(y-rr)+' a '+rr+' '+rr+' 0 1 0 '+(rr*.72)+' '+(rr*1.5)
-      +' a '+(rr*.8)+' '+(rr*.8)+' 0 1 1 '+(-rr*.72)+' '+(-rr*1.5)+' z" fill="#D8DEEA"/>';
-    let o='<circle cx="'+x+'" cy="'+y+'" r="'+(rr*.62)+'" fill="#F2C14E"/>';
+      +' a '+(rr*.8)+' '+(rr*.8)+' 0 1 1 '+(-rr*.72)+' '+(-rr*1.5)+' z" fill="'+PAL.pLune+'"/>';
+    let o='<circle cx="'+x+'" cy="'+y+'" r="'+(rr*.62)+'" fill="'+PAL.pSoleil+'"/>';
     for(let k=0;k<8;k++){ const a=k*Math.PI/4;
       o+='<line x1="'+(x+Math.cos(a)*rr*.85)+'" y1="'+(y+Math.sin(a)*rr*.85)
         +'" x2="'+(x+Math.cos(a)*rr*1.25)+'" y2="'+(y+Math.sin(a)*rr*1.25)
-        +'" stroke="#F2C14E" stroke-width="1.5" stroke-linecap="round"/>'; }
+        +'" stroke="'+PAL.pSoleil+'" stroke-width="1.5" stroke-linecap="round"/>'; }
     return o;
   };
   const nuage=(x,y,w,c)=>'<path d="M '+(x-w/2)+' '+y+' a '+(w*.22)+' '+(w*.22)+' 0 0 1 '+(w*.1)+' '+(-w*.26)
     +' a '+(w*.28)+' '+(w*.28)+' 0 0 1 '+(w*.52)+' '+(-w*.04)
-    +' a '+(w*.2)+' '+(w*.2)+' 0 0 1 '+(w*.38)+' '+(w*.3)+' z" fill="'+(c||'#C9D3E2')+'"/>';
+    +' a '+(w*.2)+' '+(w*.2)+' 0 0 1 '+(w*.38)+' '+(w*.3)+' z" fill="'+(c||PAL.pNuage)+'"/>';
   const gouttes=(x,y,n,c)=>{ let o=''; for(let k=0;k<n;k++){ const dx=(k-(n-1)/2)*r*.5;
     o+='<line x1="'+(x+dx)+'" y1="'+y+'" x2="'+(x+dx-r*.12)+'" y2="'+(y+r*.5)
-      +'" stroke="'+(c||'#7FB2E8')+'" stroke-width="1.7" stroke-linecap="round"/>'; } return o; };
+      +'" stroke="'+(c||PAL.pGoutte)+'" stroke-width="1.7" stroke-linecap="round"/>'; } return o; };
   const flocons=(x,y,n)=>{ let o=''; for(let k=0;k<n;k++){ const dx=(k-(n-1)/2)*r*.5;
-    o+='<text x="'+(x+dx)+'" y="'+(y+r*.45)+'" fill="#DCE7F5" font-size="'+(r*.62)+'" text-anchor="middle">✳</text>'; } return o; };
+    o+='<text x="'+(x+dx)+'" y="'+(y+r*.45)+'" fill="'+PAL.pFlocon+'" font-size="'+(r*.62)+'" text-anchor="middle">✳</text>'; } return o; };
   const eclair=(x,y)=>'<path d="M '+x+' '+y+' l '+(-r*.22)+' '+(r*.5)+' l '+(r*.2)+' 0 l '+(-r*.14)+' '+(r*.46)
-    +' l '+(r*.5)+' '+(-r*.66)+' l '+(-r*.24)+' 0 l '+(r*.2)+' '+(-r*.3)+' z" fill="#F2C14E"/>';
+    +' l '+(r*.5)+' '+(-r*.66)+' l '+(-r*.24)+' 0 l '+(r*.2)+' '+(-r*.3)+' z" fill="'+PAL.pSoleil+'"/>';
 
   if(code===0) g.push(astre(cx,cy,r*.8));
   else if(code<=2){ g.push(astre(cx-r*.42,cy-r*.28,r*.58)); g.push(nuage(cx+r*.2,cy+r*.5,r*1.5)); }
-  else if(code===3) g.push(nuage(cx,cy+r*.35,r*1.75,'#9FAEC4'));
-  else if(code<=48){ g.push(nuage(cx,cy,r*1.5,'#93A2B8'));
+  else if(code===3) g.push(nuage(cx,cy+r*.35,r*1.75,PAL.pNuageF));
+  else if(code<=48){ g.push(nuage(cx,cy,r*1.5,PAL.pNuageF));
     for(let k=0;k<3;k++) g.push('<line x1="'+(cx-r*.7)+'" y1="'+(cy+r*.3+k*r*.3)+'" x2="'+(cx+r*.7)
-      +'" y2="'+(cy+r*.3+k*r*.3)+'" stroke="#B9C6DA" stroke-width="1.4" stroke-linecap="round"/>'); }
-  else if(code<=57){ g.push(nuage(cx,cy-r*.1,r*1.6,'#A9B7CC')); g.push(gouttes(cx,cy+r*.45,2)); }
-  else if(code<=67){ g.push(nuage(cx,cy-r*.1,r*1.65,'#8FA0B8')); g.push(gouttes(cx,cy+r*.45,3)); }
-  else if(code<=77){ g.push(nuage(cx,cy-r*.1,r*1.65,'#A9B7CC')); g.push(flocons(cx,cy+r*.35,2)); }
-  else if(code<=82){ g.push(astre(cx-r*.5,cy-r*.35,r*.5)); g.push(nuage(cx+r*.18,cy+r*.15,r*1.5,'#8FA0B8'));
+      +'" y2="'+(cy+r*.3+k*r*.3)+'" stroke="'+PAL.pNuage+'" stroke-width="1.4" stroke-linecap="round"/>'); }
+  else if(code<=57){ g.push(nuage(cx,cy-r*.1,r*1.6,PAL.pNuage)); g.push(gouttes(cx,cy+r*.45,2)); }
+  else if(code<=67){ g.push(nuage(cx,cy-r*.1,r*1.65,PAL.pNuageF)); g.push(gouttes(cx,cy+r*.45,3)); }
+  else if(code<=77){ g.push(nuage(cx,cy-r*.1,r*1.65,PAL.pNuage)); g.push(flocons(cx,cy+r*.35,2)); }
+  else if(code<=82){ g.push(astre(cx-r*.5,cy-r*.35,r*.5)); g.push(nuage(cx+r*.18,cy+r*.15,r*1.5,PAL.pNuageF));
     g.push(gouttes(cx+r*.18,cy+r*.6,3)); }
-  else if(code<=86){ g.push(nuage(cx,cy-r*.1,r*1.65,'#A9B7CC')); g.push(flocons(cx,cy+r*.35,3)); }
-  else { g.push(nuage(cx,cy-r*.15,r*1.7,'#7C8CA5')); g.push(eclair(cx,cy+r*.15)); g.push(gouttes(cx-r*.6,cy+r*.5,1)); }
+  else if(code<=86){ g.push(nuage(cx,cy-r*.1,r*1.65,PAL.pNuage)); g.push(flocons(cx,cy+r*.35,3)); }
+  else { g.push(nuage(cx,cy-r*.15,r*1.7,PAL.pNuageS)); g.push(eclair(cx,cy+r*.15)); g.push(gouttes(cx-r*.6,cy+r*.5,1)); }
   return g.join('');
 }
 
@@ -1611,7 +1658,12 @@ function gouttiere(){
 function dessine(){
   gouttiere();
   const bornes=fenetre(), h0=bornes[0], h1=bornes[1], NH=Math.max(1,h1-h0);
-  const px = SEG? Math.max(46, Math.min(96, 900/NH)) : 40;
+  const large = (typeof window!=='undefined' && window.innerWidth)? window.innerWidth : 900;
+  const utile = Math.max(320, large - GUT - 44);
+  /* on essaie de faire tenir la fenêtre entière à l'écran ; en dessous d'un
+     seuil de lisibilité on laisse défiler */
+  const px = SEG? Math.max(46, Math.min(110, utile/NH))
+                : Math.max(large>=1100? 26 : 34, Math.min(52, utile/NH));
   const W=Math.max(880, NH*px+GUT+16);
   const x=hh=>GUT+8+(hh-h0)*(W-GUT-24)/NH;
   const t0=new Date(POIS[0].t[SCENARIO]).getTime();
@@ -1633,8 +1685,8 @@ function dessine(){
     const s=j(hh); if(!s) continue;
     const nuit = hLoc(hh)>=20.5||hLoc(hh)<6.3;
     S.push(picto(s.code, x(hh), 22, 11, nuit));
-    if(s.t&&s.t.m!==null) S.push('<text x="'+x(hh)+'" y="45" fill="'+PAL.tempTexte+'" font-size="12" '
-      +'font-weight="600" text-anchor="middle">'+s.t.m.toFixed(0)+'\u00b0</text>');
+    if(s.t&&s.t.m!==null) S.push('<text x="'+x(hh)+'" y="45" fill="'+contraste(couleurCiel(hLoc(hh)))
+      +'" font-size="12.5" font-weight="700" text-anchor="middle">'+s.t.m.toFixed(0)+'\u00b0</text>');
   }
 
   S.push('<rect x="'+GUT+'" y="'+yNu+'" width="'+(W-GUT)+'" height="'+L.nuages+'" fill="'+PAL.nuagesFond+'"/>');
@@ -1643,9 +1695,11 @@ function dessine(){
     for(let hh=h0;hh<h1;hh++){
       const s=j(hh); if(!s||!s[cle]||s[cle].m===null) continue;
       S.push('<rect x="'+x(hh)+'" y="'+yy+'" width="'+(x(hh+1)-x(hh))+'" height="'+(L.nuages/3-1)
-        +'" fill="'+PAL.nuage+'" opacity="'+(Math.min(1,s[cle].m/100)*.8).toFixed(2)+'"/>');
+        +'" fill="'+PAL.nuage+'" opacity="'+(Math.min(1,s[cle].m/100)*(PAL.jour==='clair'?.72:.8)).toFixed(2)+'"/>');
       if((hh-h0)%(pas*3)===0&&s[cle].m>=15) S.push('<text x="'+((x(hh)+x(hh+1))/2)+'" y="'+(yy+L.nuages/3-3.5)
-        +'" fill="'+(s[cle].m>55?PAL.nuageChiffre:PAL.nuageChiffreFaible)+'" font-size="7.5" text-anchor="middle">'
+        +'" fill="'+(PAL.jour==='clair'? (s[cle].m>45?PAL.nuageChiffre:PAL.nuageChiffreFaible)
+                     : (s[cle].m>55?PAL.nuageChiffre:PAL.nuageChiffreFaible))
+        +'" font-size="8" font-weight="600" text-anchor="middle">'
         +s[cle].m.toFixed(0)+'</text>');
     }
   });
