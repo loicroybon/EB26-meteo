@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v25 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v26 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -81,6 +81,18 @@ h2::after{content:"";flex:1;height:1px;background:var(--trace)}
 .scroller{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch}
 .scroller svg{display:block}
 /* --- résumé grand public --- */
+.rtete{display:flex;flex-direction:column;gap:2px;margin-bottom:9px}
+.rtete b{font-size:14px;font-weight:600}
+.rtete span{font-size:11.5px;color:var(--brume)}
+.rgrille{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:0;
+  border:1px solid var(--trace);border-radius:5px;overflow:hidden}
+.rcase{background:var(--roche);padding:8px 10px;border-right:1px solid var(--trace);
+  border-bottom:1px solid var(--trace)}
+.rcase s{display:block;text-decoration:none;font-family:var(--sans);font-size:9.5px;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--brume)}
+.rcase b{display:block;font-size:17px;font-weight:600;letter-spacing:-.03em;margin-top:2px}
+.rcase em{display:block;font-style:normal;font-family:var(--sans);font-size:10.5px;
+  color:var(--brume);margin-top:1px}
 .hero{border:1px solid var(--trace);border-radius:6px;background:var(--roche);
   padding:12px 13px 11px;margin-top:12px}
 .htete{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
@@ -178,7 +190,8 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
 .theme{display:inline-flex;border:1px solid var(--trace);border-radius:3px;overflow:hidden}
 .theme button{border:0;border-radius:0;padding:6px 9px;font-size:12px;background:var(--panneau)}
 .theme button+button{border-left:1px solid var(--trace)}
-.theme button[aria-pressed="true"]{background:var(--froid);color:#08111C}
+.theme button[aria-pressed="true"]{background:var(--panneau);color:var(--neige);
+  box-shadow:inset 0 -2px 0 var(--froid);font-weight:600}
 @media(prefers-reduced-motion:no-preference){.pulse{animation:p 1.4s ease-in-out infinite}}
 @keyframes p{0%,100%{opacity:.35}50%{opacity:1}}
 </style>
@@ -211,7 +224,7 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
   
 </div>
 
-<div class="fiche" id="segresume" style="display:none"></div>
+<div class="fiche" id="segresume"></div>
 
 <div class="hero" id="hero"></div>
 <div class="heures" id="heures"></div>
@@ -1813,7 +1826,7 @@ function dessine(){
   svg.setAttribute('width',W); svg.setAttribute('height',HAUT);
   svg.innerHTML=S.join('');
   svg.querySelectorAll('.tick').forEach(function(g){
-    const go=function(){SEL=+g.dataset.i; dessine(); fiche(); heroRender(); majChips();
+    const go=function(){SEL=+g.dataset.i; rendreTout(); majChips();
       q('#fiche').scrollIntoView({behavior:'smooth',block:'center'});};
     g.addEventListener('click',go);
     g.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}});
@@ -1838,7 +1851,7 @@ function segChips(){
     b.innerHTML=titre+'<small>'+sous+'</small>';
     b.onclick=function(){ SEG=n;
       const dedans=segPois(); if(dedans.length) SEL=dedans[0];
-      segChips(); chips(); dessine(); fiche(); tableauTous(); resumeSegment(); majSMS(); heroRender(); heuresRender();; heroRender(); heuresRender();; };
+      segChips(); chips(); rendreTout(); };
     c.appendChild(b);
   };
   faire(0,'Tout le parcours','149,5 km \u00b7 11 000 m D+');
@@ -1847,37 +1860,60 @@ function segChips(){
 }
 function resumeSegment(){
   const el=q('#segresume');
-  if(!SEG){ el.style.display='none'; return; }
   el.style.display='';
-  const s=SEGMENTS[SEG-1], idx=segPois();
+  const idx=segPois();
+  if(!idx.length){ el.style.display='none'; return; }
   const dep=POIS[idx[0]], arr=POIS[idx[idx.length-1]];
   const duree=(new Date(arr.t[SCENARIO])-new Date(dep.t[SCENARIO]))/6e4;
-  let h='<h3>Segment '+String(s.n).padStart(2,'0')+'</h3><div class="meta">'+s.de+' \u2192 '+s.vers+'<br>'
-   +s.dist.toFixed(1)+' km \u00b7 +'+s.dp+' m \u00b7 \u2212'+s.dm+' m \u00b7 '
-   +hhmm(dep.t[SCENARIO])+' \u2192 '+hhmm(arr.t[SCENARIO])+' \u00b7 '
-   +Math.floor(duree/60)+' h '+String(Math.round(duree%60)).padStart(2,'0')+'</div>';
-  const bornes=fenetre(); const T=[],P=[],R=[],N=[],C=[];
+  const s = SEG? SEGMENTS[SEG-1] : null;
+  const dist = s? s.dist : 149.5, dp = s? s.dp : 11000, dm = s? s.dm : 11000;
+  const titre = s? 'Segment '+String(s.n).padStart(2,'0')+' \u00b7 '+abrege(s.de)+' \u2192 '+abrege(s.vers)
+                 : 'Parcours complet \u00b7 Vizille \u2192 Aiguebelle';
+
+  let h='<div class="rtete"><b>'+titre+'</b><span>'+dist.toFixed(1)+' km \u00b7 +'+dp+' m \u00b7 \u2212'+dm
+   +' m \u00b7 '+hhmm(dep.t[SCENARIO])+' \u2192 '+hhmm(arr.t[SCENARIO])+' \u00b7 '
+   +Math.floor(duree/60)+' h '+String(Math.round(duree%60)).padStart(2,'0')+'</span></div>';
+
+  const bornes=fenetre(); const T=[],RES=[],P=[],PP=[],R=[],N=[],C=[],V=[],D=[];
   for(let hh=bornes[0];hh<=bornes[1];hh++){ const jj=sondeJalon(hh); if(!jj) continue;
     if(jj.t&&jj.t.m!==null) T.push(jj.t.m);
+    if(jj.res&&jj.res.m!==null) RES.push(jj.res.m);
     if(jj.pr&&jj.pr.m!==null) P.push(jj.pr.m);
+    if(jj.pp&&jj.pp.m!==null) PP.push(jj.pp.m);
     if(jj.raf&&jj.raf.m!==null) R.push(jj.raf.m);
     if(jj.nu&&jj.nu.m!==null) N.push(jj.nu.m);
+    if(jj.v&&jj.v.m!==null) V.push(jj.v.m);
+    if(jj.dir&&jj.dir.m!==null) D.push(jj.dir.m);
     if(jj.code!==null&&jj.code!==undefined) C.push(jj.code); }
-  if(!T.length){ h+='<div class="note" style="margin-top:10px">Pas encore de donn\u00e9es sur ce segment.</div>';
+  if(!T.length){ h+='<div class="hnote">Pas encore de donn\u00e9es sur cette partie.</div>';
     el.innerHTML=h; return; }
+
+  const mn=Math.min.apply(null,T), mx=Math.max.apply(null,T);
   const cum=P.reduce((a,b)=>a+b,0);
+  const hPluie=P.filter(v=>v>0.15).length;
+  const rafMax=R.length? Math.max.apply(null,R) : null;
   const pire=C.length? C.slice().sort((a,b)=>b-a)[0] : null;
-  h+='<div class="gros">'
-   +'<div><b style="color:'+couleurT(med(T))+'">'+Math.min.apply(null,T).toFixed(0)+' \u00e0 '
-     +Math.max.apply(null,T).toFixed(0)+'\u00b0</b><s>temp\u00e9rature</s></div>'
-   +'<div><b style="color:'+(cum>2?'var(--pluie)':'')+'">'+cum.toFixed(1)+'</b><s>pluie cumul\u00e9e mm</s></div>'
-   +'<div><b style="color:'+(Math.max.apply(null,R)>60?'var(--alerte)':Math.max.apply(null,R)>40?'var(--chaud)':'')
-     +'">'+Math.max.apply(null,R).toFixed(0)+'</b><s>rafale max km/h</s></div>'
-   +'<div><b>'+med(N).toFixed(0)+' %</b><s>nuages m\u00e9dians</s></div>'
-   +'</div>';
-  if(pire!==null) h+='<div class="note" style="margin-top:4px">Pire ciel attendu sur le segment : <b>'
-    +(WMO[pire]||'\u2014')+'</b>'+(cum>0.2? ' \u00b7 '+P.filter(v=>v>0.2).length+' h de pluie sur '+P.length:'')
-    +'</div>';
+  const altMax=Math.max.apply(null, idx.map(i=>POIS[i].alt));
+  const dirMoy=D.length? cap(med(D)) : '';
+  const resMin=RES.length? Math.min.apply(null,RES) : null;
+
+  const cases=[
+    ['temp\u00e9rature', Math.round(mn)+'\u00b0 \u00e0 '+Math.round(mx)+'\u00b0',
+      resMin!==null? 'ressenti min '+Math.round(resMin)+'\u00b0':'', couleurT((mn+mx)/2)],
+    ['pluie cumul\u00e9e', cum.toFixed(1)+' mm',
+      hPluie? hPluie+' h de pluie sur '+P.length : 'aucune pluie', cum>2?'var(--pluie)':''],
+    ['rafale max', rafMax!==null? Math.round(rafMax)+' km/h':'\u2014',
+      V.length? 'vent moyen '+Math.round(med(V))+' '+dirMoy:'',
+      rafMax>60?'var(--alerte)':rafMax>40?'var(--chaud)':''],
+    ['nuages', N.length? Math.round(med(N))+' %':'\u2014',
+      PP.length? 'risque pluie '+Math.round(med(PP))+' %':'', ''],
+    ['point haut', altMax+' m', '', ''],
+    ['pire ciel', pire!==null? (WMO[pire]||'\u2014'):'\u2014', '', pire>=95?'var(--alerte)':'']
+  ];
+  h+='<div class="rgrille">';
+  cases.forEach(c=>{ h+='<div class="rcase"><s>'+c[0]+'</s><b'
+    +(c[3]?' style="color:'+c[3]+'"':'')+'>'+c[1]+'</b>'+(c[2]?'<em>'+c[2]+'</em>':'')+'</div>'; });
+  h+='</div>';
   el.innerHTML=h;
 }
 
@@ -1889,7 +1925,7 @@ function chips(){
     const b=document.createElement('button');
     b.className='chip'; b.dataset.i=i; b.setAttribute('aria-pressed',(i===SEL)+'');
     b.textContent=p.nom+' \u00b7 '+p.alt+' m';
-    b.onclick=function(){SEL=i; majChips(); fiche(); heroRender(); dessine();};
+    b.onclick=function(){SEL=i; majChips(); rendreTout();};
     c.appendChild(b);
   });
 }
@@ -2338,10 +2374,21 @@ function alertesSimples(s, p){
   return A;
 }
 
+/* chaque bloc se rend isolément : si l'un échoue, les autres s'affichent quand même */
+function rendreTout(){
+  const etapes=[['selecteur',majSelecteurModele],['etat',majEtat],['meteogramme',dessine],
+    ['resume',resumeSegment],['hero',heroRender],['heures',heuresRender],
+    ['fiche',fiche],['sms',majSMS],['tableau',tableauTous]];
+  const casses=[];
+  etapes.forEach(function(e){ try{ e[1](); }catch(err){ casses.push(e[0]+' : '+err.message); } });
+  if(casses.length) console.warn('rendu partiel \u2014 '+casses.join(' | '));
+}
+
 function heroRender(){
   const el=q('#hero'); if(!el) return;
   const p=POIS[SEL], s=Object.keys(DATA).length? sonde(SEL):null;
-  if(!s){ el.innerHTML='<div class="hnote">En attente des mod\u00e8les\u2026</div>'; return; }
+  if(!s){ el.innerHTML=''; el.style.display='none'; return; }
+  el.style.display='';
   const nuit = (()=>{ const hh=new Date(p.t[SCENARIO]).getHours(); return hh>=21||hh<6; })();
   const svg='<svg viewBox="0 0 64 64" width="62" height="62" aria-hidden="true">'
     +picto(s.code, 32, 30, 19, nuit)+'</svg>';
@@ -2396,6 +2443,7 @@ function heuresRender(){
       +'<i class="rf'+(raf>60?' fort':raf>40?' moyen':'')+'">'+(raf!==null? raf:'')+'</i>'
       +'<u>'+Math.round(j.alt)+'</u></div>';
   }
+  el.style.display = h? '' : 'none';
   el.innerHTML=h;
 }
 
@@ -2640,7 +2688,7 @@ async function convergence(){
   });
   q('#modele').onchange=()=>{
     MODELE_ACTIF=q('#modele').value;
-    majNoteFiabilite(); dessine(); fiche(); tableauTous(); resumeSegment(); majSMS(); heroRender(); heuresRender();; heroRender(); heuresRender();;
+    majNoteFiabilite(); rendreTout();
   };
   segChips(); chips();
   q('#smscopie').onclick=copierSMS;
@@ -2663,7 +2711,7 @@ async function convergence(){
       }
     }
     majSelecteurModele();
-    dessine(); fiche(); tableauTous(); resumeSegment(); majSMS(); heroRender(); heuresRender();; heroRender(); heuresRender();; convergence(); majEtat();
+    rendreTout(); convergence();
 
     /* 2. le rafraîchissement ne part qu'une fois l'écran rempli, et il complète
        l'affichage au lieu de le remplacer */
