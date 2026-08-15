@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v11 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v12 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -114,7 +114,7 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
 <header>
   <div class="eyebrow">Sonde multi-modèles · dossard 348</div>
   <h1>Échappée Belle Intégrale <span>2026</span></h1>
-  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 11 · meteoblue calibré</b></div>
+  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 12 · Windy</b></div>
   <div class="ctl">
     <label for="scen">Scénario</label>
     <select id="scen"></select>
@@ -139,6 +139,7 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
   <div class="smspied" style="border-top:1px solid var(--trace);padding-top:10px;margin-top:12px">
     <span>Toutes les valeurs, tous les modèles, plus l'historique des relevés</span>
     <button id="ensbtn">Ajouter les probabilités</button>
+    <button id="wybtn">Ajouter Windy</button>
     <button id="exportmd">Fichier Markdown pour analyse</button>
   </div>
 </div>
@@ -426,6 +427,25 @@ async function interroger(){
         +' : son horizon gratuit s\'arrête 7 jours après minuit. Couverture complète \u00e0 partir du 17 ao\u00fbt.');
   }catch(e){ ECHECS.push(MB_NOM+' — '+e.message); }
 
+  if(AVEC_WINDY){
+    const jours2=(new Date(POIS[0].t[SCENARIO]) - Date.now())/864e5;
+    for(const [mid,mnom,portee] of WY_MODELES){
+      if(portee < jours2){ REPORTES.push([mnom, portee]); continue; }
+      try{
+        log('Windy : '+mnom+'…');
+        const s=await windySerie(POIS, p=>p.t[SCENARIO], mid,
+          (f,n)=>log('Windy '+mnom+' : '+f+' / '+n));
+        const couvre=s.filter(e=>e&&e.t!==null).length;
+        if(couvre>0){
+          const enr=s.map((e,i)=>e? enrichir(e, POIS[i].alt, null) : null);
+          nD['windy_'+mid]={nom:mnom, pts:{[SCENARIO]:enr}};
+        }
+        dispo.push([mnom, couvre, POIS.length]);
+      }catch(e){ ECHECS.push(mnom+' — '+e.message); }
+    }
+    log('Windy : '+WY_APPELS+' requêtes consommées sur ce relevé.');
+  }
+
   if(AVEC_ENS){
     try{
       log('Interrogation des ensembles (probabilités)…');
@@ -646,12 +666,142 @@ async function meteoblueSerie(points, cible, avance){
   return out;
 }
 
+/* ================= WINDY POINT FORECAST ================= */
+/* Les modèles de Windy sont ceux qu'on interroge déjà via Open-Meteo. L'apport
+   n'est donc pas un modèle de plus, mais :
+   - AROME par un second chemin, avec une interpolation différente ;
+   - deux variables qu'Open-Meteo n'expose pas : précipitations convectives
+     (le signal orageux propre) et base des nuages (serai-je dans la purée ?).
+   Le regroupement par famille évite qu'AROME compte deux fois. */
+const WY_CLE = 'LMtKS6ka4dr1ta1qijmvXBFLUorC6aar';
+const WY_URL = 'https://api.windy.com/api/point-forecast/v2';
+const WY_MODELES = [
+  ['arome',   'Windy AROME 1,3 km', 2.1, 'MF'],
+  ['iconD2',  'Windy ICON-D2',      2.0, 'DWD'],
+  ['iconEu',  'Windy ICON-EU',      5.0, 'DWD'],
+  ['gfs',     'Windy GFS',         10.0, 'NOAA']
+];
+const WY_PARAMS = ['temp','dewpoint','rh','precip','convPrecip','snowPrecip',
+                   'wind','windGust','cape','ptype','lclouds','mclouds','hclouds',
+                   'pressure','cbase','gh'];
+const WY_NIVEAUX = ['surface','850h','800h','700h'];
+let WY_APPELS = 0;
+
+function wyVal(o, cle, i){
+  const a=o[cle];
+  return (a&&a[i]!==null&&a[i]!==undefined)? a[i] : null;
+}
+function wyVent(o, niv, i){
+  const u=wyVal(o,'wind_u-'+niv,i), v=wyVal(o,'wind_v-'+niv,i);
+  if(u===null||v===null) return {v:null, dir:null};
+  const un=((o.units||{})['wind_u-'+niv]||'m*s-1').toLowerCase();
+  const k=(un.indexOf('km')===0)? 1 : 3.6;
+  return { v: Math.round(Math.sqrt(u*u+v*v)*k),
+           dir: Math.round((270-Math.atan2(v,u)*180/Math.PI+360)%360) };
+}
+
+async function windyPoint(p, iso, modele){
+  const corps={ lat:+p.lat.toFixed(2), lon:+p.lon.toFixed(2), model:modele,
+                parameters:WY_PARAMS, levels:WY_NIVEAUX, key:WY_CLE };
+  let o=null;
+  try{
+    WY_APPELS++;
+    const r=await fetch(WY_URL,{method:'POST',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify(corps)});
+    if(r.status===204) return null;          /* modèle sans les paramètres demandés */
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    o=await r.json();
+  }catch(e){ return null; }
+  if(!o||!o.ts||!o.ts.length) return null;
+
+  const vise=new Date(iso).getTime();
+  let bi=-1, dt=1e15;
+  for(let i=0;i<o.ts.length;i++){ const d=Math.abs(o.ts[i]-vise); if(d<dt){dt=d;bi=i;} }
+  if(bi<0||dt>1.6*3.6e6) return null;
+
+  /* on lit les unités renvoyées plutôt que de les supposer */
+  const U=o.units||{};
+  const K=(x,cle)=>{ if(x===null) return null;
+    const u=(U[cle]||'K').toLowerCase();
+    return Math.round((u.indexOf('k')===0? x-273.15 : x)*10)/10; };
+  const enMM=(x,cle)=>{ if(x===null) return null;
+    const u=(U[cle]||'mm').toLowerCase();
+    return u==='m'? x*1000 : x; };
+  const enKMH=(x,cle)=>{ if(x===null) return null;
+    const u=(U[cle]||'m*s-1').toLowerCase();
+    return (u.indexOf('km')===0)? x : x*3.6; };
+  /* la précipitation est cumulée sur le pas du modèle : on cherche la clé réelle */
+  const clePluie=Object.keys(o).filter(k=>/precip/i.test(k)&&!/conv|snow/i.test(k))[0];
+  const pasH=(o.ts.length>1)? Math.max(1,Math.round((o.ts[1]-o.ts[0])/3.6e6)) : 1;
+  const brut=clePluie? enMM(wyVal(o,clePluie,bi), clePluie) : null;
+  const pr=brut===null? null : Math.round(brut/pasH*100)/100;
+  const conv=Object.keys(o).filter(k=>/convPrecip/i.test(k))[0];
+  const prConv=conv? (wyVal(o,conv,bi)===null?null
+    : Math.round(enMM(wyVal(o,conv,bi),conv)/pasH*100)/100) : null;
+  const neigeK=Object.keys(o).filter(k=>/snowPrecip/i.test(k))[0];
+
+  const vs=wyVent(o,'surface',bi);
+  const nub=wyVal(o,'lclouds-surface',bi), num=wyVal(o,'mclouds-surface',bi),
+        nuh=wyVal(o,'hclouds-surface',bi);
+  const nu=(nub===null&&num===null&&nuh===null)? null
+    : Math.round(100*(1-(1-(nub||0)/100)*(1-(num||0)/100)*(1-(nuh||0)/100)));
+  const cape=wyVal(o,'cape-surface',bi);
+  const t=K(wyVal(o,'temp-surface',bi),'temp-surface');
+
+  const e={
+    t: t, res: null, ros: K(wyVal(o,'dewpoint-surface',bi),'dewpoint-surface'),
+    hum: wyVal(o,'rh-surface',bi)===null?null:Math.round(wyVal(o,'rh-surface',bi)),
+    pr: pr, pr_conv: prConv, pp: null,
+    neige: neigeK? (wyVal(o,neigeK,bi)===null?null:Math.round(wyVal(o,neigeK,bi)*10)/10) : null,
+    nu: nu, nub: nub===null?null:Math.round(nub), num: num===null?null:Math.round(num),
+    nuh: nuh===null?null:Math.round(nuh),
+    sol: null, uv: null, vis: null,
+    cbase: wyVal(o,'cbase-surface',bi)===null?null:Math.round(wyVal(o,'cbase-surface',bi)),
+    v: vs.v, dir: vs.dir,
+    raf: wyVal(o,'gust-surface',bi)===null?null:Math.round(enKMH(wyVal(o,'gust-surface',bi),'gust-surface')),
+    cape: cape===null?null:Math.max(0,Math.round(cape)), li: null, iso0: null,
+    pres: wyVal(o,'pressure-surface',bi)===null?null:Math.round(((o.units||{})['pressure-surface']||'pa').toLowerCase()==='pa'? wyVal(o,'pressure-surface',bi)/100 : wyVal(o,'pressure-surface',bi)),
+    t850:K(wyVal(o,'temp-850h',bi),'temp-850h'), t800:K(wyVal(o,'temp-800h',bi),'temp-800h'), t700:K(wyVal(o,'temp-700h',bi),'temp-700h'),
+    z850:wyVal(o,'gh-850h',bi), z800:wyVal(o,'gh-800h',bi), z700:wyVal(o,'gh-700h',bi),
+    v850:wyVent(o,'850h',bi).v, v800:wyVent(o,'800h',bi).v, v700:wyVent(o,'700h',bi).v,
+    alt_demandee: p.alt, source_wy: true
+  };
+  /* Windy ne fournit pas le ressenti : on l'approche par le refroidissement éolien */
+  if(e.t!==null&&e.v!==null){
+    e.res = (e.t<=10&&e.v>=5)
+      ? Math.round((13.12+0.6215*e.t-11.37*Math.pow(e.v,0.16)+0.3965*e.t*Math.pow(e.v,0.16))*10)/10
+      : e.t;
+  }
+  e.code = mbCode(e.pr||0, e.nu===null?0:e.nu, e.neige||0, (e.cape||0)>900&&(e.pr_conv||0)>0.3);
+  return e;
+}
+
+async function windySerie(points, cible, modele, avance){
+  const out=new Array(points.length).fill(null);
+  const FILE=3;
+  let i=0, faits=0;
+  async function ouvrier(){
+    while(i<points.length){
+      const k=i++;
+      out[k]=await windyPoint(points[k], cible(points[k]), modele);
+      faits++;
+      if(avance&&faits%10===0) avance(faits, points.length);
+    }
+  }
+  await Promise.all(Array.from({length:FILE}, ouvrier));
+  return out;
+}
+
 /* ================= PONDÉRATION DES MODÈLES ================= */
 /* Deux corrections au simple médian :
    1. tous les modèles ne se valent pas sur les Alpes ;
    2. IFS, AIFS et MET Norway partagent l'analyse d'ECMWF — les compter
       séparément revient à faire voter trois fois la même famille. */
 const POIDS = {
+  windy_arome:                    [1.10,'MF',   'AROME par Windy, avec pluie convective'],
+  windy_iconD2:                   [1.05,'DWD',  'ICON-D2 par Windy'],
+  windy_iconEu:                   [0.85,'DWD',  'ICON-EU par Windy'],
+  windy_gfs:                      [0.55,'NOAA', 'GFS par Windy'],
   meteoblue:                      [0.95,'MB',   'MOS calé sur le relief, mais source unique et sans ensemble'],
   meteofrance_arome_france_hd:    [1.15,'MF',   'maille 1,3 km sur le relief'],
   meteofrance_arome_france:       [1.00,'MF',   'maille 2,5 km'],
@@ -768,6 +918,7 @@ function ventCrete(e, alt){
 /* ================= ENSEMBLES ================= */
 let ENS = {};   // par nom de point : probabilités issues des ensembles
 let AVEC_ENS = false;
+let AVEC_WINDY = false;
 
 async function ensembles(points, cible){
   const modeles=[['ecmwf_ifs025','ECMWF ENS'],['gfs025','GEFS'],
@@ -1758,7 +1909,9 @@ function fiche(){
    +V(s.res,1)+'</td><td>'+V(s.hum,0)+'</td><td>'+V(s.nu,0)+'</td><td>'+V(s.pr,1)+'</td><td>'
    +V(s.v,0)+'</td><td>'+V(s.vcrete,0)+'</td><td>'+V(s.raf,0)+'</td><td>'+cap(s.dir?s.dir.m:null)+'</td></tr>';
   s.lignes.slice().sort((a,b)=>b.poids-a.poids).forEach(l=>{
-    const rel = (l.ecart_relief===null||l.ecart_relief===undefined)? 'maille non sond\u00e9e'
+    const rel = l.source_wy? 'via Windy \u00b7 points seulement, absent du m\u00e9t\u00e9ogramme'
+      : l.source_mb? 'correction statistique sur le relief \u00b7 pas de niveaux de pression'
+      : (l.ecart_relief===null||l.ecart_relief===undefined)? 'maille non sond\u00e9e'
       : 'relief mod\u00e8le '+Math.round(l.alt_modele)+' m ('+(l.ecart_relief>0?'+':'')+l.ecart_relief+' m)';
     h+='<tr'+(l.divergent?' style="opacity:.62"':'')+'><td>'+l.nom
      +(l.divergent?' <span style="color:var(--chaud)">\u26a0 diverge</span>':'')
@@ -1901,6 +2054,9 @@ async function convergence(){
   q('#smscopie').onclick=copierSMS;
   q('#exportmd').onclick=exportMD;
   q('#ensbtn').onclick=()=>{ AVEC_ENS=true; log('Ensembles activés pour cette actualisation.');
+    interroger(); };
+  q('#wybtn').onclick=()=>{ AVEC_WINDY=true;
+    log('Windy activé : environ 52 requêtes par modèle, sur les points seulement.');
     interroger(); };
   q('#smscourt').onclick=()=>{ q('#smscourt').setAttribute('aria-pressed','true');
     q('#smscomplet').setAttribute('aria-pressed','false'); majSMS(); };
