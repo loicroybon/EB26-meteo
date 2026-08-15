@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v19 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v21 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -12,6 +12,17 @@
   --mono:ui-monospace,"SF Mono","JetBrains Mono","Roboto Mono",Menlo,Consolas,monospace;
   --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
 }
+html[data-theme="clair"]{
+  --nuit:#EEF1F5; --roche:#FFFFFF; --panneau:#E3E9F1; --trace:#C6D0DD;
+  --neige:#16202F; --brume:#5A6A85;
+  --froid:#1B7FA8; --chaud:#B5670F; --pluie:#5A46C8; --alerte:#C33A24; --accord:#1A8A5E;
+}
+html[data-theme="clair"] .cel b, html[data-theme="clair"] .gros b{color:var(--neige)}
+html[data-theme="clair"] tr.consensus td{background:#DCE6F4}
+html[data-theme="clair"] #smstexte{background:#F6F8FB}
+html[data-theme="clair"] .segchip[aria-pressed="true"]{background:#F3E4CD}
+html{color-scheme:dark}
+html[data-theme="clair"]{color-scheme:light}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--nuit);color:var(--neige);font-family:var(--mono)}
 body{padding:0 0 4rem;font-size:14px;line-height:1.45}
@@ -104,6 +115,10 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
 .etat.vieux .pastille{background:var(--chaud)} .etat.charge .pastille{background:var(--froid)}
 .etat.horsligne .pastille{background:var(--alerte)}
 .etat button{padding:4px 9px;font-size:11px;margin-left:auto}
+.theme{display:inline-flex;border:1px solid var(--trace);border-radius:3px;overflow:hidden}
+.theme button{border:0;border-radius:0;padding:6px 9px;font-size:12px;background:var(--panneau)}
+.theme button+button{border-left:1px solid var(--trace)}
+.theme button[aria-pressed="true"]{background:var(--froid);color:#08111C}
 @media(prefers-reduced-motion:no-preference){.pulse{animation:p 1.4s ease-in-out infinite}}
 @keyframes p{0%,100%{opacity:.35}50%{opacity:1}}
 </style>
@@ -114,12 +129,17 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
 <header>
   <div class="eyebrow">Sonde multi-modèles · dossard 348</div>
   <h1>Échappée Belle Intégrale <span>2026</span></h1>
-  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 19 · mono-modèle honnête</b></div>
+  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 21 · thème clair, sombre, système</b></div>
   <div class="ctl">
     <label for="scen">Scénario</label>
     <select id="scen"></select>
     <label for="modele" style="margin-left:auto">Modèle</label>
     <select id="modele"><option value="">Multimodèle</option></select>
+    <span class="theme" role="group" aria-label="Apparence">
+      <button id="th-clair" title="Clair">☀</button>
+      <button id="th-sombre" title="Sombre">☾</button>
+      <button id="th-auto" title="Suivre le système">auto</button>
+    </span>
     <button id="go">Actualiser maintenant</button>
     <button id="raz" title="Efface l'historique de convergence">Vider l'historique</button>
   </div>
@@ -253,6 +273,57 @@ function couleurT(t){
 function estNuit(iso){ const h=new Date(iso).getHours(); return h>=21||h<6; }
 function hhmm(iso){ const d=new Date(iso); const j=['dim','lun','mar','mer','jeu','ven','sam'][d.getDay()];
   return j+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+
+/* ================= APPARENCE ================= */
+/* Le météogramme est dessiné en SVG : ses couleurs ne peuvent pas venir du CSS,
+   il lui faut sa propre palette, mise à jour en même temps que le thème. */
+const PALETTES = {
+  sombre:{ fond:'#131C2C', nuagesFond:'#0C1424', grille:'#3A4A66', contour:'#0A101C',
+           texte:'#C6D2E4', texteFaible:'#6A7A93', libelle:'#7A8AA5', libelleFort:'#9FB2CC',
+           nuage:'#DCE6F4', nuageChiffre:'#28334C', nuageChiffreFaible:'#8FA0B8',
+           tige:'#E9EEF6', point:'#DCE6F4', pointActif:'#FFD98A', bord:'#26344E',
+           pluie:'#8E7CF0', pluieTexte:'#A99BF5', chaud:'#F0A24B', alerte:'#F0553D',
+           tempTexte:'#F2F6FC' },
+  clair:{  fond:'#FFFFFF', nuagesFond:'#E8EDF4', grille:'#B4C0D0', contour:'#FFFFFF',
+           texte:'#25324A', texteFaible:'#67758C', libelle:'#5A6A85', libelleFort:'#31405C',
+           nuage:'#7E8FA8', nuageChiffre:'#FFFFFF', nuageChiffreFaible:'#3E4C64',
+           tige:'#3E4C64', point:'#31405C', pointActif:'#B5670F', bord:'#C6D0DD',
+           pluie:'#5A46C8', pluieTexte:'#4B3AA8', chaud:'#A85C0A', alerte:'#B32E1B',
+           tempTexte:'#FFFFFF' }
+};
+let PAL = PALETTES.sombre;
+let THEME_PREF = 'auto';
+
+function themeSysteme(){
+  try{
+    return (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches)
+      ? 'clair' : 'sombre';
+  }catch(e){ return 'sombre'; }
+}
+function appliquerTheme(pref, redessiner){
+  THEME_PREF = pref || 'auto';
+  const effectif = (THEME_PREF==='auto')? themeSysteme() : THEME_PREF;
+  if(document.documentElement) document.documentElement.setAttribute('data-theme', effectif);
+  PAL = PALETTES[effectif] || PALETTES.sombre;
+  ['clair','sombre','auto'].forEach(k=>{
+    const b=q('#th-'+k); if(b) b.setAttribute('aria-pressed', (k===THEME_PREF)+'');
+  });
+  try{ localStorage.setItem('theme', THEME_PREF); }catch(e){}
+  if(redessiner){ try{ dessine(); fiche(); tableauTous(); resumeSegment(); }catch(e){} }
+}
+function initTheme(){
+  try{
+  let pref='auto';
+  try{ pref = localStorage.getItem('theme') || 'auto'; }catch(e){}
+  appliquerTheme(pref, false);
+  if(window.matchMedia){
+    const mq=window.matchMedia('(prefers-color-scheme: light)');
+    const suivre=()=>{ if(THEME_PREF==='auto') appliquerTheme('auto', true); };
+    if(mq.addEventListener) mq.addEventListener('change', suivre);
+    else if(mq.addListener) mq.addListener(suivre);
+  }
+  }catch(e){ PAL=PALETTES.sombre; }
+}
 
 /* ================= COUCHE DE RÉCUPÉRATION RAPIDE ================= */
 /* Cinq leviers, du plus rentable au moins :
@@ -462,6 +533,51 @@ function extraitPoi(d, i){
   return enrichir(extraitSuffixe(d.reps[i], POIS[i].t[SCENARIO], d.suffixe||''), POIS[i].alt, null);
 }
 
+/* ================= SONDE D'IDENTIFIANTS ================= */
+/* Un modèle hors de portée n'est jamais interrogé, donc on ne sait pas si son
+   identifiant existe ni si son domaine couvre Belledonne. Une requête légère
+   sur le point culminant du parcours répond aux deux questions à la fois :
+   si une température revient à ces coordonnées, le domaine les contient. */
+const PT_SONDE = {lat:45.16800, lon:5.98800, nom:'Croix de Belledonne'};
+let SONDE_IDS = {};          // id -> {ok, alt}
+
+async function sonderIdentifiants(ids){
+  if(!ids.length) return;
+  /* résultat valable une journée : l'orographie d'un modèle ne bouge pas */
+  const cle='sonde_ids:'+new Date().toISOString().slice(0,10);
+  try{
+    const r=await MEM.get(cle);
+    const c=JSON.parse(r.value);
+    if(c && ids.every(id=>id in c)){ SONDE_IDS=Object.assign(SONDE_IDS,c); return; }
+    Object.assign(SONDE_IDS, c||{});
+  }catch(e){}
+
+  const manquants=ids.filter(id=>!(id in SONDE_IDS));
+  if(!manquants.length) return;
+  const qp=new URLSearchParams();
+  qp.set('latitude', PT_SONDE.lat); qp.set('longitude', PT_SONDE.lon);
+  qp.set('hourly','temperature_2m'); qp.set('models', manquants.join(','));
+  qp.set('forecast_days','1'); qp.set('timezone','Europe/Paris');
+  const r=await appel(ORD_OM, 'https://api.open-meteo.com/v1/forecast?'+qp.toString());
+  if(!r||!r.ok){ return; }
+  let o=null; try{ o=await r.json(); }catch(e){ return; }
+  if(Array.isArray(o)) o=o[0];
+  const hy=(o&&o.hourly)||{};
+  manquants.forEach(id=>{
+    const a = hy['temperature_2m_'+id] || (manquants.length===1? hy['temperature_2m'] : null);
+    const ok = !!(a && a.some(v=>v!==null&&v!==undefined));
+    SONDE_IDS[id]={ok, alt:(o&&o.elevation!==undefined)? Math.round(o.elevation):null};
+  });
+  try{ await MEM.set(cle, JSON.stringify(SONDE_IDS)); }catch(e){}
+}
+
+function mentionSonde(id){
+  const s=SONDE_IDS[id];
+  if(!s) return '';
+  return s.ok? ' · identifiant vérifié, domaine couvre Belledonne'
+             : ' · identifiant refusé ou domaine hors zone';
+}
+
 /* ================= SÉLECTEUR DE MODÈLE ================= */
 /* Par défaut le consensus pondéré. On peut isoler un modèle : tout le contenu
    de la page suit — météogramme, fiches, tableau, SMS, export. */
@@ -486,9 +602,12 @@ const FIABILITE = {
   dwd_icon_eu: "Maille 7 km, portée 5 jours. Compromis raisonnable entre finesse et échéance.",
   dwd_icon_global: "Maille 11 km globale. Sur ce parcours il a montré un biais chaud marqué "
      +"en altitude par rapport aux autres.",
-  meteoswiss_icon_ch1: "Maille 1 km sur l'arc alpin. Domaine centré sur la Suisse : la "
-     +"couverture de Belledonne n'est pas garantie. Portée très courte.",
-  meteoswiss_icon_ch2: "Maille 2 km sur l'arc alpin, portée 5 jours. Même réserve de domaine.",
+  meteoswiss_icon_ch1: "MeteoSwiss, maille 1 km sur l'arc alpin — la plus fine du lot avec "
+     +"AROME HD, et calibrée pour le relief alpin. Portée très courte, environ 33 heures : "
+     +"disponible seulement la veille. La couverture de Belledonne est vérifiée par une sonde "
+     +"sur la Croix de Belledonne, dont le résultat est affiché dans la liste des modèles.",
+  meteoswiss_icon_ch2: "MeteoSwiss, maille 2 km sur l'arc alpin, portée 5 jours. Domaine plus "
+     +"large que CH1. Ensemble de 21 membres également interrogé dès qu'il entre dans la portée.",
   italia_meteo_arpae_icon_2i: "Maille 2,2 km, centré sur le versant italien. Bord de domaine ici.",
   knmi_harmonie_arome_europe: "Maille 5,5 km, domaine centré sur le nord-ouest de l'Europe : "
      +"les Alpes sont en périphérie.",
@@ -661,6 +780,12 @@ async function interroger(){
     }));
   })();
 
+  /* ---- sonde des identifiants hors de portée, notamment les suisses ---- */
+  const tacheSONDE = (async()=>{
+    const dehors = MODELES.filter(m=>m[0]!==MB_ID && m[2] < jours).map(m=>m[0]);
+    try{ await sonderIdentifiants(dehors); }catch(e){}
+  })();
+
   /* ---- ensembles ---- */
   const tacheENS = (async()=>{
     try{
@@ -670,7 +795,7 @@ async function interroger(){
     }catch(e){}
   })();
 
-  await Promise.all([tacheOM, tacheMB, tacheWY, tacheENS]);
+  await Promise.all([tacheOM, tacheMB, tacheWY, tacheENS, tacheSONDE]);
 
   /* un modèle sorti de portée ne doit pas survivre indéfiniment dans l'affichage */
   REPORTES.forEach(r=>{ const id=r[2]; if(id&&!rafraichis[id]){ delete nD[id]; delete nJ[id]; } });
@@ -707,11 +832,13 @@ function afficheDispo(d){
     li.innerHTML='<span>'+nom+'</span><span class="'+(c?'ok':'ko')+'">'+txt+'</span>';
     ul.appendChild(li);
   });
-  REPORTES.forEach(([nom,portee])=>{
+  REPORTES.forEach(([nom,portee,id])=>{
     const arr=new Date(dep.getTime()-portee*864e5);
+    const s=id? SONDE_IDS[id] : null;
     const li=document.createElement('li');
-    li.innerHTML='<span>'+nom+'</span><span class="ko">à partir du '
-      +arr.toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+'</span>';
+    const verdict = s? (s.ok? ' \u00b7 identifiant v\u00e9rifi\u00e9' : ' \u00b7 identifiant refus\u00e9') : '';
+    li.innerHTML='<span>'+nom+'</span><span class="'+(s&&s.ok?'ok':'ko')+'">à partir du '
+      +arr.toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+verdict+'</span>';
     ul.appendChild(li);
   });
   ECHECS.forEach(e=>{ const li=document.createElement('li');
@@ -1173,7 +1300,12 @@ let ENS = {};   // par nom de point : probabilités issues des ensembles
 
 
 async function ensembles(points, cible){
-  const modeles=[['ecmwf_ifs025','ECMWF ENS'],['gfs025','GEFS']];
+  const jours=(new Date(POIS[0].t[SCENARIO]) - Date.now())/864e5;
+  const modeles=[['ecmwf_ifs025','ECMWF ENS',15],['gfs025','GEFS',16],
+                 ['icon_eu','ICON-EU EPS',5],['meteoswiss_icon_ch2','ICON-CH2 EPS',5],
+                 ['meteoswiss_icon_ch1','ICON-CH1 EPS',1.4],
+                 ['meteofrance_arpege_europe','ARPEGE EPS',4]]
+                .filter(m=>m[2]>=jours);
   const acc={};
   await Promise.all(modeles.map(async function(m){
     for(let d=0;d<points.length;d+=26){
@@ -1464,15 +1596,15 @@ function gouttiere(){
   const g=q('#gouttiere');
   g.setAttribute('viewBox','0 0 '+GUT+' '+HAUT);
   g.setAttribute('width',GUT); g.setAttribute('height',HAUT);
-  const T=['<rect x="0" y="0" width="'+GUT+'" height="'+HAUT+'" fill="#131C2C"/>'];
-  const lib=(y,t,c)=>T.push('<text x="'+(GUT-9)+'" y="'+y+'" fill="'+(c||'#7A8AA5')
+  const T=['<rect x="0" y="0" width="'+GUT+'" height="'+HAUT+'" fill="'+PAL.fond+'"/>'];
+  const lib=(y,t,c)=>T.push('<text x="'+(GUT-9)+'" y="'+y+'" fill="'+(c||PAL.libelle)
     +'" font-size="8.5" text-anchor="end" font-family="sans-serif">'+t+'</text>');
-  lib(L.ciel/2+4,'ciel','#9FB2CC');
+  lib(L.ciel/2+4,'ciel',PAL.libelleFort);
   ['hautes','moyennes','basses'].forEach((n,e)=>lib(yNu+e*(L.nuages/3)+9.5, n));
   [1000,2000,3000].forEach(a=>lib(yAlt(a)+3, a));
-  lib(yPl+12,'mm/h','#9FB2CC');
-  lib(yVe+18,'vent','#9FB2CC'); lib(yVe+38,'rafales');
-  T.push('<line x1="'+(GUT-.5)+'" y1="0" x2="'+(GUT-.5)+'" y2="'+HAUT+'" stroke="#26344E"/>');
+  lib(yPl+12,'mm/h',PAL.libelleFort);
+  lib(yVe+18,'vent',PAL.libelleFort); lib(yVe+38,'rafales');
+  T.push('<line x1="'+(GUT-.5)+'" y1="0" x2="'+(GUT-.5)+'" y2="'+HAUT+'" stroke="'+PAL.bord+'"/>');
   g.innerHTML=T.join('');
 }
 
@@ -1501,25 +1633,25 @@ function dessine(){
     const s=j(hh); if(!s) continue;
     const nuit = hLoc(hh)>=20.5||hLoc(hh)<6.3;
     S.push(picto(s.code, x(hh), 22, 11, nuit));
-    if(s.t&&s.t.m!==null) S.push('<text x="'+x(hh)+'" y="45" fill="#F2F6FC" font-size="12" '
+    if(s.t&&s.t.m!==null) S.push('<text x="'+x(hh)+'" y="45" fill="'+PAL.tempTexte+'" font-size="12" '
       +'font-weight="600" text-anchor="middle">'+s.t.m.toFixed(0)+'\u00b0</text>');
   }
 
-  S.push('<rect x="'+GUT+'" y="'+yNu+'" width="'+(W-GUT)+'" height="'+L.nuages+'" fill="#0C1424"/>');
+  S.push('<rect x="'+GUT+'" y="'+yNu+'" width="'+(W-GUT)+'" height="'+L.nuages+'" fill="'+PAL.nuagesFond+'"/>');
   [['nuh',0],['num',1],['nub',2]].forEach(function(e){
     const cle=e[0], yy=yNu+e[1]*(L.nuages/3);
     for(let hh=h0;hh<h1;hh++){
       const s=j(hh); if(!s||!s[cle]||s[cle].m===null) continue;
       S.push('<rect x="'+x(hh)+'" y="'+yy+'" width="'+(x(hh+1)-x(hh))+'" height="'+(L.nuages/3-1)
-        +'" fill="#DCE6F4" opacity="'+(Math.min(1,s[cle].m/100)*.8).toFixed(2)+'"/>');
+        +'" fill="'+PAL.nuage+'" opacity="'+(Math.min(1,s[cle].m/100)*.8).toFixed(2)+'"/>');
       if((hh-h0)%(pas*3)===0&&s[cle].m>=15) S.push('<text x="'+((x(hh)+x(hh+1))/2)+'" y="'+(yy+L.nuages/3-3.5)
-        +'" fill="'+(s[cle].m>55?'#28334C':'#8FA0B8')+'" font-size="7.5" text-anchor="middle">'
+        +'" fill="'+(s[cle].m>55?PAL.nuageChiffre:PAL.nuageChiffreFaible)+'" font-size="7.5" text-anchor="middle">'
         +s[cle].m.toFixed(0)+'</text>');
     }
   });
 
   [1000,2000,3000].forEach(a=>S.push('<line x1="'+GUT+'" y1="'+yAlt(a)+'" x2="'+(W-8)+'" y2="'+yAlt(a)
-    +'" stroke="#3A4A66" stroke-width="1" opacity=".55"/>'));
+    +'" stroke="'+PAL.grille+'" stroke-width="1" opacity=".55"/>'));
   const pts=TRACE.filter(p=>{const t=heureAuKm(p[0]); return t>=h0-.25&&t<=h1+.25;});
   if(pts.length){
     const cx=km=>x(Math.min(h1,Math.max(h0,heureAuKm(km))));
@@ -1527,7 +1659,7 @@ function dessine(){
     pts.forEach(p=>{ d+=' L '+cx(p[0])+' '+yAlt(p[1]); });
     d+=' L '+cx(pts[pts.length-1][0])+' '+yAlt(0)+' Z';
     S.push('<path d="'+d+'" fill="url(#gTemp)"/>');
-    S.push('<path d="'+d.replace(/ Z$/,'')+'" fill="none" stroke="#0A101C" stroke-width="1.2" opacity=".45"/>');
+    S.push('<path d="'+d.replace(/ Z$/,'')+'" fill="none" stroke="'+PAL.contour+'" stroke-width="1.2" opacity=".45"/>');
   }
 
   const CLEFS=['Croix de Belledonne','Col de Mor\u00e9tan','Col de la Vache','Sommet du Grand Chat',
@@ -1544,12 +1676,13 @@ function dessine(){
     dX=xx;
     const hy=yAlt(p.alt), dec=maj?19:14;
     S.push('<line x1="'+xx+'" y1="'+hy+'" x2="'+xx+'" y2="'+(hy-(maj?15:10))
-      +'" stroke="#E9EEF6" stroke-width="1" opacity=".6"/>');
-    S.push('<circle cx="'+xx+'" cy="'+hy+'" r="'+(maj?3.6:2.4)+'" fill="'+(i===SEL?'#FFD98A':'#DCE6F4')+'"/>');
+      +'" stroke="'+PAL.tige+'" stroke-width="1" opacity=".6"/>');
+    S.push('<circle cx="'+xx+'" cy="'+hy+'" r="'+(maj?3.6:2.4)+'" fill="'+(i===SEL?PAL.pointActif:PAL.point)+'"/>');
     S.push('<g class="tick" tabindex="0" data-i="'+i+'" style="cursor:pointer">'
       +'<rect x="'+(xx-17)+'" y="'+(hy-24)+'" width="34" height="32" fill="transparent"/>'
-      +'<text x="'+xx+'" y="'+(hy-dec)+'" fill="'+(i===SEL?'#FFD98A':'#C6D2E4')
-      +'" font-size="9" text-anchor="middle" transform="rotate(-30 '+xx+' '+(hy-dec)+')">'
+      +'<text x="'+xx+'" y="'+(hy-dec)+'" fill="'+(i===SEL?PAL.pointActif:PAL.texte)
+      +'" font-size="9" font-weight="'+(PAL.fond==='#FFFFFF'?'600':'400')
+      +'" text-anchor="middle" transform="rotate(-30 '+xx+' '+(hy-dec)+')">'
       +abrege(p.nom)+'</text></g>');
   });
 
@@ -1558,21 +1691,21 @@ function dessine(){
   for(let hh=h0;hh<=h1;hh++){ const s=j(hh); if(s&&s.pr&&s.pr.hi!==null) prMax=Math.max(prMax,s.pr.hi); }
   prMax=Math.ceil(prMax*2)/2;
   const base=yPl+L.pluie-10, hMax=L.pluie-16, yPr=v=>base-Math.min(hMax, v/prMax*hMax);
-  S.push('<line x1="'+GUT+'" y1="'+base+'" x2="'+(W-8)+'" y2="'+base+'" stroke="#3A4A66" stroke-width="1.2"/>');
+  S.push('<line x1="'+GUT+'" y1="'+base+'" x2="'+(W-8)+'" y2="'+base+'" stroke="'+PAL.grille+'" stroke-width="1.2"/>');
   [prMax/2, prMax].forEach(v=>{
-    S.push('<line x1="'+GUT+'" y1="'+yPr(v)+'" x2="'+(W-8)+'" y2="'+yPr(v)+'" stroke="#26344E" stroke-dasharray="2 4"/>');
-    S.push('<text x="'+(GUT+4)+'" y="'+(yPr(v)-2)+'" fill="#8E7CF0" font-size="8" text-anchor="start">'
+    S.push('<line x1="'+GUT+'" y1="'+yPr(v)+'" x2="'+(W-8)+'" y2="'+yPr(v)+'" stroke="'+PAL.bord+'" stroke-dasharray="2 4"/>');
+    S.push('<text x="'+(GUT+4)+'" y="'+(yPr(v)-2)+'" fill="'+PAL.pluie+'" font-size="8" text-anchor="start">'
       +(v<1?v.toFixed(1):v.toFixed(0))+' mm</text>');
   });
   for(let hh=h0;hh<h1;hh++){
     const s=j(hh); if(!s||!s.pr||s.pr.m===null) continue;
     const w=x(hh+1)-x(hh), xb=x(hh)+w*.22, wb=w*.56;
     if(s.pr.hi>0.02) S.push('<rect x="'+xb+'" y="'+yPr(s.pr.hi)+'" width="'+wb+'" height="'
-      +(base-yPr(s.pr.hi))+'" fill="#8E7CF0" opacity=".22" rx="1"/>');
+      +(base-yPr(s.pr.hi))+'" fill="'+PAL.pluie+'" opacity=".22" rx="1"/>');
     if(s.pr.m>0.02) S.push('<rect x="'+xb+'" y="'+yPr(s.pr.m)+'" width="'+wb+'" height="'
-      +(base-yPr(s.pr.m))+'" fill="#8E7CF0" rx="1"/>');
+      +(base-yPr(s.pr.m))+'" fill="'+PAL.pluie+'" rx="1"/>');
     if(s.pp&&s.pp.m>=40&&(hh-h0)%pas===0) S.push('<text x="'+((x(hh)+x(hh+1))/2)+'" y="'+(yPl+L.pluie-1)
-      +'" fill="#A99BF5" font-size="8.5" text-anchor="middle">'+s.pp.m.toFixed(0)+'%</text>');
+      +'" fill="'+PAL.pluieTexte+'" font-size="8.5" text-anchor="middle">'+s.pp.m.toFixed(0)+'%</text>');
   }
 
   for(let hh=h0;hh<=h1;hh+=pas){
@@ -1580,19 +1713,19 @@ function dessine(){
     const f=s.raf&&s.raf.m!==null? s.raf.m : (s.v&&s.v.m!==null? s.v.m*1.6 : null);
     if(s.dir&&s.dir.m!==null) S.push(flecheVent(s.dir.m, f||0, x(hh), yVe+16, 18));
     if(f!==null) S.push('<text x="'+x(hh)+'" y="'+(yVe+39)+'" fill="'
-      +(f>60?'#F0553D':f>40?'#F0A24B':'#9FB2CC')+'" font-size="10.5" text-anchor="middle" font-weight="'
+      +(f>60?PAL.alerte:f>40?PAL.chaud:PAL.libelleFort)+'" font-size="10.5" text-anchor="middle" font-weight="'
       +(f>40?'600':'400')+'">'+f.toFixed(0)+'</text>');
   }
 
   for(let hh=h0;hh<=h1;hh+=pas){
     const dd=new Date(t0+hh*3.6e6);
     const jr=['dim','lun','mar','mer','jeu','ven','sam'][dd.getDay()];
-    S.push('<line x1="'+x(hh)+'" y1="'+yAx+'" x2="'+x(hh)+'" y2="'+(yAx+4)+'" stroke="#3A4A66"/>');
-    S.push('<text x="'+x(hh)+'" y="'+(yAx+14)+'" fill="#C6D2E4" font-size="10" text-anchor="middle">'
+    S.push('<line x1="'+x(hh)+'" y1="'+yAx+'" x2="'+x(hh)+'" y2="'+(yAx+4)+'" stroke="'+PAL.grille+'"/>');
+    S.push('<text x="'+x(hh)+'" y="'+(yAx+14)+'" fill="'+PAL.texte+'" font-size="10" text-anchor="middle">'
       +String(dd.getHours()).padStart(2,'0')+'h</text>');
-    if(dd.getHours()<pas||hh===h0) S.push('<text x="'+x(hh)+'" y="'+(yAx+25)+'" fill="#F0A24B" font-size="9" '
+    if(dd.getHours()<pas||hh===h0) S.push('<text x="'+x(hh)+'" y="'+(yAx+25)+'" fill="'+PAL.chaud+'" font-size="9" '
       +'text-anchor="middle" font-weight="600">'+jr+'</text>');
-    else if(hh%6===0) S.push('<text x="'+x(hh)+'" y="'+(yAx+25)+'" fill="#6A7A93" font-size="8.5" '
+    else if(hh%6===0) S.push('<text x="'+x(hh)+'" y="'+(yAx+25)+'" fill="'+PAL.texteFaible+'" font-size="8.5" '
       +'text-anchor="middle">H+'+hh+'</text>');
   }
 
@@ -1900,6 +2033,7 @@ async function exportMD(){
       : (m[2] < joursRestants? 'non — portée insuffisante, attendu vers le '
           + new Date(new Date(POIS[0].t[SCENARIO]).getTime()-m[2]*864e5)
               .toLocaleDateString('fr-FR',{day:'numeric',month:'long'})
+          + mentionSonde(m[0])
       : 'non — interrogé mais aucune valeur renvoyée'));
     M.push('| '+m[1]+' | `'+m[0]+'` | '+m[2]+' j | '+rep+' |');
   });
@@ -2336,6 +2470,10 @@ async function convergence(){
     q('#go').disabled=true; q('#go').textContent='Données intégrées';
     const sc=q('#scen'); [...sc.options].forEach(o=>{ if(!PRECHARGE.scenarios.includes(+o.value)) o.disabled=true; });
   }
+  initTheme();
+  ['clair','sombre','auto'].forEach(k=>{
+    const b=q('#th-'+k); if(b) b.onclick=()=>appliquerTheme(k, true);
+  });
   q('#modele').onchange=()=>{
     MODELE_ACTIF=q('#modele').value;
     majNoteFiabilite(); dessine(); fiche(); tableauTous(); resumeSegment(); majSMS();
