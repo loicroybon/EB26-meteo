@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v18 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v19 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -114,7 +114,7 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
 <header>
   <div class="eyebrow">Sonde multi-modèles · dossard 348</div>
   <h1>Échappée Belle Intégrale <span>2026</span></h1>
-  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 18 · sélecteur opérant</b></div>
+  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 19 · mono-modèle honnête</b></div>
   <div class="ctl">
     <label for="scen">Scénario</label>
     <select id="scen"></select>
@@ -2098,6 +2098,7 @@ async function exportMD(){
 function fiche(){
   const p=POIS[SEL], s=Object.keys(DATA).length? sonde(SEL):null;
   const f=q('#fiche');
+  const nDispo=modelesDisponibles().length;
   let h='<h3>'+p.nom+'</h3><div class="meta">km '+p.km.toFixed(1)+' · '+p.alt+' m · '+p.type
     +' · passage '+hhmm(p.t[SCENARIO])+' (scénario '+SCENARIO+' h)<br>'
     +p.lat.toFixed(5)+', '+p.lon.toFixed(5)+'</div>';
@@ -2109,15 +2110,23 @@ function fiche(){
   const E=(o,d=0,su='')=> (o&&o.lo!==null&&o.lo!==undefined)? o.lo.toFixed(d)+' à '+o.hi.toFixed(d)+su : '';
 
   if(s.code!==null) h+='<div style="margin:10px 0 2px;font-size:15px">'+(WMO[s.code]||'—')+'</div>';
+  if(!MODELE_ACTIF && s.lignes.length<nDispo)
+    h+='<div class="note alerte" style="margin:4px 0 0">'+s.lignes.length+' mod\u00e8les sur '+nDispo
+      +' couvrent ce point : les autres n\u2019atteignent pas cette \u00e9ch\u00e9ance. '
+      +'Le consensus y est plus fragile qu\u2019au d\u00e9part.</div>';
   if(s.confiance){
     const c=s.confiance;
     const coul = c.niveau==='bonne'?'var(--accord)':c.niveau==='moyenne'?'var(--chaud)':'var(--alerte)';
-    h+='<div class="note" style="margin:6px 0 0">Confiance <b style="color:'+coul+'">'+c.niveau
-      +'</b> \u00b7 '+c.familles+' famille'+(c.familles>1?'s':'')+' de mod\u00e8les ind\u00e9pendantes \u00b7 '
-      +c.etendue+' \u00b0C entre les extr\u00eames</div>';
+    h+= (s.lignes.length<2)
+      ? '<div class="note" style="margin:6px 0 0">Un seul mod\u00e8le : ni \u00e9cart ni confiance '
+        +'mesurables. Les valeurs ci-dessous sont une hypoth\u00e8se, pas une fourchette.</div>'
+      : '<div class="note" style="margin:6px 0 0">Confiance <b style="color:'+coul+'">'+c.niveau
+        +'</b> \u00b7 '+c.familles+' famille'+(c.familles>1?'s ind\u00e9pendantes':' de mod\u00e8les')
+        +' \u00b7 '+c.etendue+' \u00b0C entre les extr\u00eames</div>';
   }
   const en=ENS[p.nom];
-  if(en) h+='<div class="note" style="margin:6px 0 0;color:var(--froid)">Ensembles ('+en.membres
+  if(en) h+='<div class="note" style="margin:6px 0 0;color:var(--froid)">Ensembles '
+    +(MODELE_ACTIF? 'ECMWF et GEFS, ind\u00e9pendants du mod\u00e8le choisi ' : '')+'('+en.membres
     +' membres) : pluie '+(en.pluie02!==null?en.pluie02+' %':'?')
     +(en.pluie1!==null? ' \u00b7 >1 mm '+en.pluie1+' %':'')
     +(en.pluie5!==null? ' \u00b7 >5 mm '+en.pluie5+' %':'')
@@ -2177,10 +2186,12 @@ function fiche(){
    +'<th>Ress.</th><th>Hum.</th><th>Nuages</th><th>Pluie</th><th>Vent</th><th>Cr\u00eate</th>'
    +'<th>Raf.</th><th>Dir.</th></tr></thead><tbody>';
   const L=(o,k,d,su)=> (o[k]===null||o[k]===undefined)? '—' : o[k].toFixed(d)+su;
-  h+='<tr class="consensus"><td>Consensus pond\u00e9r\u00e9 ('+s.lignes.length+')</td><td>'
-   +(s.confiance?s.confiance.poidsTotal:'')+'</td><td>'+V(s.t,1)+'</td><td>'+V(s.tlibre,1)+'</td><td>'
-   +V(s.res,1)+'</td><td>'+V(s.hum,0)+'</td><td>'+V(s.nu,0)+'</td><td>'+V(s.pr,1)+'</td><td>'
-   +V(s.v,0)+'</td><td>'+V(s.vcrete,0)+'</td><td>'+V(s.raf,0)+'</td><td>'+cap(s.dir?s.dir.m:null)+'</td></tr>';
+  if(s.lignes.length>1){
+    h+='<tr class="consensus"><td>Consensus pond\u00e9r\u00e9 ('+s.lignes.length+')</td><td>'
+     +(s.confiance?s.confiance.poidsTotal:'')+'</td><td>'+V(s.t,1)+'</td><td>'+V(s.tlibre,1)+'</td><td>'
+     +V(s.res,1)+'</td><td>'+V(s.hum,0)+'</td><td>'+V(s.nu,0)+'</td><td>'+V(s.pr,1)+'</td><td>'
+     +V(s.v,0)+'</td><td>'+V(s.vcrete,0)+'</td><td>'+V(s.raf,0)+'</td><td>'+cap(s.dir?s.dir.m:null)+'</td></tr>';
+  }
   s.lignes.slice().sort((a,b)=>b.poids-a.poids).forEach(l=>{
     const rel = l.source_wy? 'via Windy \u00b7 points seulement, absent du m\u00e9t\u00e9ogramme'
       : l.source_mb? 'correction statistique sur le relief \u00b7 pas de niveaux de pression'
