@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v16 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v17 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -114,13 +114,16 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
 <header>
   <div class="eyebrow">Sonde multi-modèles · dossard 348</div>
   <h1>Échappée Belle Intégrale <span>2026</span></h1>
-  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 16 · récupération parallèle</b></div>
+  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 17 · sélecteur de modèle</b></div>
   <div class="ctl">
     <label for="scen">Scénario</label>
     <select id="scen"></select>
+    <label for="modele" style="margin-left:auto">Modèle</label>
+    <select id="modele"><option value="">Multimodèle</option></select>
     <button id="go">Actualiser maintenant</button>
     <button id="raz" title="Efface l'historique de convergence">Vider l'historique</button>
   </div>
+  <div class="note" id="fiabilite" style="margin-top:10px;line-height:1.5"></div>
   <div class="etat" id="etat"></div>
   <div class="log" id="log">Tout est automatique : modèles, meteoblue, Windy et ensembles s'enchaînent, et l'écran se remplit au fur et à mesure.</div>
 </header>
@@ -459,6 +462,98 @@ function extraitPoi(d, i){
   return enrichir(extraitSuffixe(d.reps[i], POIS[i].t[SCENARIO], d.suffixe||''), POIS[i].alt, null);
 }
 
+/* ================= SÉLECTEUR DE MODÈLE ================= */
+/* Par défaut le consensus pondéré. On peut isoler un modèle : tout le contenu
+   de la page suit — météogramme, fiches, tableau, SMS, export. */
+let MODELE_ACTIF = '';          // '' = consensus pondéré
+
+/* Ce qu'on sait honnêtement de chaque source, limites comprises. */
+const FIABILITE = {
+  '': "Médiane pondérée de tous les modèles disponibles. Les familles partageant la même "
+     +"analyse (ECMWF, DWD, NOAA) sont plafonnées pour ne pas voter plusieurs fois, et un "
+     +"modèle très éloigné du groupe voit son poids réduit. C'est le mode le plus fiable, "
+     +"mais il ne vaut que ce que valent les modèles présents : à J-5, ce sont des globaux "
+     +"à maille large qui ne résolvent pas Belledonne.",
+  meteoblue: "MOS calé sur la topographie réelle, donc bon en montagne là où les autres "
+     +"extrapolent. Mais source unique, sans ensemble, sans niveaux de pression : ni "
+     +"température d'air libre ni vent de crête. Horizon gratuit de 7 jours à partir de minuit.",
+  meteofrance_arome_france_hd: "La référence sur Belledonne : maille 1,3 km, qui résout les "
+     +"vallées et les crêtes. Portée courte, environ 2 jours — disponible seulement à J-2.",
+  meteofrance_arome_france: "Maille 2,5 km, même famille qu'AROME HD, portée environ 2 jours.",
+  meteofrance_arpege_europe: "Maille 11 km : bon pour le régime général, aveugle au relief fin. "
+     +"Portée 4 jours.",
+  dwd_icon_d2: "Maille 2,2 km, très bon sur les Alpes du Nord. Portée 2 jours.",
+  dwd_icon_eu: "Maille 7 km, portée 5 jours. Compromis raisonnable entre finesse et échéance.",
+  dwd_icon_global: "Maille 11 km globale. Sur ce parcours il a montré un biais chaud marqué "
+     +"en altitude par rapport aux autres.",
+  meteoswiss_icon_ch1: "Maille 1 km sur l'arc alpin. Domaine centré sur la Suisse : la "
+     +"couverture de Belledonne n'est pas garantie. Portée très courte.",
+  meteoswiss_icon_ch2: "Maille 2 km sur l'arc alpin, portée 5 jours. Même réserve de domaine.",
+  italia_meteo_arpae_icon_2i: "Maille 2,2 km, centré sur le versant italien. Bord de domaine ici.",
+  knmi_harmonie_arome_europe: "Maille 5,5 km, domaine centré sur le nord-ouest de l'Europe : "
+     +"les Alpes sont en périphérie.",
+  ecmwf_ifs025: "Le meilleur modèle global, référence à moyenne échéance. Maille 9 km : il ne "
+     +"voit pas le relief de Belledonne, il donne le régime atmosphérique.",
+  ecmwf_aifs025_single: "Modèle par apprentissage d'ECMWF, bâti sur la même analyse qu'IFS — "
+     +"ce n'est pas un avis indépendant. Ne fournit ni rafales, ni CAPE, ni indice de soulèvement.",
+  ukmo_global_deterministic_10km: "Global du Met Office, solide, maille 10 km.",
+  gfs_seamless: "Global américain, maille 25 km au-delà de quelques jours. Le plus faible du "
+     +"lot sur le relief alpin : il a régulièrement divergé des autres ici.",
+  gfs_graphcast025: "Modèle par apprentissage, même analyse que GFS.",
+  metno_seamless: "Post-traitement norvégien d'ECMWF : proche d'IFS, pas indépendant.",
+  jma_seamless: "Global japonais, peu adapté aux Alpes.",
+  cma_grapes_global: "Global chinois, peu adapté aux Alpes.",
+  bom_access_global: "Global australien, peu adapté aux Alpes.",
+  windy_arome: "AROME servi par Windy, avec deux variables que les autres n'ont pas : "
+     +"précipitations convectives et base des nuages. Points du parcours seulement.",
+  windy_iconD2: "ICON-D2 servi par Windy. Points du parcours seulement.",
+  windy_iconEu: "ICON-EU servi par Windy. Points du parcours seulement."
+};
+
+function modelesDisponibles(){
+  return Object.keys(DATA).filter(id=>{
+    for(let i=0;i<POIS.length;i++){ const e=extraitPoi(DATA[id], i);
+      if(e&&e.t!==null&&e.t!==undefined) return true; }
+    return false;
+  });
+}
+
+function majSelecteurModele(){
+  const sel=q('#modele'); if(!sel) return;
+  const dispo=modelesDisponibles();
+  /* si le modèle choisi a disparu, on retombe sur meteoblue puis sur le consensus */
+  if(MODELE_ACTIF && dispo.indexOf(MODELE_ACTIF)<0){
+    MODELE_ACTIF = (dispo.indexOf(MB_ID)>=0 && dispo.length===1)? MB_ID : '';
+  }
+  if(!dispo.length){ MODELE_ACTIF=''; }
+  else if(dispo.length===1 && !MODELE_ACTIF){ /* un seul modèle : ce n'est pas un consensus */ }
+
+  const ordre=dispo.slice().sort((a,b)=>poidsBase(b)-poidsBase(a));
+  let h='<option value=""'+(MODELE_ACTIF===''?' selected':'')+'>'
+       +(dispo.length>1? 'Multimodèle ('+dispo.length+')' : 'Multimodèle')+'</option>';
+  ordre.forEach(id=>{
+    h+='<option value="'+id+'"'+(MODELE_ACTIF===id?' selected':'')+'>'
+      +(DATA[id].nom||id)+'</option>';
+  });
+  if(!dispo.length) h='<option value="">Aucun modèle</option>';
+  sel.innerHTML=h;
+  majNoteFiabilite();
+}
+
+function majNoteFiabilite(){
+  const el=q('#fiabilite'); if(!el) return;
+  const dispo=modelesDisponibles();
+  let t = FIABILITE[MODELE_ACTIF] || 'Modèle sans note de fiabilité renseignée.';
+  if(MODELE_ACTIF===''){
+    if(dispo.length===1) t='Un seul modèle répond : ce n\'est pas un consensus, il n\'y a ni '
+      +'écart ni confiance à en tirer. '+(FIABILITE[dispo[0]]||'');
+    else if(!dispo.length) t='Aucun modèle en mémoire. Lance une actualisation.';
+  } else {
+    t = 'Modèle isolé — aucun écart inter-modèles, donc aucune mesure d\'incertitude. '+t;
+  }
+  el.textContent=t;
+}
+
 /* ---------- pipeline : quatre fournisseurs en parallèle ---------- */
 let OM_PAUSE = 0;
 async function attendreQuota(){}
@@ -469,22 +564,27 @@ async function interroger(){
   const debut=Date.now();
   EN_COURS=true; majEtat(); q('#go').disabled=true;
   const anciens={D:DATA, J:DATA_J, ts:TS_DONNEES};
-  const nD={}, nJ={};
+  /* on repart de ce qui est déjà à l'écran : chaque fournisseur remplace ses
+     propres modèles au fur et à mesure, rien ne disparaît entre-temps */
+  const nD=Object.assign({}, DATA), nJ=Object.assign({}, DATA_J);
+  const rafraichis={};
   ECHECS=[]; REPORTES=[]; WY_APPELS=0;
   JALONS = construireJalons();
   const jours = (new Date(POIS[0].t[SCENARIO]) - Date.now())/864e5;
   const dispo=[];
   let rendus=0;
 
-  const rendre=()=>{ try{ afficheDispo(dispo); majEtat(); dessine(); fiche();
+  const rendre=()=>{ try{ afficheDispo(dispo); majSelecteurModele(); majEtat(); dessine(); fiche();
                           tableauTous(); resumeSegment(); majSMS(); }catch(e){} };
-  const livrer=(etiquette)=>{
+  const livrer=(etiquette, ids)=>{
+    (ids||[]).forEach(id=>rafraichis[id]=1);
     if(!Object.keys(nD).length) return;
     DATA=Object.assign({}, nD); DATA_J=Object.assign({}, nJ);
-    TS_DONNEES=Date.now(); HORS_LIGNE=false;
-    rendus++;
-    log(etiquette+' \u00b7 '+Object.keys(nD).length+' mod\u00e8les affich\u00e9s ('
-        +((Date.now()-debut)/1000).toFixed(0)+' s)');
+    if(Object.keys(rafraichis).length){ TS_DONNEES=Date.now(); HORS_LIGNE=false; rendus++; }
+    log(etiquette+' \u00b7 '+Object.keys(rafraichis).length+' mod\u00e8le'
+        +(Object.keys(rafraichis).length>1?'s':'')+' rafra\u00eechi'
+        +(Object.keys(rafraichis).length>1?'s':'')+' sur '+Object.keys(nD).length
+        +' affich\u00e9s ('+((Date.now()-debut)/1000).toFixed(0)+' s)');
     rendre();
   };
 
@@ -493,7 +593,7 @@ async function interroger(){
     const utiles=[];
     for(const [id,nom,portee] of MODELES){
       if(id===MB_ID) continue;
-      if(portee < jours){ REPORTES.push([nom, portee]); continue; }
+      if(portee < jours){ REPORTES.push([nom, portee, id]); continue; }
       utiles.push([id,nom]);
     }
     if(!utiles.length) return;
@@ -514,7 +614,7 @@ async function interroger(){
           dispo.push([nom, c, POIS.length]);
         }catch(e){ ECHECS.push(nom+' — '+e.message); }
       }
-      livrer('Open-Meteo');
+      livrer('Open-Meteo', utiles.map(u=>u[0]));
       return;
     }
     utiles.forEach(([id,nom])=>{
@@ -523,7 +623,7 @@ async function interroger(){
       if(c>0){ nD[id]=d; nJ[id]=d; }
       dispo.push([nom, c, POIS.length]);
     });
-    livrer('Open-Meteo');
+    livrer('Open-Meteo', utiles.map(u=>u[0]));
   })();
 
   /* ---- meteoblue : points seulement, jalons dérivés de la même série ---- */
@@ -536,7 +636,7 @@ async function interroger(){
         const d={nom:MB_NOM, pts:{[SCENARIO]:pts},
                  serie:(i,iso)=> raw[i]? mbExtrait(raw[i], iso, POIS[i]) : null};
         nD[MB_ID]=d; nJ[MB_ID]=d;
-        livrer('meteoblue');
+        livrer('meteoblue', [MB_ID]);
       }
       dispo.push([MB_NOM, c, POIS.length]);
     }catch(e){ ECHECS.push(MB_NOM+' — '+e.message); }
@@ -545,7 +645,7 @@ async function interroger(){
   /* ---- Windy : modèles à portée, en parallèle entre eux ---- */
   const tacheWY = (async()=>{
     const utiles=WY_MODELES.filter(m=>{
-      if(m[2] < jours){ REPORTES.push([m[1], m[2]]); return false; }
+      if(m[2] < jours){ REPORTES.push([m[1], m[2], 'windy_'+m[0]]); return false; }
       return true; });
     await Promise.all(utiles.map(async function([mid,mnom]){
       try{
@@ -554,7 +654,7 @@ async function interroger(){
         if(c>0){
           const enr=s.map((e,i)=>e? enrichir(e,POIS[i].alt,null):null);
           nD['windy_'+mid]={nom:mnom, pts:{[SCENARIO]:enr}};
-          livrer('Windy '+mnom);
+          livrer('Windy '+mnom, ['windy_'+mid]);
         }
         dispo.push([mnom, c, POIS.length]);
       }catch(e){ ECHECS.push(mnom+' — '+e.message); }
@@ -572,10 +672,15 @@ async function interroger(){
 
   await Promise.all([tacheOM, tacheMB, tacheWY, tacheENS]);
 
+  /* un modèle sorti de portée ne doit pas survivre indéfiniment dans l'affichage */
+  REPORTES.forEach(r=>{ const id=r[2]; if(id&&!rafraichis[id]){ delete nD[id]; delete nJ[id]; } });
+  if(Object.keys(rafraichis).length){ DATA=Object.assign({}, nD); DATA_J=Object.assign({}, nJ); }
+
   q('#go').disabled=false; EN_COURS=false;
   if(!Object.keys(DATA).length || !rendus){
-    DATA=anciens.D; DATA_J=anciens.J; TS_DONNEES=anciens.ts; HORS_LIGNE=true;
-    majEtat();
+    if(!Object.keys(DATA).length){ DATA=anciens.D; DATA_J=anciens.J; }
+    TS_DONNEES=anciens.ts; HORS_LIGNE=true;
+    majSelecteurModele(); majEtat(); rendre();
     log('Aucun mod\u00e8le joignable. Les donn\u00e9es pr\u00e9c\u00e9dentes restent affich\u00e9es.'
         + (ECHECS.length? ' D\u00e9tail : '+ECHECS.join(' | ') : ''));
     afficheDispo(dispo); return;
@@ -665,7 +770,9 @@ function agrege(out){
 }
 function sonde(i){
   const out=[];
-  for(const id in DATA){ const e=extraitPoi(DATA[id], i); if(e) out.push({id, nom:DATA[id].nom, ...e}); }
+  for(const id in DATA){
+    if(MODELE_ACTIF && id!==MODELE_ACTIF) continue;
+    const e=extraitPoi(DATA[id], i); if(e) out.push({id, nom:DATA[id].nom, ...e}); }
   const a=agrege(out); return a? {p:POIS[i], ...a} : null;
 }
 /* les jalons ne sont plus téléchargés : on les dérive des séries déjà en main,
@@ -684,6 +791,7 @@ function extraitJalonD(d, k){
   const J=JALONS[k], [a,b,f]=encadrants(J.km);
   const lire=i=>{
     if(d.serie) return d.serie(i, J.t);
+    if(d.pts) return (d.pts[SCENARIO]||{})[i] || null;
     if(!d.reps) return null;
     return extraitSuffixe(d.reps[i], J.t, d.suffixe||'');
   };
@@ -702,7 +810,9 @@ function extraitJalonD(d, k){
 function sondeJalon(k){
   if(!JALONS[k]) return null;
   const out=[];
-  for(const id in DATA_J){ const e=extraitJalonD(DATA_J[id], k);
+  for(const id in DATA_J){
+    if(MODELE_ACTIF && id!==MODELE_ACTIF) continue;
+    const e=extraitJalonD(DATA_J[id], k);
     if(e) out.push({id, nom:DATA_J[id].nom, ...e}); }
   return agrege(out);
 }
@@ -1495,8 +1605,10 @@ function dessine(){
   });
   q('#hmg').textContent = SEG? 'M\u00e9t\u00e9ogramme \u2014 segment '+String(SEG).padStart(2,'0')
     : 'M\u00e9t\u00e9ogramme de course';
-  q('#mgnote').textContent = Object.keys(DATA).length? ''
-    : 'Relief et horaires affich\u00e9s. Lance l\'actualisation pour le temps.';
+  const nMod=Object.keys(DATA).length;
+  q('#mgnote').textContent = nMod? (EN_COURS? 'Relev\u00e9 en cours \u2014 affichage des '
+      +'donn\u00e9es pr\u00e9c\u00e9dentes, elles seront compl\u00e9t\u00e9es sans \u00eatre effac\u00e9es.' : '')
+    : 'Relief et horaires affich\u00e9s. Le temps arrive d\u00e8s la premi\u00e8re r\u00e9ponse.';
 }
 
 /* ---------- segments ---------- */
@@ -1513,7 +1625,9 @@ function segChips(){
     b.innerHTML=titre+'<small>'+sous+'</small>';
     b.onclick=function(){ SEG=n;
       const dedans=segPois(); if(dedans.length) SEL=dedans[0];
-      segChips(); chips(); dessine(); fiche(); tableauTous(); resumeSegment(); majSMS(); };
+      q('#modele').onchange=()=>{ MODELE_ACTIF=q('#modele').value;
+    majNoteFiabilite(); dessine(); fiche(); tableauTous(); resumeSegment(); majSMS(); };
+  segChips(); chips(); dessine(); fiche(); tableauTous(); resumeSegment(); majSMS(); };
     c.appendChild(b);
   };
   faire(0,'Tout le parcours','149,5 km \u00b7 11 000 m D+');
@@ -1754,6 +1868,9 @@ async function exportMD(){
     +'149,5 km, ~11 000 m D+, dossard 348.');
   M.push('- **Scénario horaire retenu** : '+SCENARIO+' h (issu du road book officiel, '
     +'une colonne d\'horaires par temps total visé).');
+  M.push('- **Mode d\'affichage** : '+(MODELE_ACTIF? 'modèle isolé — '+(DATA[MODELE_ACTIF]?
+      DATA[MODELE_ACTIF].nom : MODELE_ACTIF)+'. Les sections A et B ne contiennent que ce modèle, '
+    +'sans consensus ni mesure d\'écart.' : 'consensus pondéré multimodèle'));
   M.push('- **Jours avant le départ** : '
     +((new Date(POIS[0].t[SCENARIO])-maintenant)/864e5).toFixed(1));
   M.push('');
@@ -2217,6 +2334,7 @@ async function convergence(){
 
   /* 1. on affiche immédiatement ce qu'on a en mémoire, même périmé */
   (async()=>{
+    q('#mgnote').textContent='Lecture des donn\u00e9es en m\u00e9moire\u2026';
     if(!(PRECHARGE && PRECHARGE.modeles)){
       const c=await cacheLire();
       if(c){
@@ -2227,10 +2345,15 @@ async function convergence(){
         log('Données restaurées depuis la mémoire du téléphone, relevé '+ageTexte()+'.');
       }
     }
+    majSelecteurModele();
     dessine(); fiche(); tableauTous(); resumeSegment(); majSMS(); convergence(); majEtat();
 
-    /* 2. puis on rafraîchit tout seul si c'est vieux, sans effacer l'affichage */
-    if(!(PRECHARGE && PRECHARGE.modeles) && ageHeures()>PERIME_H) interroger();
+    /* 2. le rafraîchissement ne part qu'une fois l'écran rempli, et il complète
+       l'affichage au lieu de le remplacer */
+    if(!(PRECHARGE && PRECHARGE.modeles) && ageHeures()>PERIME_H){
+      await new Promise(z=>setTimeout(z,120));
+      interroger();
+    }
   })();
 
   /* 3. au retour sur l'onglet, on revérifie la fraîcheur */
