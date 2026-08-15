@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v14 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v16 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -114,7 +114,7 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
 <header>
   <div class="eyebrow">Sonde multi-modèles · dossard 348</div>
   <h1>Échappée Belle Intégrale <span>2026</span></h1>
-  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 14 · export toujours frais</b></div>
+  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 16 · récupération parallèle</b></div>
   <div class="ctl">
     <label for="scen">Scénario</label>
     <select id="scen"></select>
@@ -251,6 +251,121 @@ function estNuit(iso){ const h=new Date(iso).getHours(); return h>=21||h<6; }
 function hhmm(iso){ const d=new Date(iso); const j=['dim','lun','mar','mer','jeu','ven','sam'][d.getDay()];
   return j+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
 
+/* ================= COUCHE DE RÉCUPÉRATION RAPIDE ================= */
+/* Cinq leviers, du plus rentable au moins :
+   1. un seul appel Open-Meteo pour tous les modèles à la fois (models=a,b,c) ;
+   2. fenêtre horaire resserrée sur la course au lieu de trois jours pleins ;
+   3. les quatre fournisseurs interrogés en parallèle, quotas indépendants ;
+   4. concurrence adaptative : on accélère tant que ça passe, on freine sur 429 ;
+   5. les jalons du météogramme dérivés des séries déjà téléchargées. */
+
+const FENETRE = {h0:'2026-08-21T05:00', h1:'2026-08-23T03:00',
+                 d0:'2026-08-21', d1:'2026-08-23'};
+
+/* ---- ordonnanceur adaptatif ---- */
+function ordonnanceur(nomServeur, concurrenceMax){
+  return {
+    nom:nomServeur, max:concurrenceMax, actuel:Math.min(2,concurrenceMax),
+    enCours:0, file:[], pause:0, echecs:0,
+    async prendre(){
+      while(true){
+        const attente=this.pause-Date.now();
+        if(attente>0){ await new Promise(z=>setTimeout(z,Math.min(attente,400))); continue; }
+        if(this.enCours<this.actuel){ this.enCours++; return; }
+        await new Promise(z=>setTimeout(z,40));
+      }
+    },
+    rendre(ok){
+      this.enCours--;
+      if(ok){ this.echecs=0;
+        if(this.actuel<this.max) this.actuel=Math.min(this.max, this.actuel+1); }
+      else { this.echecs++;
+        this.actuel=Math.max(1, Math.floor(this.actuel/2));
+        /* la limite Open-Meteo se réarme en moins d'une minute : inutile
+           d'attendre davantage, et une progression linéaire suffit */
+        this.pause=Date.now()+Math.min(15000, 2500*this.echecs);
+      }
+    }
+  };
+}
+const ORD_OM = ordonnanceur('open-meteo', 4);
+const ORD_MB = ordonnanceur('meteoblue', 6);
+const ORD_WY = ordonnanceur('windy', 5);
+
+async function appel(ord, url, options){
+  for(let essai=0; essai<3; essai++){
+    await ord.prendre();
+    let r=null;
+    try{ r = await fetch(url, options); }
+    catch(e){ ord.rendre(false); continue; }
+    if(r.status===429 || r.status===503){ ord.rendre(false); continue; }
+    ord.rendre(true);
+    return r;
+  }
+  return null;
+}
+
+/* ---- un seul appel pour tous les modèles ---- */
+async function lotOpenMeteo(ids, points, vars){
+  const LOT=40;
+  const res=new Array(points.length).fill(null);
+  const morceaux=[];
+  for(let d=0;d<points.length;d+=LOT) morceaux.push([d, points.slice(d,d+LOT)]);
+
+  await Promise.all(morceaux.map(async function([decalage, lot]){
+    const base=new URLSearchParams();
+    base.set('latitude',  lot.map(x=>x.lat).join(','));
+    base.set('longitude', lot.map(x=>x.lon).join(','));
+    base.set('elevation', lot.map(x=>x.alt).join(','));
+    base.set('hourly', vars.join(','));
+    base.set('models', ids.join(','));
+    base.set('timezone','Europe/Paris');
+
+    /* fenêtre horaire si l'API l'accepte, sinon repli sur les dates pleines */
+    let j=null;
+    for(const mode of ['heures','jours']){
+      const qp=new URLSearchParams(base);
+      if(mode==='heures'){ qp.set('start_hour',FENETRE.h0); qp.set('end_hour',FENETRE.h1); }
+      else { qp.set('start_date',FENETRE.d0); qp.set('end_date',FENETRE.d1); }
+      const r=await appel(ORD_OM, 'https://api.open-meteo.com/v1/forecast?'+qp.toString());
+      if(!r||!r.ok) continue;
+      let o=null;
+      try{ o=await r.json(); }catch(e){ continue; }
+      if(!Array.isArray(o)) o=[o];
+      if(o[0]&&o[0].hourly&&o[0].hourly.time&&o[0].hourly.time.length){ j=o; break; }
+    }
+    if(!j) return;
+    j.forEach((o,k)=>{ res[decalage+k]=o; });
+  }));
+  return res;
+}
+
+/* extraction depuis une réponse multi-modèles : les clés portent le suffixe du modèle */
+function extraitSuffixe(rep, isoCible, suffixe){
+  if(!rep||!rep.hourly) return null;
+  const T=rep.hourly.time; if(!T||!T.length) return null;
+  const cible=new Date(isoCible).getTime();
+  let best=-1, dt=1e15;
+  for(let i=0;i<T.length;i++){ const d=Math.abs(new Date(T[i]).getTime()-cible); if(d<dt){dt=d;best=i;} }
+  if(best<0 || dt>1.6*3600*1000) return null;
+  const g=v=>{ let a=rep.hourly[v+suffixe];
+               if(!a) a=rep.hourly[v];        /* un seul modèle : pas de suffixe */
+               return (a&&a[best]!==null&&a[best]!==undefined)? a[best] : null; };
+  const e={t:g('temperature_2m'), res:g('apparent_temperature'), ros:g('dew_point_2m'),
+    hum:g('relative_humidity_2m'), pr:g('precipitation'), pp:g('precipitation_probability'),
+    neige:g('snowfall'), code:g('weather_code'),
+    nu:g('cloud_cover'), nub:g('cloud_cover_low'), num:g('cloud_cover_mid'), nuh:g('cloud_cover_high'),
+    sol:g('sunshine_duration'), uv:g('uv_index'), vis:g('visibility'),
+    v:g('wind_speed_10m'), raf:g('wind_gusts_10m'), dir:g('wind_direction_10m'),
+    iso0:g('freezing_level_height'), cape:g('cape'), li:g('lifted_index'), pres:g('surface_pressure'),
+    t850:g('temperature_850hPa'), t750:g('temperature_750hPa'), t700:g('temperature_700hPa'),
+    z850:g('geopotential_height_850hPa'), z750:g('geopotential_height_750hPa'),
+    z700:g('geopotential_height_700hPa'),
+    v750:g('wind_speed_750hPa'), v700:g('wind_speed_700hPa'),
+    alt_demandee: rep.elevation};
+  return (e.t===null&&e.nu===null&&e.pr===null)? null : e;
+}
+
 /* ---------- stockage : API artefact si présente, sinon navigateur ---------- */
 const MEM = (window.storage) ? window.storage : {
   async set(k,v){ localStorage.setItem(k,v); return {key:k,value:v}; },
@@ -261,30 +376,14 @@ const MEM = (window.storage) ? window.storage : {
 };
 
 /* ---------- interrogation Open-Meteo ---------- */
-async function altitudesNatives(id, pts){
-  /* sans le paramètre elevation, l'API renvoie l'altitude réelle de la maille :
-     c'est le seul moyen de savoir à quel point la température est extrapolée */
-  const out=new Array(pts.length).fill(null);
-  const LOT=50;
-  for(let d=0;d<pts.length;d+=LOT){
-    const lot=pts.slice(d,d+LOT);
-    const qp=new URLSearchParams();
-    qp.set('latitude', lot.map(x=>x.lat).join(','));
-    qp.set('longitude', lot.map(x=>x.lon).join(','));
-    qp.set('models', id); qp.set('current','temperature_2m'); qp.set('forecast_days','1');
-    qp.set('elevation','nan');
-    try{
-      const r=await fetch('https://api.open-meteo.com/v1/forecast?'+qp.toString());
-      if(!r.ok) return out;
-      let j=await r.json(); if(!Array.isArray(j)) j=[j];
-      j.forEach((o,k)=>{ if(o&&o.elevation!==undefined) out[d+k]=o.elevation; });
-    }catch(e){ return out; }
-    await new Promise(z=>setTimeout(z,250));
-  }
-  return out;
-}
+/* le météogramme n'a pas besoin des 30 variables : les jalons en demandent 13,
+   ce qui allège le poids facturé par Open-Meteo d'environ 40 % */
+const VARS_JALONS = ["temperature_2m","apparent_temperature","precipitation",
+  "precipitation_probability","weather_code","cloud_cover","cloud_cover_low",
+  "cloud_cover_mid","cloud_cover_high","wind_speed_10m","wind_gusts_10m",
+  "wind_direction_10m","cape"];
 
-async function unModele(id, pois){
+async function unModele(id, pois, vars){
   const LOT=50;
   const lots=[]; for(let i=0;i<pois.length;i+=LOT) lots.push(pois.slice(i,i+LOT));
   const res = pois.map(()=>null);
@@ -293,7 +392,7 @@ async function unModele(id, pois){
     qp.set('latitude', lot.map(x=>x.lat).join(','));
     qp.set('longitude', lot.map(x=>x.lon).join(','));
     qp.set('elevation', lot.map(x=>x.alt).join(','));
-    qp.set('hourly', VARS.join(','));
+    qp.set('hourly', (vars||VARS).join(','));
     qp.set('models', id);
     qp.set('timezone','Europe/Paris');
     qp.set('start_date','2026-08-21');
@@ -312,7 +411,7 @@ async function unModele(id, pois){
     let j = await r.json();
     if(!Array.isArray(j)) j=[j];
     j.forEach((o,k)=>{ res[n*LOT+k]=o; });
-    await new Promise(z=>setTimeout(z,600));
+    await new Promise(z=>setTimeout(z,3500));   /* la limite est par minute, on étale */
   }
   return res;
 }
@@ -356,23 +455,18 @@ function enrichir(e, alt, altNative){
 }
 function extraitPoi(d, i){
   if(d.pts) return (d.pts[SCENARIO]||{})[i] || null;
-  return enrichir(extrait(d.reps[i], POIS[i].t[SCENARIO]), POIS[i].alt, d.altNative&&d.altNative[i]);
+  if(!d.reps) return null;
+  return enrichir(extraitSuffixe(d.reps[i], POIS[i].t[SCENARIO], d.suffixe||''), POIS[i].alt, null);
 }
 
-/* ---------- pipeline d'interrogation, en phases ---------- */
-/* Chaque phase est indépendante : ce qui revient est affiché aussitôt, ce qui
-   échoue n'empêche pas la suite. Le quota Open-Meteo est géré globalement,
-   par une pause partagée entre tous les appels. */
+/* ---------- pipeline : quatre fournisseurs en parallèle ---------- */
 let OM_PAUSE = 0;
-async function attendreQuota(){
-  const reste = OM_PAUSE - Date.now();
-  if(reste>0){ log('Quota Open-Meteo : reprise dans '+Math.ceil(reste/1000)+' s…');
-    await new Promise(z=>setTimeout(z, reste)); }
-}
-function signalerQuota(secondes){ OM_PAUSE = Math.max(OM_PAUSE, Date.now()+secondes*1000); }
+async function attendreQuota(){}
+function signalerQuota(){}
 
 async function interroger(){
   if(EN_COURS) return;
+  const debut=Date.now();
   EN_COURS=true; majEtat(); q('#go').disabled=true;
   const anciens={D:DATA, J:DATA_J, ts:TS_DONNEES};
   const nD={}, nJ={};
@@ -380,103 +474,119 @@ async function interroger(){
   JALONS = construireJalons();
   const jours = (new Date(POIS[0].t[SCENARIO]) - Date.now())/864e5;
   const dispo=[];
+  let rendus=0;
 
   const rendre=()=>{ try{ afficheDispo(dispo); majEtat(); dessine(); fiche();
                           tableauTous(); resumeSegment(); majSMS(); }catch(e){} };
-  const commettre=()=>{
-    if(!Object.keys(nD).length) return false;
+  const livrer=(etiquette)=>{
+    if(!Object.keys(nD).length) return;
     DATA=Object.assign({}, nD); DATA_J=Object.assign({}, nJ);
     TS_DONNEES=Date.now(); HORS_LIGNE=false;
-    return true;
+    rendus++;
+    log(etiquette+' \u00b7 '+Object.keys(nD).length+' mod\u00e8les affich\u00e9s ('
+        +((Date.now()-debut)/1000).toFixed(0)+' s)');
+    rendre();
   };
 
-  /* ---- phase 1 : modèles déterministes Open-Meteo ---- */
-  for(const [id,nom,portee] of MODELES){
-    if(id===MB_ID) continue;
-    if(portee < jours){ REPORTES.push([nom, portee]); continue; }
-    log('Interrogation : '+nom+' …');
-    try{
-      const rp = await unModele(id, POIS);
-      const rj = await unModele(id, JALONS);
-      const dp={nom, reps:rp}, dj={nom, reps:rj};
-      try{
-        let cacheAlt=null;
-        try{ const rr=await MEM.get('altnat:'+id); cacheAlt=JSON.parse(rr.value); }catch(e){}
-        if(cacheAlt&&cacheAlt.pois&&cacheAlt.pois.length===POIS.length){
-          dp.altNative=cacheAlt.pois; dj.altNativeJ=cacheAlt.jalons; dp.altNativeJ=cacheAlt.jalons;
-        } else {
-          dp.altNative = await altitudesNatives(id, POIS);
-          dj.altNativeJ = await altitudesNatives(id, JALONS);
-          dp.altNativeJ = dj.altNativeJ;
-          try{ await MEM.set('altnat:'+id, JSON.stringify({pois:dp.altNative, jalons:dj.altNativeJ})); }catch(e){}
-        }
-      }catch(e){}
-      const couvre = POIS.filter((p,i)=>{ const e=extraitPoi(dp, i);
-        return e && e.t!==null && e.t!==undefined; }).length;
-      if(couvre>0){ nD[id]=dp; nJ[id]=dj; }
-      dispo.push([nom, couvre, POIS.length]);
-    }catch(e){ ECHECS.push(nom+' — '+e.message); }
-  }
-
-  if(commettre()) rendre();
-  else {
-    DATA=anciens.D; DATA_J=anciens.J; TS_DONNEES=anciens.ts; HORS_LIGNE=true;
-    q('#go').disabled=false; EN_COURS=false; majEtat();
-    log('Aucun modèle joignable. Les données précédentes restent affichées.'
-        + (ECHECS.length? ' Détail : '+ECHECS.join(' | ') : ''));
-    afficheDispo(dispo); return;
-  }
-
-  /* ---- phase 2 : meteoblue, quota indépendant ---- */
-  try{
-    log('meteoblue…');
-    const mbP = await meteoblueSerie(POIS, p=>p.t[SCENARIO],
-      (f,n)=>log('meteoblue : '+f+' / '+n+' points'));
-    const mbJ = await meteoblueSerie(JALONS, p=>p.t,
-      (f,n)=>log('meteoblue : jalons '+f+' / '+n));
-    const couvre=mbP.filter(e=>e&&e.t!==null&&e.t!==undefined).length;
-    if(couvre>0){
-      nD[MB_ID]={nom:MB_NOM, pts:{[SCENARIO]:mbP}};
-      nJ[MB_ID]={nom:MB_NOM, jal:mbJ};
-      commettre(); rendre();
+  /* ---- Open-Meteo : un seul appel pour tous les modèles à portée ---- */
+  const tacheOM = (async()=>{
+    const utiles=[];
+    for(const [id,nom,portee] of MODELES){
+      if(id===MB_ID) continue;
+      if(portee < jours){ REPORTES.push([nom, portee]); continue; }
+      utiles.push([id,nom]);
     }
-    dispo.push([MB_NOM, couvre, POIS.length]);
-    if(couvre>0&&couvre<POIS.length)
-      log('meteoblue couvre '+couvre+' points sur '+POIS.length
-        +' : horizon gratuit de 7 jours à partir de minuit.');
-  }catch(e){ ECHECS.push(MB_NOM+' — '+e.message); }
-
-  /* ---- phase 3 : Windy, quota indépendant, modèles utiles seulement ---- */
-  for(const [mid,mnom,portee] of WY_MODELES){
-    if(portee < jours){ REPORTES.push([mnom, portee]); continue; }
-    try{
-      log('Windy : '+mnom+'…');
-      const s=await windySerie(POIS, p=>p.t[SCENARIO], mid,
-        (f,n)=>log('Windy '+mnom+' : '+f+' / '+n));
-      const couvre=s.filter(e=>e&&e.t!==null).length;
-      if(couvre>0){
-        nD['windy_'+mid]={nom:mnom, pts:{[SCENARIO]:s.map((e,i)=>e? enrichir(e,POIS[i].alt,null):null)}};
-        commettre(); rendre();
+    if(!utiles.length) return;
+    log('Open-Meteo : '+utiles.length+' mod\u00e8les en un appel group\u00e9\u2026');
+    const ids=utiles.map(u=>u[0]);
+    let repP=null;
+    try{ repP = await lotOpenMeteo(ids, POIS, VARS); }
+    catch(e){ ECHECS.push('Open-Meteo group\u00e9 — '+e.message); }
+    /* repli : si l'appel groupé échoue, on repart modèle par modèle */
+    if(!repP || !repP.filter(Boolean).length){
+      log('Appel group\u00e9 sans r\u00e9ponse, repli mod\u00e8le par mod\u00e8le\u2026');
+      for(const [id,nom] of utiles){
+        try{
+          const r = await lotOpenMeteo([id], POIS, VARS);
+          const d={nom, reps:r, suffixe:''};
+          const c=POIS.filter((p,i)=>{const e=extraitPoi(d,i); return e&&e.t!==null;}).length;
+          if(c>0){ nD[id]=d; nJ[id]=d; }
+          dispo.push([nom, c, POIS.length]);
+        }catch(e){ ECHECS.push(nom+' — '+e.message); }
       }
-      dispo.push([mnom, couvre, POIS.length]);
-    }catch(e){ ECHECS.push(mnom+' — '+e.message); }
-  }
-  if(WY_APPELS) log('Windy : '+WY_APPELS+' requêtes sur ce relevé.');
+      livrer('Open-Meteo');
+      return;
+    }
+    utiles.forEach(([id,nom])=>{
+      const d={nom, reps:repP, suffixe:'_'+id};
+      const c=POIS.filter((p,i)=>{ const e=extraitPoi(d,i); return e&&e.t!==null&&e.t!==undefined; }).length;
+      if(c>0){ nD[id]=d; nJ[id]=d; }
+      dispo.push([nom, c, POIS.length]);
+    });
+    livrer('Open-Meteo');
+  })();
 
-  /* ---- phase 4 : ensembles, la plus lourde, donc la dernière ---- */
-  try{
-    await attendreQuota();
-    log('Ensembles probabilistes…');
-    const e=await ensembles(POIS, p=>p.t[SCENARIO]);
-    if(Object.keys(e).length){ ENS=e; rendre(); }
-  }catch(e){ }
+  /* ---- meteoblue : points seulement, jalons dérivés de la même série ---- */
+  const tacheMB = (async()=>{
+    try{
+      const raw = await meteoblueBrut(POIS, (f,n)=>{ if(f%16===0) log('meteoblue '+f+'/'+n); });
+      const pts = POIS.map((p,i)=> raw[i]? mbExtrait(raw[i], p.t[SCENARIO], p) : null);
+      const c = pts.filter(e=>e&&e.t!==null&&e.t!==undefined).length;
+      if(c>0){
+        const d={nom:MB_NOM, pts:{[SCENARIO]:pts},
+                 serie:(i,iso)=> raw[i]? mbExtrait(raw[i], iso, POIS[i]) : null};
+        nD[MB_ID]=d; nJ[MB_ID]=d;
+        livrer('meteoblue');
+      }
+      dispo.push([MB_NOM, c, POIS.length]);
+    }catch(e){ ECHECS.push(MB_NOM+' — '+e.message); }
+  })();
+
+  /* ---- Windy : modèles à portée, en parallèle entre eux ---- */
+  const tacheWY = (async()=>{
+    const utiles=WY_MODELES.filter(m=>{
+      if(m[2] < jours){ REPORTES.push([m[1], m[2]]); return false; }
+      return true; });
+    await Promise.all(utiles.map(async function([mid,mnom]){
+      try{
+        const s=await windySerie(POIS, p=>p.t[SCENARIO], mid, null);
+        const c=s.filter(e=>e&&e.t!==null).length;
+        if(c>0){
+          const enr=s.map((e,i)=>e? enrichir(e,POIS[i].alt,null):null);
+          nD['windy_'+mid]={nom:mnom, pts:{[SCENARIO]:enr}};
+          livrer('Windy '+mnom);
+        }
+        dispo.push([mnom, c, POIS.length]);
+      }catch(e){ ECHECS.push(mnom+' — '+e.message); }
+    }));
+  })();
+
+  /* ---- ensembles ---- */
+  const tacheENS = (async()=>{
+    try{
+      const e=await ensembles(POIS, p=>p.t[SCENARIO]);
+      if(Object.keys(e).length){ ENS=e;
+        log('Ensembles : '+Object.keys(e).length+' points'); rendre(); }
+    }catch(e){}
+  })();
+
+  await Promise.all([tacheOM, tacheMB, tacheWY, tacheENS]);
 
   q('#go').disabled=false; EN_COURS=false;
+  if(!Object.keys(DATA).length || !rendus){
+    DATA=anciens.D; DATA_J=anciens.J; TS_DONNEES=anciens.ts; HORS_LIGNE=true;
+    majEtat();
+    log('Aucun mod\u00e8le joignable. Les donn\u00e9es pr\u00e9c\u00e9dentes restent affich\u00e9es.'
+        + (ECHECS.length? ' D\u00e9tail : '+ECHECS.join(' | ') : ''));
+    afficheDispo(dispo); return;
+  }
   const n=Object.keys(DATA).length, nEns=Object.keys(ENS).length;
-  log(n+' modèle'+(n>1?'s':'')+' le '+new Date().toLocaleString('fr-FR')
-      + (nEns? ' · ensembles sur '+nEns+' points' : '')
-      + (REPORTES.length? ' · trop loin : '+REPORTES.map(r=>r[0]).join(', ') : '')
-      + (ECHECS.length? ' · en échec : '+ECHECS.map(x=>x.split(' — ')[0]).join(', ') : ''));
+  log(n+' mod\u00e8le'+(n>1?'s':'')+' en '+((Date.now()-debut)/1000).toFixed(0)+' s le '
+      + new Date().toLocaleString('fr-FR')
+      + (nEns? ' \u00b7 ensembles sur '+nEns+' points' : '')
+      + (WY_APPELS? ' \u00b7 Windy '+WY_APPELS+' requ\u00eates' : '')
+      + (REPORTES.length? ' \u00b7 trop loin : '+REPORTES.map(r=>r[0]).join(', ') : '')
+      + (ECHECS.length? ' \u00b7 en \u00e9chec : '+ECHECS.map(x=>x.split(' — ')[0]).join(', ') : ''));
   rendre();
   await cacheEcrire();
   await archive();
@@ -558,11 +668,36 @@ function sonde(i){
   for(const id in DATA){ const e=extraitPoi(DATA[id], i); if(e) out.push({id, nom:DATA[id].nom, ...e}); }
   const a=agrege(out); return a? {p:POIS[i], ...a} : null;
 }
+/* les jalons ne sont plus téléchargés : on les dérive des séries déjà en main,
+   en interpolant entre les deux points du parcours qui les encadrent */
+function encadrants(km){
+  let a=0;
+  for(let i=0;i<POIS.length-1;i++){ if(km>=POIS[i].km&&km<=POIS[i+1].km){ a=i; break; }
+                                    if(km>POIS[i].km) a=i; }
+  const b=Math.min(POIS.length-1, a+1);
+  const f=(POIS[b].km>POIS[a].km)? (km-POIS[a].km)/(POIS[b].km-POIS[a].km) : 0;
+  return [a,b,Math.max(0,Math.min(1,f))];
+}
 function extraitJalonD(d, k){
-  if(!d) return null;
+  if(!d||!JALONS[k]) return null;
   if(d.jal) return d.jal[k]||null;
-  const r=d.reps&&d.reps[k];
-  return r? enrichir(extrait(r, JALONS[k].t), JALONS[k].alt, d.altNativeJ&&d.altNativeJ[k]) : null;
+  const J=JALONS[k], [a,b,f]=encadrants(J.km);
+  const lire=i=>{
+    if(d.serie) return d.serie(i, J.t);
+    if(!d.reps) return null;
+    return extraitSuffixe(d.reps[i], J.t, d.suffixe||'');
+  };
+  const ea=lire(a), eb=lire(b);
+  if(!ea&&!eb) return null;
+  if(!ea) return enrichir(Object.assign({},eb), J.alt, null);
+  if(!eb||a===b) return enrichir(Object.assign({},ea), J.alt, null);
+  const m={};
+  Object.keys(ea).forEach(cle=>{
+    const x=ea[cle], y=eb[cle];
+    if(typeof x==='number'&&typeof y==='number') m[cle]=x+(y-x)*f;
+    else m[cle]=(f<0.5? x : y);
+  });
+  return enrichir(m, J.alt, null);
 }
 function sondeJalon(k){
   if(!JALONS[k]) return null;
@@ -599,7 +734,7 @@ function rosee(t, hr){
   return Math.round((b*g/(a-g))*10)/10;
 }
 
-async function meteobluePoint(p, iso){
+async function meteoblueBrut1(p){
   const base='https://my.meteoblue.com/packages/';
   const q=new URLSearchParams();
   q.set('apikey', MB_CLE);
@@ -608,83 +743,69 @@ async function meteobluePoint(p, iso){
   q.set('temperature','C'); q.set('windspeed','kmh'); q.set('precipitationamount','mm');
   q.set('history_days','0');
   let j=null;
-  /* on tente le lot complet, puis on se rabat sur le paquet de base */
   for(const paquets of ['basic-1h_clouds-1h_wind-1h','basic-1h_clouds-1h','basic-1h']){
-    try{
-      const r=await fetch(base+paquets+'?'+q.toString());
-      if(!r.ok) continue;
-      const o=await r.json();
-      if(o&&o.data_1h){ j=o; break; }
-    }catch(e){}
+    const r=await appel(ORD_MB, base+paquets+'?'+q.toString());
+    if(!r||!r.ok) continue;
+    try{ const o=await r.json(); if(o&&o.data_1h){ j=o; break; } }catch(e){}
   }
   if(!j) return null;
-  /* si les nuages manquent, second essai sur le paquet seul */
   if(!j.data_1h.totalcloudcover){
-    try{
-      const r2=await fetch(base+'clouds-1h?'+q.toString());
-      if(r2.ok){ const o2=await r2.json();
-        if(o2&&o2.data_1h) Object.keys(o2.data_1h).forEach(k=>{
-          if(k!=='time'&&!j.data_1h[k]) j.data_1h[k]=o2.data_1h[k]; });
-      }
-    }catch(e){}
+    const r2=await appel(ORD_MB, base+'clouds-1h?'+q.toString());
+    if(r2&&r2.ok){ try{ const o2=await r2.json();
+      if(o2&&o2.data_1h) Object.keys(o2.data_1h).forEach(k=>{
+        if(k!=='time'&&!j.data_1h[k]) j.data_1h[k]=o2.data_1h[k]; }); }catch(e){} }
   }
-  const d=j.data_1h, T=d.time||[];
-  if(!T.length) return null;
+  return j.data_1h;
+}
+
+/* une seule série de 7 jours par point : les jalons s'y servent aussi */
+function mbExtrait(d, iso, p){
+  const T=d.time||[]; if(!T.length) return null;
   const vise=new Date(iso).getTime();
   let bi=-1, dt=1e15;
   for(let i=0;i<T.length;i++){
     const dd=Math.abs(new Date(String(T[i]).replace(' ','T')).getTime()-vise);
     if(dd<dt){ dt=dd; bi=i; }
   }
-  if(bi<0||dt>1.6*3.6e6) return null;   /* au-delà, c'est une autre heure */
+  if(bi<0||dt>1.6*3.6e6) return null;
   const g=(k,f)=>{ const a=d[k]; if(!a||a[bi]===null||a[bi]===undefined) return null;
                    return f? f(a[bi]) : a[bi]; };
-
-  const t=g('temperature'), hr=g('relativehumidity'), pr=g('precipitation');
-  const nu=g('totalcloudcover'), sf=g('snowfraction');
-  /* unités demandées explicitement dans la requête : °C, km/h, mm */
-  const v=g('windspeed');
-  const neige = (sf!==null&&pr!==null)? Math.round(sf*pr*0.7*10)/10 : null;
-  const orage = (d.pictocode&&[8,17].indexOf(d.pictocode[bi])>=0);
-
   const r1=x=>x===null||x===undefined?null:Math.round(x*10)/10;
   const r0=x=>x===null||x===undefined?null:Math.round(x);
+  const t=g('temperature'), hr=g('relativehumidity'), pr=g('precipitation');
+  const nu=g('totalcloudcover'), sf=g('snowfraction');
+  const neige=(sf!==null&&pr!==null)? Math.round(sf*pr*0.7*10)/10 : null;
+  const orage=(d.pictocode&&[8,17].indexOf(d.pictocode[bi])>=0);
   return {
-    t: r1(t), res: r1(g('felttemperature')),
-    ros: r1(g('dewpointtemperature')!==null? g('dewpointtemperature') : rosee(t,hr)),
-    hum: r0(hr), pr: r1(pr), pp: r0(g('precipitation_probability')), neige: neige,
-    code: mbCode(pr||0, nu===null?0:nu, neige||0, orage),
-    nu: r0(nu), nub: r0(g('lowclouds')), num: r0(g('midclouds')), nuh: r0(g('highclouds')),
-    sol: r0(g('sunshinetime', x=>x*60)),      /* minutes -> secondes, comme les autres */
-    uv: r1(g('uvindex')), vis: r0(g('visibility')),
-    v: r0(v), raf: r0(g('windgust')), dir: r0(g('winddirection')),
-    iso0: null, cape: null, li: null,
-    /* meteoblue donne la pression ramenée au niveau de la mer : incomparable
-       avec la pression au sol des autres modèles, on ne l'agrège pas */
-    pres: null, pres_mer: r0(g('sealevelpressure')),
-    alt_demandee: p.alt, source_mb: true
+    t:r1(t), res:r1(g('felttemperature')),
+    ros:r1(g('dewpointtemperature')!==null? g('dewpointtemperature') : rosee(t,hr)),
+    hum:r0(hr), pr:r1(pr), pp:r0(g('precipitation_probability')), neige:neige,
+    code:mbCode(pr||0, nu===null?0:nu, neige||0, orage),
+    nu:r0(nu), nub:r0(g('lowclouds')), num:r0(g('midclouds')), nuh:r0(g('highclouds')),
+    sol:r0(g('sunshinetime', x=>x*60)), uv:r1(g('uvindex')), vis:r0(g('visibility')),
+    v:r0(g('windspeed')), raf:r0(g('windgust')), dir:r0(g('winddirection')),
+    iso0:null, cape:null, li:null, pres:null, pres_mer:r0(g('sealevelpressure')),
+    alt_demandee:p.alt, source_mb:true
   };
 }
 
-/* on limite la concurrence : l'API répond point par point */
-async function meteoblueSerie(points, cible, avance){
+async function meteoblueBrut(points, avance){
   const out=new Array(points.length).fill(null);
-  /* sonde préalable : inutile de lancer 97 requêtes si l'accès est refusé */
-  out[0]=await meteobluePoint(points[0], cible(points[0]));
-  if(!out[0]) return out;
-  const FILE=3;
+  out[0]=await meteoblueBrut1(points[0]);
+  if(!out[0]) return out;           /* accès refusé : on ne lance pas les 51 autres */
   let i=1, faits=1;
+  const FILE=6;
   async function ouvrier(){
     while(i<points.length){
       const k=i++;
-      out[k]=await meteobluePoint(points[k], cible(points[k]));
-      faits++;
-      if(avance && faits%12===0) avance(faits, points.length);
+      out[k]=await meteoblueBrut1(points[k]);
+      faits++; if(avance) avance(faits, points.length);
     }
   }
   await Promise.all(Array.from({length:FILE}, ouvrier));
   return out;
 }
+
 
 /* ================= WINDY POINT FORECAST ================= */
 /* Les modèles de Windy sont ceux qu'on interroge déjà via Open-Meteo. L'apport
@@ -725,8 +846,9 @@ async function windyPoint(p, iso, modele){
   let o=null;
   try{
     WY_APPELS++;
-    const r=await fetch(WY_URL,{method:'POST',
+    const r=await appel(ORD_WY, WY_URL, {method:'POST',
       headers:{'Content-Type':'application/json'}, body:JSON.stringify(corps)});
+    if(!r) return null;
     if(r.status===204) return null;          /* modèle sans les paramètres demandés */
     if(!r.ok) throw new Error('HTTP '+r.status);
     o=await r.json();
@@ -799,7 +921,7 @@ async function windySerie(points, cible, modele, avance){
   const out=new Array(points.length).fill(null);
   out[0]=await windyPoint(points[0], cible(points[0]), modele);
   if(!out[0]) return out;      /* clé refusée ou modèle hors domaine : on s'arrête */
-  const FILE=3;
+  const FILE=5;
   let i=1, faits=1;
   async function ouvrier(){
     while(i<points.length){
@@ -943,7 +1065,7 @@ let ENS = {};   // par nom de point : probabilités issues des ensembles
 async function ensembles(points, cible){
   const modeles=[['ecmwf_ifs025','ECMWF ENS'],['gfs025','GEFS']];
   const acc={};
-  for(const m of modeles){
+  await Promise.all(modeles.map(async function(m){
     for(let d=0;d<points.length;d+=26){
       const lot=points.slice(d,d+26);
       const qp=new URLSearchParams();
@@ -952,18 +1074,11 @@ async function ensembles(points, cible){
       qp.set('elevation', lot.map(p=>p.alt).join(','));
       qp.set('hourly','temperature_2m,precipitation,wind_gusts_10m');
       qp.set('models', m[0]); qp.set('timezone','Europe/Paris');
-      qp.set('start_date','2026-08-21'); qp.set('end_date','2026-08-23');
+      qp.set('start_hour',FENETRE.h0); qp.set('end_hour',FENETRE.h1);
       let j=null;
-      for(let essai=0; essai<4 && !j; essai++){
-        await attendreQuota();
-        try{
-          const r=await fetch('https://ensemble-api.open-meteo.com/v1/ensemble?'+qp.toString());
-          if(r.status===429){ signalerQuota(8*(essai+1)); continue; }
-          if(!r.ok) break;
-          j=await r.json();
-        }catch(e){ break; }
-      }
-      if(!j) continue;
+      const rr=await appel(ORD_OM, 'https://ensemble-api.open-meteo.com/v1/ensemble?'+qp.toString());
+      if(!rr||!rr.ok) continue;
+      try{ j=await rr.json(); }catch(e){ continue; }
       if(!Array.isArray(j)) j=[j];
       j.forEach((o,k)=>{
         const p=lot[k]; if(!o||!o.hourly) return;
@@ -984,9 +1099,8 @@ async function ensembles(points, cible){
         });
         if(rec.src.indexOf(m[1])<0) rec.src.push(m[1]);
       });
-      await new Promise(z=>setTimeout(z,300));
     }
-  }
+  }));
   const out={};
   Object.keys(acc).forEach(nom=>{
     const r=acc[nom];
@@ -1613,7 +1727,11 @@ async function exportMD(){
   const b=q('#exportmd');
   /* exporter un cache d'une heure produit un fichier daté d'aujourd'hui
      mais rempli de données d'hier : on rafraîchit d'abord */
-  if(!EN_COURS && ageHeures()>0.75){
+  if(EN_COURS){
+    b.textContent='Attente du relevé…';
+    log('Une actualisation est en cours : l\'export attend qu\'elle finisse.');
+    while(EN_COURS) await new Promise(z=>setTimeout(z,1000));
+  } else if(ageHeures()>0.75){
     b.textContent='Actualisation…';
     log('Données vieilles de '+ageTexte()+' : actualisation avant export.');
     await interroger();
@@ -1643,12 +1761,12 @@ async function exportMD(){
     +'à la position exacte du point et à l\'heure de passage prévue, avec descente d\'échelle '
     +'sur l\'altitude réelle.');
   M.push('');
-  M.push('**Réserve sur `alt_modele` et `Écart relief`** : ces colonnes visent l\'altitude de la '
-    +'maille native du modèle, mais l\'API applique sa propre descente d\'échelle et peut renvoyer '
-    +'l\'altitude de son modèle numérique de terrain. Un écart de quelques dizaines de mètres pour '
-    +'un modèle à 25 km de maille n\'est pas crédible : dans ce cas la colonne ne mesure rien. '
-    +'La colonne `T air libre`, lue sur le profil de pression, ne dépend pas de cette incertitude '
-    +'— c\'est elle qu\'il faut privilégier au-dessus de 1400 m.');
+  M.push('**Sur l\'altitude** : mesurer l\'altitude de la maille native de chaque modèle s\'est '
+    +'révélé impossible — l\'API renvoie l\'altitude de son propre modèle numérique de terrain, '
+    +'pas celle du modèle météo. La colonne a été retirée plutôt que de laisser un chiffre faux. '
+    +'Au-dessus de 1400 m, c\'est `T air libre` qu\'il faut lire : elle vient du profil de pression '
+    +'et ne dépend d\'aucune extrapolation depuis le relief. De même, `Vent crête` est le vent au '
+    +'niveau de pression du point, bien plus représentatif qu\'un vent 10 m sur une vallée fictive.');
   M.push('');
 
   M.push('## Modèles interrogés');
@@ -2073,6 +2191,8 @@ async function convergence(){
   };
   q('#go').onclick=interroger;
   q('#raz').onclick=async()=>{
+    if(!confirm('Effacer l\'historique des relevés ? C\'est lui qui permet de suivre la '
+      +'convergence des modèles jour après jour, et il ne peut pas être reconstitué.')) return;
       try{ const r=await MEM.list('snapshot:'); for(const k of (r.keys||[])) await MEM.delete(k); }catch(e){}
     convergence(); log('Historique effacé.');
   };
