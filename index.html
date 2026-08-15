@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v23 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v24 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -80,6 +80,40 @@ h2::after{content:"";flex:1;height:1px;background:var(--trace)}
 .bandeau{margin-top:12px;border:1px solid var(--trace);border-radius:4px;background:var(--roche);overflow:hidden}
 .scroller{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch}
 .scroller svg{display:block}
+/* --- résumé grand public --- */
+.hero{border:1px solid var(--trace);border-radius:6px;background:var(--roche);
+  padding:12px 13px 11px;margin-top:10px}
+.htete{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+.hlieu{font-size:17px;font-weight:600;letter-spacing:-.02em}
+.hquand{font-size:11.5px;color:var(--brume)}
+.hcorps{display:flex;align-items:center;gap:12px;margin-top:6px;flex-wrap:wrap}
+.hchiffre b{font-size:clamp(44px,12vw,58px);font-weight:600;letter-spacing:-.055em;line-height:.95;display:block}
+.hchiffre em{font-style:normal;font-size:12px;color:var(--brume)}
+.hmots{flex:1 1 150px;font-family:var(--sans);font-size:14px;line-height:1.35}
+.htuiles{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;margin-top:11px;
+  border:1px solid var(--trace);border-radius:5px;overflow:hidden;background:var(--trace)}
+.tuile{background:var(--roche);padding:8px 6px;text-align:center}
+.tuile s{display:block;text-decoration:none;font-family:var(--sans);font-size:9.5px;
+  letter-spacing:.06em;color:var(--brume);text-transform:uppercase}
+.tuile b{display:block;font-size:19px;font-weight:600;margin-top:2px;letter-spacing:-.03em}
+.halertes{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.halertes span{font-family:var(--sans);font-size:12px;background:var(--panneau);
+  border:1px solid var(--trace);border-radius:20px;padding:4px 10px}
+.hnote{font-family:var(--sans);font-size:13px;color:var(--brume)}
+
+/* --- bande horaire --- */
+.heures{display:flex;gap:0;overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:8px;
+  border:1px solid var(--trace);border-radius:6px;background:var(--roche);padding:8px 2px}
+.hcarte{flex:0 0 auto;width:56px;text-align:center;padding:2px 0;
+  border-left:1px solid transparent}
+.hcarte.jour{border-left:1px solid var(--trace)}
+.hcarte s{display:block;text-decoration:none;font-family:var(--sans);font-size:10.5px;color:var(--brume)}
+.hcarte b{display:block;font-size:15px;font-weight:600;letter-spacing:-.02em}
+.hcarte i{display:block;font-style:normal;font-size:10.5px;line-height:1.3}
+.hcarte .pp{color:var(--pluie)}
+.hcarte .rf{color:var(--brume)} .hcarte .rf.moyen{color:var(--chaud)} .hcarte .rf.fort{color:var(--alerte);font-weight:600}
+.hcarte u{display:block;text-decoration:none;font-size:9.5px;color:var(--brume);opacity:.7}
+
 .repli{margin-top:10px;border-top:1px solid var(--trace)}
 .repli summary{font-family:var(--sans);font-size:11.5px;color:var(--brume);cursor:pointer;
   padding:9px 0;list-style:none;display:flex;align-items:center;gap:7px;min-height:38px}
@@ -154,7 +188,7 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
   <div class="titre">
     <b>Échappée Belle 2026</b>
     <span>ven 21/08 06:30 · 149,5 km · 11 000 D+</span>
-    <span class="v">v23</span>
+    <span class="v">v24</span>
   </div>
   <div class="ctl">
     <select id="scen" aria-label="Scénario"></select>
@@ -172,6 +206,13 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
   <span id="fiabresume" hidden></span>
 </header>
 
+<div class="hero" id="hero"></div>
+<div class="heures" id="heures"></div>
+
+<h2>Points du parcours</h2>
+<div class="chips" id="chips"></div>
+<div class="fiche" id="fiche"></div>
+
 <h2 id="hmg">Météogramme</h2>
 <div class="chips" id="segchips"></div>
 <div class="fiche" id="segresume" style="margin-bottom:10px;display:none"></div>
@@ -183,10 +224,19 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
   
 </div>
 
-<h2>Point</h2>
-<div class="chips" id="chips"></div>
-<div class="fiche" id="fiche">
 
+<div class="fiche" id="smszone" style="margin-bottom:10px">
+  <div class="smsbarre">
+    <b>SMS</b>
+    <button id="smscourt" aria-pressed="true">Court</button>
+    <button id="smscomplet" aria-pressed="false">Tous les points</button>
+  </div>
+  <textarea id="smstexte" readonly rows="7" spellcheck="false"></textarea>
+  <div class="smspied"><span id="smsinfo"></span><button id="smscopie">Copier le SMS</button></div>
+  <div class="smspied" style="border-top:1px solid var(--trace);padding-top:10px;margin-top:12px">
+    <button id="exportmd">Export Markdown</button>
+    <button id="raz" title="Effacer l'historique">Vider</button>
+  </div>
 </div>
 
 <div class="fiche" id="smszone" style="margin-bottom:10px">
@@ -1781,7 +1831,7 @@ function dessine(){
   svg.setAttribute('width',W); svg.setAttribute('height',HAUT);
   svg.innerHTML=S.join('');
   svg.querySelectorAll('.tick').forEach(function(g){
-    const go=function(){SEL=+g.dataset.i; dessine(); fiche(); majChips();
+    const go=function(){SEL=+g.dataset.i; dessine(); fiche(); heroRender(); majChips();
       q('#fiche').scrollIntoView({behavior:'smooth',block:'center'});};
     g.addEventListener('click',go);
     g.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}});
@@ -1806,7 +1856,7 @@ function segChips(){
     b.innerHTML=titre+'<small>'+sous+'</small>';
     b.onclick=function(){ SEG=n;
       const dedans=segPois(); if(dedans.length) SEL=dedans[0];
-      segChips(); chips(); dessine(); fiche(); tableauTous(); resumeSegment(); majSMS(); };
+      segChips(); chips(); dessine(); fiche(); tableauTous(); resumeSegment(); majSMS(); heroRender(); heuresRender();; heroRender(); heuresRender();; };
     c.appendChild(b);
   };
   faire(0,'Tout le parcours','149,5 km \u00b7 11 000 m D+');
@@ -1857,7 +1907,7 @@ function chips(){
     const b=document.createElement('button');
     b.className='chip'; b.dataset.i=i; b.setAttribute('aria-pressed',(i===SEL)+'');
     b.textContent=p.nom+' \u00b7 '+p.alt+' m';
-    b.onclick=function(){SEL=i; majChips(); fiche(); dessine();};
+    b.onclick=function(){SEL=i; majChips(); fiche(); heroRender(); dessine();};
     c.appendChild(b);
   });
 }
@@ -2273,6 +2323,100 @@ async function exportMD(){
   b.disabled=false; b.textContent='Fichier Markdown pour analyse';
 }
 
+/* ================= LECTURE GRAND PUBLIC ================= */
+/* Deux blocs au-dessus de la ligne de flottaison : un résumé en toutes lettres
+   du point choisi, puis la bande horaire que tout le monde connaît. */
+
+const VENT_MOTS = [[3,'air calme'],[12,'vent faible'],[25,'vent modéré'],
+                   [40,'vent soutenu'],[60,'vent fort'],[999,'vent violent']];
+function motVent(v){ if(v===null||v===undefined) return ''; 
+  for(const [s,m] of VENT_MOTS) if(v<s) return m; return ''; }
+
+function phraseMeteo(s, p){
+  if(!s||!s.t) return '';
+  const bouts=[];
+  const ciel = (s.code!==null&&s.code!==undefined)? (WMO[s.code]||'') : '';
+  if(ciel) bouts.push(ciel.charAt(0).toUpperCase()+ciel.slice(1));
+  const v = s.v&&s.v.m!==null? s.v.m : null;
+  const mv = motVent(v);
+  if(mv) bouts.push(mv + (s.dir&&s.dir.m!==null? ' de '+cap(s.dir.m) : ''));
+  if(s.res&&s.t&&Math.abs(s.res.m-s.t.m)>=2)
+    bouts.push('ressenti '+Math.round(s.res.m)+'\u00b0');
+  return bouts.join(' \u00b7 ');
+}
+
+function alertesSimples(s, p){
+  const A=[];
+  if(s.raf&&s.raf.hi>60) A.push(['\u26a0','Rafales jusqu\'\u00e0 '+Math.round(s.raf.hi)+' km/h']);
+  else if(s.raf&&s.raf.hi>40) A.push(['\u2691','Rafales '+Math.round(s.raf.hi)+' km/h']);
+  if(s.code>=95 || (s.cape&&s.cape.hi>900)) A.push(['\u26a1','Risque d\'orage']);
+  if(s.cbase&&s.cbase.m!==null&&s.cbase.m<p.alt) A.push(['\u2601','Vous serez dans les nuages']);
+  if(s.res&&s.res.lo!==null&&s.res.lo<3) A.push(['\u2744','Ressenti possible \u00e0 '+Math.round(s.res.lo)+'\u00b0']);
+  if(s.pr&&s.pr.hi>2) A.push(['\u2614','Averses jusqu\'\u00e0 '+s.pr.hi.toFixed(1)+' mm/h']);
+  return A;
+}
+
+function heroRender(){
+  const el=q('#hero'); if(!el) return;
+  const p=POIS[SEL], s=Object.keys(DATA).length? sonde(SEL):null;
+  if(!s){ el.innerHTML='<div class="hnote">En attente des mod\u00e8les\u2026</div>'; return; }
+  const nuit = (()=>{ const hh=new Date(p.t[SCENARIO]).getHours(); return hh>=21||hh<6; })();
+  const svg='<svg viewBox="0 0 64 64" width="62" height="62" aria-hidden="true">'
+    +picto(s.code, 32, 30, 19, nuit)+'</svg>';
+  const T=s.t&&s.t.m!==null? Math.round(s.t.m) : '\u2014';
+  const pr=s.pr&&s.pr.m!==null? s.pr.m : 0;
+  const proba=s.pp&&s.pp.m!==null? Math.round(s.pp.m) : null;
+
+  let h='<div class="htete"><span class="hlieu">'+p.nom+'</span>'
+      +'<span class="hquand">'+hhmm(p.t[SCENARIO])+' \u00b7 '+p.alt+' m \u00b7 km '+p.km.toFixed(0)+'</span></div>'
+    +'<div class="hcorps">'+svg
+    +'<div class="hchiffre"><b>'+T+'\u00b0</b>'
+    +(s.t? '<em>'+Math.round(s.t.lo)+'\u00b0 \u00e0 '+Math.round(s.t.hi)+'\u00b0</em>':'')+'</div>'
+    +'<div class="hmots">'+phraseMeteo(s,p)+'</div></div>';
+
+  const tuiles=[
+    ['\u2614', proba!==null? proba+' %' : (pr>0.05? pr.toFixed(1)+' mm':'0'), 'pluie'],
+    ['\uD83D\uDCA8', s.raf&&s.raf.m!==null? Math.round(s.raf.m)+'' : '\u2014', 'rafales km/h'],
+    ['\u2601', s.nu&&s.nu.m!==null? Math.round(s.nu.m)+' %' : '\u2014', 'nuages'],
+    ['\u2600', s.sol&&s.sol.m!==null? Math.round(s.sol.m/36)+' %' : '\u2014', 'soleil']
+  ];
+  h+='<div class="htuiles">';
+  tuiles.forEach(t=>{ h+='<div class="tuile"><s>'+t[2]+'</s><b>'+t[1]+'</b></div>'; });
+  h+='</div>';
+
+  const A=alertesSimples(s,p);
+  if(A.length) h+='<div class="halertes">'
+    +A.map(a=>'<span>'+a[0]+' '+a[1]+'</span>').join('')+'</div>';
+  el.innerHTML=h;
+}
+
+/* bande horaire : le format que tout le monde reconnaît */
+function heuresRender(){
+  const el=q('#heures'); if(!el) return;
+  if(!JALONS.length) JALONS=construireJalons();
+  const bornes=fenetre();
+  const t0=new Date(POIS[0].t[SCENARIO]).getTime();
+  let h='';
+  for(let k=bornes[0];k<=bornes[1] && k<JALONS.length;k++){
+    const j=JALONS[k], s=Object.keys(DATA).length? sondeJalon(k):null;
+    const d=new Date(t0+j.h*3.6e6);
+    const hh=d.getHours(), nuit=hh>=21||hh<6;
+    const jour=['dim','lun','mar','mer','jeu','ven','sam'][d.getDay()];
+    const svg='<svg viewBox="0 0 44 44" width="34" height="34" aria-hidden="true">'
+      +(s? picto(s.code,22,20,12,nuit) : '')+'</svg>';
+    const T=s&&s.t&&s.t.m!==null? Math.round(s.t.m)+'\u00b0' : '\u2014';
+    const pp=s&&s.pp&&s.pp.m!==null? Math.round(s.pp.m) : null;
+    const raf=s&&s.raf&&s.raf.m!==null? Math.round(s.raf.m) : null;
+    h+='<div class="hcarte'+(hh===0||k===bornes[0]?' jour':'')+'">'
+      +'<s>'+(hh===0||k===bornes[0]? jour+' ':'')+String(hh).padStart(2,'0')+'h</s>'
+      +svg+'<b>'+T+'</b>'
+      +'<i class="pp">'+(pp!==null&&pp>=15? pp+'%':'')+'</i>'
+      +'<i class="rf'+(raf>60?' fort':raf>40?' moyen':'')+'">'+(raf!==null? raf:'')+'</i>'
+      +'<u>'+Math.round(j.alt)+'</u></div>';
+  }
+  el.innerHTML=h;
+}
+
 /* ---------- fiche POI ---------- */
 function fiche(){
   const p=POIS[SEL], s=Object.keys(DATA).length? sonde(SEL):null;
@@ -2331,15 +2475,16 @@ function fiche(){
     ['visibilité', s.vis&&s.vis.m!==null? (s.vis.m/1000).toFixed(1)+' km':'—',
       s.vis&&s.vis.m<1000? 'brouillard' : ''],
     ['indice UV', V(s.uv,1), soleil!==null&&soleil>50? 'crème et lunettes':''],
-    ['isotherme 0 \u00b0C', s.iso0&&s.iso0.m!==null? V(s.iso0,0,' m') : V(s.iso0calc,0,' m'),
+    ['limite pluie-neige', s.iso0&&s.iso0.m!==null? V(s.iso0,0,' m') : V(s.iso0calc,0,' m'),
       (s.iso0&&s.iso0.m!==null? (s.iso0.m-p.alt).toFixed(0)
        : (s.iso0calc&&s.iso0calc.m!==null? (s.iso0calc.m-p.alt).toFixed(0):null))!==null?
       'au-dessus du point':'au-dessus du sommet du profil'],
     ['indice de soul\u00e8vement', V(s.li,1), s.li&&s.li.m<-2?'atmosph\u00e8re instable':''],
-    ['instabilité (CAPE)', V(s.cape,0,' J/kg'), s.cape&&s.cape.m>800?'convection possible':''],
+    ['risque d\u2019orage', s.cape&&s.cape.m!==null? (s.cape.m>800?'\u00e9lev\u00e9':s.cape.m>300?'mod\u00e9r\u00e9':'faible'):'\u2014',
+      s.cape&&s.cape.m!==null? V(s.cape,0,' J/kg')+' de CAPE':''],
     ['neige', V(s.neige,1,' cm'), ''],
     ['pression', V(s.pres,0,' hPa'), '']
-  ].filter(c=>c[1]!=='—' || c[0]==='isotherme 0 °C');
+  ].filter(c=>c[1]!=='—');
 
   h+='<div class="grille">';
   cellules.forEach(c=>{ h+='<div class="cel"><s>'+c[0]+'</s><b>'+c[1]+'</b>'
@@ -2513,7 +2658,7 @@ async function convergence(){
   });
   q('#modele').onchange=()=>{
     MODELE_ACTIF=q('#modele').value;
-    majNoteFiabilite(); dessine(); fiche(); tableauTous(); resumeSegment(); majSMS();
+    majNoteFiabilite(); dessine(); fiche(); tableauTous(); resumeSegment(); majSMS(); heroRender(); heuresRender();; heroRender(); heuresRender();;
   };
   segChips(); chips();
   q('#smscopie').onclick=copierSMS;
@@ -2536,7 +2681,7 @@ async function convergence(){
       }
     }
     majSelecteurModele();
-    dessine(); fiche(); tableauTous(); resumeSegment(); majSMS(); convergence(); majEtat();
+    dessine(); fiche(); tableauTous(); resumeSegment(); majSMS(); heroRender(); heuresRender();; heroRender(); heuresRender();; convergence(); majEtat();
 
     /* 2. le rafraîchissement ne part qu'une fois l'écran rempli, et il complète
        l'affichage au lieu de le remplacer */
