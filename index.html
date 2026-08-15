@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v10 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v11 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -114,7 +114,7 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
 <header>
   <div class="eyebrow">Sonde multi-modèles · dossard 348</div>
   <h1>Échappée Belle Intégrale <span>2026</span></h1>
-  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 10 · meteoblue</b></div>
+  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 11 · meteoblue calibré</b></div>
   <div class="ctl">
     <label for="scen">Scénario</label>
     <select id="scen"></select>
@@ -421,6 +421,9 @@ async function interroger(){
       nJ[MB_ID]={nom:MB_NOM, jal:mbJ};
     }
     dispo.push([MB_NOM, couvre, POIS.length]);
+    if(couvre>0&&couvre<POIS.length)
+      log('meteoblue couvre '+couvre+' points sur '+POIS.length
+        +' : son horizon gratuit s\'arrête 7 jours après minuit. Couverture complète \u00e0 partir du 17 ao\u00fbt.');
   }catch(e){ ECHECS.push(MB_NOM+' — '+e.message); }
 
   if(AVEC_ENS){
@@ -578,6 +581,16 @@ async function meteobluePoint(p, iso){
     }catch(e){}
   }
   if(!j) return null;
+  /* si les nuages manquent, second essai sur le paquet seul */
+  if(!j.data_1h.totalcloudcover){
+    try{
+      const r2=await fetch(base+'clouds-1h?'+q.toString());
+      if(r2.ok){ const o2=await r2.json();
+        if(o2&&o2.data_1h) Object.keys(o2.data_1h).forEach(k=>{
+          if(k!=='time'&&!j.data_1h[k]) j.data_1h[k]=o2.data_1h[k]; });
+      }
+    }catch(e){}
+  }
   const d=j.data_1h, T=d.time||[];
   if(!T.length) return null;
   const vise=new Date(iso).getTime();
@@ -586,7 +599,7 @@ async function meteobluePoint(p, iso){
     const dd=Math.abs(new Date(String(T[i]).replace(' ','T')).getTime()-vise);
     if(dd<dt){ dt=dd; bi=i; }
   }
-  if(bi<0||dt>2*3.6e6) return null;
+  if(bi<0||dt>1.6*3.6e6) return null;   /* au-delà, c'est une autre heure */
   const g=(k,f)=>{ const a=d[k]; if(!a||a[bi]===null||a[bi]===undefined) return null;
                    return f? f(a[bi]) : a[bi]; };
 
@@ -639,7 +652,7 @@ async function meteoblueSerie(points, cible, avance){
    2. IFS, AIFS et MET Norway partagent l'analyse d'ECMWF — les compter
       séparément revient à faire voter trois fois la même famille. */
 const POIDS = {
-  meteoblue:                      [1.05,'MB',   'MOS calé sur la topographie réelle'],
+  meteoblue:                      [0.95,'MB',   'MOS calé sur le relief, mais source unique et sans ensemble'],
   meteofrance_arome_france_hd:    [1.15,'MF',   'maille 1,3 km sur le relief'],
   meteofrance_arome_france:       [1.00,'MF',   'maille 2,5 km'],
   meteofrance_arpege_europe:      [0.80,'MF',   'maille 11 km'],
@@ -1461,9 +1474,13 @@ async function exportMD(){
   M.push('|---|---|---|---|');
   MODELES.forEach(function(m){
     const dedans = ids.indexOf(m[0])>=0;
+    const joursRestants=(new Date(POIS[0].t[SCENARIO])-maintenant)/864e5;
     const rep = dedans? 'oui'
-      : (REPORTES.filter(r=>r[0]===m[1]).length? 'non — hors de portée'
-      : (ECHECS.filter(e=>e.indexOf(m[1])===0).length? 'non — requête en échec' : 'non'));
+      : (ECHECS.filter(e=>e.indexOf(m[1])===0).length? 'non — requête en échec'
+      : (m[2] < joursRestants? 'non — portée insuffisante, attendu vers le '
+          + new Date(new Date(POIS[0].t[SCENARIO]).getTime()-m[2]*864e5)
+              .toLocaleDateString('fr-FR',{day:'numeric',month:'long'})
+      : 'non — interrogé mais aucune valeur renvoyée'));
     M.push('| '+m[1]+' | `'+m[0]+'` | '+m[2]+' j | '+rep+' |');
   });
   M.push('');
@@ -1579,15 +1596,19 @@ async function exportMD(){
     M.push('Consensus enregistré à chaque actualisation. Ce qui compte n\'est pas la valeur '
       +'mais le **resserrement de l\'écart inter-modèles** à mesure que la date approche.');
     M.push('');
-    M.push('| Relevé | Point | T méd | T min | T max | Écart | Pluie méd | Nuages % | Vent | Rafales |');
-    M.push('|---|---|--:|--:|--:|--:|--:|--:|--:|--:|');
+    M.push('> Attention : l\'écart min-max dépend du nombre de modèles présents. Un écart qui '
+      +'s\'élargit parce que deux modèles supplémentaires sont entrés dans la portée n\'est pas '
+      +'une divergence, c\'est un changement d\'échantillon. La colonne Modèles permet de trancher.');
+    M.push('');
+    M.push('| Relevé | Point | Modèles | T méd | T min | T max | Écart | Pluie méd | Nuages % | Vent | Rafales |');
+    M.push('|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|');
     const n2=v=>(v===null||v===undefined)?'':(+v).toFixed(1);
     snaps.forEach(function(s){
       const q2=new Date(s.date).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',
         hour:'2-digit',minute:'2-digit'});
       POIS.forEach(function(p){
         const v=s.pts&&s.pts[p.nom]; if(!v) return;
-        M.push('| '+q2+' | '+p.nom+' | '+n2(v.t)+' | '+n2(v.tlo)+' | '+n2(v.thi)+' | '
+        M.push('| '+q2+' | '+p.nom+' | '+(v.n||'?')+' | '+n2(v.t)+' | '+n2(v.tlo)+' | '+n2(v.thi)+' | '
           +((v.thi!=null&&v.tlo!=null)?(v.thi-v.tlo).toFixed(1):'')+' | '+n2(v.pr)+' | '
           +n2(v.nu)+' | '+n2(v.v)+' | '+n2(v.raf)+' |');
       });
@@ -1809,7 +1830,7 @@ async function archive(){
   const g=(o,k)=>o&&o[k]!==null&&o[k]!==undefined?o[k]:null;
   POIS.forEach((p,i)=>{ const s=sonde(i); if(s&&s.t) inst[p.nom]={
     t:g(s.t,'m'), tlo:g(s.t,'lo'), thi:g(s.t,'hi'), pr:g(s.pr,'m'), prhi:g(s.pr,'hi'),
-    raf:g(s.raf,'m'), nu:g(s.nu,'m'), hum:g(s.hum,'m'), v:g(s.v,'m')}; });
+    raf:g(s.raf,'m'), nu:g(s.nu,'m'), hum:g(s.hum,'m'), v:g(s.v,'m'), n:s.lignes.length}; });
   try{ await MEM.set(cle, JSON.stringify({date:new Date().toISOString(), scen:SCENARIO, pts:inst, detail:detail})); }
   catch(e){}
   convergence();
@@ -1826,11 +1847,12 @@ async function convergence(){
   }
   if(!snaps.length){ el.textContent='Aucun relevé lisible.'; return; }
   const cible=POIS[SEL].nom;
-  let h='<div class="tw"><table><thead><tr><th>Relevé</th><th>T médiane</th><th>Écart modèles</th>'
+  let h='<div class="tw"><table><thead><tr><th>Relevé</th><th>Mod.</th><th>T médiane</th><th>Écart</th>'
    +'<th>Pluie méd.</th><th>Nuages</th><th>Vent</th><th>Rafales</th></tr></thead><tbody>';
   snaps.forEach(s=>{
     const v=s.pts[cible];
     h+='<tr><td>'+new Date(s.date).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+'</td>'
+     +'<td>'+(v&&v.n?v.n:'?')+'</td>'
      +'<td>'+(v&&v.t!=null?v.t.toFixed(1)+' °':'—')+'</td>'
      +'<td>'+(v&&v.thi!=null?(v.thi-v.tlo).toFixed(1)+' °':'—')+'</td>'
      +'<td>'+(v&&v.pr!=null?v.pr.toFixed(1):'—')+'</td>'
