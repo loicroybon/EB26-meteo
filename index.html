@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v8 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v9 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -114,7 +114,7 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
 <header>
   <div class="eyebrow">Sonde multi-modèles · dossard 348</div>
   <h1>Échappée Belle Intégrale <span>2026</span></h1>
-  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 8 · pondération et niveaux de pression</b></div>
+  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 9 · quota maîtrisé</b></div>
   <div class="ctl">
     <label for="scen">Scénario</label>
     <select id="scen"></select>
@@ -138,6 +138,7 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
   <div class="smspied"><span id="smsinfo"></span><button id="smscopie">Copier le SMS</button></div>
   <div class="smspied" style="border-top:1px solid var(--trace);padding-top:10px;margin-top:12px">
     <span>Toutes les valeurs, tous les modèles, plus l'historique des relevés</span>
+    <button id="ensbtn">Ajouter les probabilités</button>
     <button id="exportmd">Fichier Markdown pour analyse</button>
   </div>
 </div>
@@ -199,19 +200,14 @@ const MODELES = [
   ["jma_seamless","JMA (Japon)",11]
 ];
 const VARS = ["temperature_2m","apparent_temperature","dew_point_2m","relative_humidity_2m",
-              "precipitation","precipitation_probability","rain","snowfall","weather_code",
+              "precipitation","precipitation_probability","snowfall","weather_code",
               "cloud_cover","cloud_cover_low","cloud_cover_mid","cloud_cover_high",
-              "sunshine_duration","shortwave_radiation","uv_index","visibility",
+              "sunshine_duration","uv_index","visibility",
               "wind_speed_10m","wind_gusts_10m","wind_direction_10m",
-              "freezing_level_height","cape","convective_inhibition","lifted_index",
-              "boundary_layer_height","surface_pressure",
-              "temperature_850hPa","temperature_800hPa","temperature_750hPa",
-              "temperature_700hPa","temperature_600hPa",
-              "geopotential_height_850hPa","geopotential_height_800hPa",
-              "geopotential_height_750hPa","geopotential_height_700hPa",
-              "geopotential_height_600hPa",
-              "wind_speed_850hPa","wind_speed_800hPa","wind_speed_750hPa","wind_speed_700hPa",
-              "wind_direction_700hPa","relative_humidity_700hPa"];
+              "freezing_level_height","cape","lifted_index","surface_pressure",
+              "temperature_850hPa","temperature_750hPa","temperature_700hPa",
+              "geopotential_height_850hPa","geopotential_height_750hPa","geopotential_height_700hPa",
+              "wind_speed_750hPa","wind_speed_700hPa"];
 
 const WMO={0:"ciel clair",1:"peu nuageux",2:"passages nuageux",3:"couvert",45:"brouillard",
  48:"brouillard givrant",51:"bruine faible",53:"bruine",55:"bruine forte",56:"bruine verglaçante",
@@ -267,13 +263,14 @@ async function altitudesNatives(id, pts){
   /* sans le paramètre elevation, l'API renvoie l'altitude réelle de la maille :
      c'est le seul moyen de savoir à quel point la température est extrapolée */
   const out=new Array(pts.length).fill(null);
-  const LOT=26;
+  const LOT=50;
   for(let d=0;d<pts.length;d+=LOT){
     const lot=pts.slice(d,d+LOT);
     const qp=new URLSearchParams();
     qp.set('latitude', lot.map(x=>x.lat).join(','));
     qp.set('longitude', lot.map(x=>x.lon).join(','));
     qp.set('models', id); qp.set('current','temperature_2m'); qp.set('forecast_days','1');
+    qp.set('elevation','nan');
     try{
       const r=await fetch('https://api.open-meteo.com/v1/forecast?'+qp.toString());
       if(!r.ok) return out;
@@ -286,7 +283,7 @@ async function altitudesNatives(id, pts){
 }
 
 async function unModele(id, pois){
-  const LOT=26;
+  const LOT=50;
   const lots=[]; for(let i=0;i<pois.length;i+=LOT) lots.push(pois.slice(i,i+LOT));
   const res = pois.map(()=>null);
   for(const [n,lot] of lots.entries()){
@@ -301,17 +298,19 @@ async function unModele(id, pois){
     qp.set('end_date','2026-08-23');
     const u = 'https://api.open-meteo.com/v1/forecast?' + qp.toString();
     let r=null;
-    for(let essai=0; essai<3; essai++){
+    const attentes=[4000,10000,20000,35000];
+    for(let essai=0; essai<=attentes.length; essai++){
       r = await fetch(u);
       if(r.status!==429) break;
-      log('Quota atteint, reprise dans '+(2*(essai+1))+' s…');
-      await new Promise(z=>setTimeout(z, 2000*(essai+1)));
+      if(essai===attentes.length) break;
+      log('Quota Open-Meteo atteint, reprise dans '+(attentes[essai]/1000)+' s…');
+      await new Promise(z=>setTimeout(z, attentes[essai]));
     }
     if(!r.ok) throw new Error(id+' HTTP '+r.status);
     let j = await r.json();
     if(!Array.isArray(j)) j=[j];
     j.forEach((o,k)=>{ res[n*LOT+k]=o; });
-    await new Promise(z=>setTimeout(z,350));
+    await new Promise(z=>setTimeout(z,600));
   }
   return res;
 }
@@ -331,15 +330,9 @@ function extrait(rep, isoCible){
           sol:g('sunshine_duration'), ray:g('shortwave_radiation'), uv:g('uv_index'), vis:g('visibility'),
           v:g('wind_speed_10m'), raf:g('wind_gusts_10m'), dir:g('wind_direction_10m'),
           iso0:g('freezing_level_height'), cape:g('cape'), pres:g('surface_pressure'),
-          cin:g('convective_inhibition'), li:g('lifted_index'), pcl:g('boundary_layer_height'),
-          t850:g('temperature_850hPa'), t800:g('temperature_800hPa'), t750:g('temperature_750hPa'),
-          t700:g('temperature_700hPa'), t600:g('temperature_600hPa'),
-          z850:g('geopotential_height_850hPa'), z800:g('geopotential_height_800hPa'),
-          z750:g('geopotential_height_750hPa'), z700:g('geopotential_height_700hPa'),
-          z600:g('geopotential_height_600hPa'),
-          v850:g('wind_speed_850hPa'), v800:g('wind_speed_800hPa'),
+          li:g('lifted_index'), t850:g('temperature_850hPa'), t750:g('temperature_750hPa'),
+          t700:g('temperature_700hPa'), z850:g('geopotential_height_850hPa'), z750:g('geopotential_height_750hPa'), z700:g('geopotential_height_700hPa'),
           v750:g('wind_speed_750hPa'), v700:g('wind_speed_700hPa'),
-          dir700:g('wind_direction_700hPa'), hum700:g('relative_humidity_700hPa'),
           alt_demandee:rep.elevation};
 }
 
@@ -347,10 +340,13 @@ function enrichir(e, alt, altNative){
   if(!e) return e;
   e.alt_modele = (altNative===null||altNative===undefined)? null : altNative;
   e.ecart_relief = (altNative===null||altNative===undefined)? null : Math.round(alt-altNative);
-  const tl=tAuNiveau(e, alt);
-  if(tl!==null) e.tlibre=Math.round(tl*10)/10;
-  const vc=ventCrete(e, alt);
-  if(vc!==null&&vc!==undefined) e.vcrete=Math.round(vc);
+  /* sous 1400 m on serait sous le niveau 850 hPa : l'extrapolation n'a plus de sens */
+  if(alt>=1400){
+    const tl=tAuNiveau(e, alt);
+    if(tl!==null) e.tlibre=Math.round(tl*10)/10;
+    const vc=ventCrete(e, alt);
+    if(vc!==null&&vc!==undefined) e.vcrete=Math.round(vc);
+  }
   const z0=isothermeZero(e);
   if(z0!==null) e.iso0calc=z0;
   if(e.cape!==null&&e.cape!==undefined&&e.cape<0) e.cape=0;
@@ -378,10 +374,18 @@ async function interroger(){
       const rp = await unModele(id, POIS);
       const rj = await unModele(id, JALONS);
       const dp={nom, reps:rp}, dj={nom, reps:rj};
+      /* l'orographie d'un modèle ne change pas : on la mesure une fois et on la garde */
       try{
-        dp.altNative = await altitudesNatives(id, POIS);
-        dj.altNativeJ = await altitudesNatives(id, JALONS);
-        dp.altNativeJ = dj.altNativeJ;
+        let cacheAlt=null;
+        try{ const rr=await MEM.get('altnat:'+id); cacheAlt=JSON.parse(rr.value); }catch(e){}
+        if(cacheAlt&&cacheAlt.pois&&cacheAlt.pois.length===POIS.length){
+          dp.altNative=cacheAlt.pois; dj.altNativeJ=cacheAlt.jalons; dp.altNativeJ=cacheAlt.jalons;
+        } else {
+          dp.altNative = await altitudesNatives(id, POIS);
+          dj.altNativeJ = await altitudesNatives(id, JALONS);
+          dp.altNativeJ = dj.altNativeJ;
+          try{ await MEM.set('altnat:'+id, JSON.stringify({pois:dp.altNative, jalons:dj.altNativeJ})); }catch(e){}
+        }
       }catch(e){}
       /* on compte les points où le modèle donne réellement une température */
       const couvre = POIS.filter((p,i)=>{ const e=extraitPoi(dp, i);
@@ -402,10 +406,12 @@ async function interroger(){
         + (ECHECS.length? ' Détail : '+ECHECS.join(' | ') : ''));
     afficheDispo(dispo); return;
   }
-  try{
-    log('Interrogation des ensembles (probabilités)…');
-    ENS = await ensembles(POIS, p=>p.t[SCENARIO]);
-  }catch(e){ ENS={}; }
+  if(AVEC_ENS){
+    try{
+      log('Interrogation des ensembles (probabilités)…');
+      ENS = await ensembles(POIS, p=>p.t[SCENARIO]);
+    }catch(e){ }
+  }
   const n=Object.keys(DATA).length;
   const nEns=Object.keys(ENS).length;
   log(n+' modèle'+(n>1?'s':'')+' avec données le '+new Date().toLocaleString('fr-FR')
@@ -585,7 +591,7 @@ function penaliteDivergence(valeurs, poids, mediane){
 /* À 2887 m, la température « 2 m » d'un modèle à 11 km de maille est une
    extrapolation depuis une orographie à ~1900 m. Le profil de pression donne
    la température de l'air libre au bon niveau, et le vent de crête. */
-const NIVEAUX = [850, 800, 750, 700, 600];
+const NIVEAUX = [850, 750, 700];
 
 function profil(e){
   const P=[];
@@ -620,7 +626,7 @@ function isothermeZero(e){
 /* vent au niveau de pression le plus proche au-dessus du point : c'est celui
    qui souffle sur la crête, pas le vent 10 m d'une vallée fictive */
 function ventCrete(e, alt){
-  const cand=[[700,e.v700,e.z700],[750,e.v750,e.z750],[800,e.v800,e.z800],[850,e.v850,e.z850]]
+  const cand=[[700,e.v700,e.z700],[750,e.v750,e.z750]]
     .filter(c=>c[1]!==null&&c[1]!==undefined&&c[2]!==null&&c[2]!==undefined);
   if(!cand.length) return null;
   const dessus=cand.filter(c=>c[2]>=alt-150).sort((a,b)=>a[2]-b[2]);
@@ -629,6 +635,7 @@ function ventCrete(e, alt){
 
 /* ================= ENSEMBLES ================= */
 let ENS = {};   // par nom de point : probabilités issues des ensembles
+let AVEC_ENS = false;
 
 async function ensembles(points, cible){
   const modeles=[['ecmwf_ifs025','ECMWF ENS'],['gfs025','GEFS'],
@@ -1319,8 +1326,14 @@ async function exportMD(){
   M.push('');
   M.push('Les altitudes des points sont celles du road book. Chaque modèle est interrogé '
     +'à la position exacte du point et à l\'heure de passage prévue, avec descente d\'échelle '
-    +'sur l\'altitude réelle. La colonne `alt_modele` donne l\'altitude que le modèle attribue '
-    +'au point : plus l\'écart est grand, plus la température est extrapolée.');
+    +'sur l\'altitude réelle.');
+  M.push('');
+  M.push('**Réserve sur `alt_modele` et `Écart relief`** : ces colonnes visent l\'altitude de la '
+    +'maille native du modèle, mais l\'API applique sa propre descente d\'échelle et peut renvoyer '
+    +'l\'altitude de son modèle numérique de terrain. Un écart de quelques dizaines de mètres pour '
+    +'un modèle à 25 km de maille n\'est pas crédible : dans ce cas la colonne ne mesure rien. '
+    +'La colonne `T air libre`, lue sur le profil de pression, ne dépend pas de cette incertitude '
+    +'— c\'est elle qu\'il faut privilégier au-dessus de 1400 m.');
   M.push('');
 
   M.push('## Modèles interrogés');
@@ -1364,7 +1377,7 @@ async function exportMD(){
   JALONS.forEach(function(jl,k){
     const cons=sondeJalon(k);
     const pre='H+'+jl.h+' | '+jl.t.replace('T',' ')+' | '+jl.km.toFixed(1)+' | '+jl.alt+' | ';
-    if(cons) M.push(ligneMD(pre+'**consensus ('+cons.lignes.length+')**',
+    if(cons&&cons.lignes.length>1) M.push(ligneMD(pre+'**consensus ('+cons.lignes.length+')**',
       Object.fromEntries(COLS.map(c=>[c[0], cons[c[0]]? cons[c[0]].m : null]))));
     ids.forEach(function(id){
       const e=extraitJalonD(DATA_J[id], k);
@@ -1381,7 +1394,7 @@ async function exportMD(){
     const cons=sonde(i);
     const pre=p.nom+' | '+p.type+' | '+p.km.toFixed(1)+' | '+p.alt+' | '
       +p.t[SCENARIO].replace('T',' ')+' | ';
-    if(cons) M.push(ligneMD(pre+' | **consensus ('+cons.lignes.length+')**',
+    if(cons&&cons.lignes.length>1) M.push(ligneMD(pre+' | **consensus ('+cons.lignes.length+')**',
       Object.fromEntries(COLS.map(c=>[c[0], cons[c[0]]? cons[c[0]].m : null]))));
     ids.forEach(function(id){
       const e=extraitPoi(DATA[id], i);
@@ -1746,6 +1759,8 @@ async function convergence(){
   segChips(); chips();
   q('#smscopie').onclick=copierSMS;
   q('#exportmd').onclick=exportMD;
+  q('#ensbtn').onclick=()=>{ AVEC_ENS=true; log('Ensembles activés pour cette actualisation.');
+    interroger(); };
   q('#smscourt').onclick=()=>{ q('#smscourt').setAttribute('aria-pressed','true');
     q('#smscomplet').setAttribute('aria-pressed','false'); majSMS(); };
   q('#smscomplet').onclick=()=>{ q('#smscomplet').setAttribute('aria-pressed','true');
