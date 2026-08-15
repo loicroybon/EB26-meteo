@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v13 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v14 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -114,7 +114,7 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
 <header>
   <div class="eyebrow">Sonde multi-modèles · dossard 348</div>
   <h1>Échappée Belle Intégrale <span>2026</span></h1>
-  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 13 · tout automatique</b></div>
+  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 14 · export toujours frais</b></div>
   <div class="ctl">
     <label for="scen">Scénario</label>
     <select id="scen"></select>
@@ -1611,6 +1611,13 @@ function enteteMD(prefixe){
 
 async function exportMD(){
   const b=q('#exportmd');
+  /* exporter un cache d'une heure produit un fichier daté d'aujourd'hui
+     mais rempli de données d'hier : on rafraîchit d'abord */
+  if(!EN_COURS && ageHeures()>0.75){
+    b.textContent='Actualisation…';
+    log('Données vieilles de '+ageTexte()+' : actualisation avant export.');
+    await interroger();
+  }
   b.disabled=true; b.textContent='Génération…';
   const maintenant=new Date();
   const horod=maintenant.getFullYear()+String(maintenant.getMonth()+1).padStart(2,'0')
@@ -1623,7 +1630,8 @@ async function exportMD(){
   M.push('');
   M.push('- **Généré le** : '+maintenant.toLocaleString('fr-FR')+' (Europe/Paris)');
   M.push('- **Relevé des modèles** : '+(TS_DONNEES? new Date(TS_DONNEES).toLocaleString('fr-FR')
-    +' ('+ageTexte()+')' : 'inconnu'));
+    +' ('+ageTexte()+')' : 'inconnu')
+    + (ageHeures()>1? '  ⚠ **données non rafraîchies**, l\'analyse porte sur un relevé ancien' : ''));
   M.push('- **Course** : départ Vizille vendredi 21 août 2026 06:30, arrivée Aiguebelle. '
     +'149,5 km, ~11 000 m D+, dossard 348.');
   M.push('- **Scénario horaire retenu** : '+SCENARIO+' h (issu du road book officiel, '
@@ -1647,7 +1655,8 @@ async function exportMD(){
   M.push('');
   M.push('| Modèle | Identifiant | Portée annoncée | Données à cette échéance |');
   M.push('|---|---|---|---|');
-  MODELES.forEach(function(m){
+  const TOUS = MODELES.concat(WY_MODELES.map(w=>['windy_'+w[0], w[1], w[2]]));
+  TOUS.forEach(function(m){
     const dedans = ids.indexOf(m[0])>=0;
     const joursRestants=(new Date(POIS[0].t[SCENARIO])-maintenant)/864e5;
     const rep = dedans? 'oui'
@@ -1771,9 +1780,13 @@ async function exportMD(){
     M.push('Consensus enregistré à chaque actualisation. Ce qui compte n\'est pas la valeur '
       +'mais le **resserrement de l\'écart inter-modèles** à mesure que la date approche.');
     M.push('');
-    M.push('> Attention : l\'écart min-max dépend du nombre de modèles présents. Un écart qui '
-      +'s\'élargit parce que deux modèles supplémentaires sont entrés dans la portée n\'est pas '
-      +'une divergence, c\'est un changement d\'échantillon. La colonne Modèles permet de trancher.');
+    M.push('> Deux avertissements. Les valeurs de cette section ont été calculées au moment '
+      +'de chaque relevé, avec la pondération en vigueur ce jour-là : un écart avec la section B '
+      +'pour le même relevé vient du réglage des poids, pas d\'un changement de prévision. '
+      +'Et l\'écart min-max dépend du nombre de modèles présents. Un écart qui '
+      +'Un écart qui s\'élargit parce que deux modèles supplémentaires sont entrés dans la portée '
+      +'n\'est pas une divergence, c\'est un changement d\'échantillon. La colonne Modèles permet '
+      +'de trancher ; elle vaut « ? » pour les relevés antérieurs à son introduction.');
     M.push('');
     M.push('| Relevé | Point | Modèles | T méd | T min | T max | Écart | Pluie méd | Nuages % | Vent | Rafales |');
     M.push('|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|');
