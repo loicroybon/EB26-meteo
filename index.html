@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v22 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v23 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -27,17 +27,20 @@ html{color-scheme:dark}
 html[data-theme="clair"]{color-scheme:light}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--nuit);color:var(--neige);font-family:var(--mono)}
-body{padding:0 0 4rem;font-size:14px;line-height:1.45}
+body{padding:0 0 2.2rem;font-size:14px;line-height:1.4}
 .wrap{max-width:min(1500px,100%);margin:0 auto;padding:0 clamp(12px,2vw,28px)}
 @media (min-width:1100px){ body{font-size:15px} .wrap{padding:0 28px} }
 
-header{padding:22px 0 14px;border-bottom:1px solid var(--trace)}
+header{padding:10px 0 8px;border-bottom:1px solid var(--trace)}
+.titre{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--brume)}
+.titre b{font-size:16px;font-weight:600;color:var(--neige);letter-spacing:-.02em}
+.titre .v{margin-left:auto;font-size:10.5px;opacity:.6}
 .eyebrow{font-family:var(--sans);font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--brume)}
 h1{font-size:clamp(21px,5.6vw,32px);font-weight:600;letter-spacing:-.035em;margin:6px 0 4px;line-height:1.05}
 h1 span{color:var(--brume);font-weight:400}
 .sub{font-size:12px;color:var(--brume)}
 
-.ctl{display:flex;gap:8px 10px;align-items:center;flex-wrap:wrap;margin:14px 0 4px}
+.ctl{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 0}
 .ctl .grp{display:inline-flex;align-items:center;gap:7px;flex:0 0 auto}
 .ctl .pousse{flex:1 1 0;min-width:0}
 @media (max-width:600px){
@@ -54,8 +57,8 @@ button:focus-visible,select:focus-visible,.tick:focus-visible{outline:2px solid 
 button[disabled]{opacity:.45;cursor:default}
 .ctl label{font-family:var(--sans);font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--brume)}
 
-h2{font-family:var(--sans);font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;
-  color:var(--brume);font-weight:600;margin:30px 0 10px;display:flex;align-items:baseline;gap:10px}
+h2{font-family:var(--sans);font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--brume);font-weight:600;margin:16px 0 6px;display:flex;align-items:baseline;gap:8px;opacity:.75}
 h2::after{content:"";flex:1;height:1px;background:var(--trace)}
 
 /* ---- bandeau signature ---- */
@@ -99,7 +102,7 @@ tr.consensus td{background:var(--panneau);font-weight:600;border-bottom:1px soli
 .tw{overflow-x:auto}
 
 /* ---- fiche POI ---- */
-.fiche{border:1px solid var(--trace);border-radius:4px;background:var(--roche);padding:14px;margin-top:10px}
+.fiche{border:1px solid var(--trace);border-radius:4px;background:var(--roche);padding:11px;margin-top:6px}
 .fiche h3{margin:0;font-size:19px;font-weight:600;letter-spacing:-.02em}
 .fiche .meta{font-size:11.5px;color:var(--brume);margin-top:3px}
 .gros{display:flex;gap:20px;flex-wrap:wrap;margin:14px 0 4px}
@@ -130,7 +133,7 @@ ul.dispo li{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--tr
 ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ok{color:var(--accord)} .ko{color:var(--brume)}
 .log{font-size:11px;color:var(--brume);margin-top:8px;white-space:pre-wrap}
-.etat{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--brume)}
+.etat{display:flex;align-items:center;gap:7px;margin-top:7px;font-size:11.5px;color:var(--brume)}
 .etat b{color:var(--neige);font-weight:600}
 .etat .pastille{width:7px;height:7px;border-radius:50%;background:var(--accord);flex:0 0 auto}
 .etat.vieux .pastille{background:var(--chaud)} .etat.charge .pastille{background:var(--froid)}
@@ -148,29 +151,28 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
 <div class="wrap">
 
 <header>
-  <div class="eyebrow">Sonde multi-modèles · dossard 348</div>
-  <h1>Échappée Belle Intégrale <span>2026</span></h1>
-  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 22 · lisible en course</b></div>
+  <div class="titre">
+    <b>Échappée Belle 2026</b>
+    <span>ven 21/08 06:30 · 149,5 km · 11 000 D+</span>
+    <span class="v">v23</span>
+  </div>
   <div class="ctl">
-    <span class="grp"><label for="scen">Scénario</label><select id="scen"></select></span>
-    <span class="grp"><label for="modele">Modèle</label>
-      <select id="modele"><option value="">Multimodèle</option></select></span>
-    <span class="pousse"></span>
+    <select id="scen" aria-label="Scénario"></select>
+    <select id="modele" aria-label="Modèle"><option value="">Multimodèle</option></select>
     <span class="theme" role="group" aria-label="Apparence">
       <button id="th-clair" title="Clair">☀</button>
       <button id="th-sombre" title="Sombre">☾</button>
-      <button id="th-auto" title="Suivre le système">auto</button>
+      <button id="th-auto" title="Système">A</button>
     </span>
-    <button id="go">Actualiser maintenant</button>
-    <button id="raz" title="Efface l'historique de convergence">Vider l'historique</button>
+    <button id="go" title="Actualiser">⟳</button>
   </div>
-  <details class="repli" id="boxfiab"><summary id="fiabresume">Fiabilité du mode d'affichage</summary>
-    <div class="note" id="fiabilite"></div></details>
   <div class="etat" id="etat"></div>
-  <div class="log" id="log">Tout est automatique : modèles, meteoblue, Windy et ensembles s'enchaînent, et l'écran se remplit au fur et à mesure.</div>
+  <div class="log" id="log" hidden></div>
+  <div class="note" id="fiabilite" hidden></div>
+  <span id="fiabresume" hidden></span>
 </header>
 
-<h2 id="hmg">Météogramme de course</h2>
+<h2 id="hmg">Météogramme</h2>
 <div class="chips" id="segchips"></div>
 <div class="fiche" id="segresume" style="margin-bottom:10px;display:none"></div>
 
@@ -178,43 +180,36 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
   <div class="cadre"><svg id="gouttiere"></svg>
     <div class="scroller" id="scroller"><svg id="ruban"></svg></div></div>
   <div class="legende" id="mgnote" style="border:0;padding:6px 12px 0"></div>
-  <details class="repli legrepli"><summary>Comment lire ce graphique</summary><div class="legende">
-    <span>de gauche à droite : <b style="color:var(--neige)">le temps de course</b>, pas la distance</span>
-    <span><i style="background:#E4ECF7"></i>nuages, 3 étages</span>
-    <span><i style="background:var(--pluie)"></i>pluie mm/h · % = risque</span>
-    <span><i style="background:var(--chaud)"></i>rafales &gt; 40 km/h</span>
-    <span><i style="background:var(--alerte)"></i>rafales &gt; 60</span>
-    <span>fond = couleur du ciel à l'heure réelle · relief délavé = les modèles se contredisent</span>
-  </div></details>
+  
 </div>
 
-<h2>Sonde du point</h2>
+<h2>Point</h2>
 <div class="chips" id="chips"></div>
 <div class="fiche" id="fiche">
-  <div class="note">Choisis un point ci-dessus, puis lance l'interrogation.</div>
+
 </div>
 
 <div class="fiche" id="smszone" style="margin-bottom:10px">
   <div class="smsbarre">
-    <b>SMS pour mes proches</b>
+    <b>SMS</b>
     <button id="smscourt" aria-pressed="true">Court</button>
     <button id="smscomplet" aria-pressed="false">Tous les points</button>
   </div>
   <textarea id="smstexte" readonly rows="7" spellcheck="false"></textarea>
   <div class="smspied"><span id="smsinfo"></span><button id="smscopie">Copier le SMS</button></div>
   <div class="smspied" style="border-top:1px solid var(--trace);padding-top:10px;margin-top:12px">
-    <span>Toutes les valeurs, tous les modèles, plus l'historique des relevés</span>
-    <button id="exportmd">Fichier Markdown pour analyse</button>
+    <button id="exportmd">Export Markdown</button>
+    <button id="raz" title="Effacer l'historique">Vider</button>
   </div>
 </div>
 
-<h2>Modèles qui atteignent la course</h2>
+<h2>Modèles</h2>
 <ul class="dispo" id="dispo"><li><span class="ko">En attente d'interrogation.</span></li></ul>
 
-<h2>Convergence jour après jour</h2>
+<h2>Convergence</h2>
 <div id="conv" class="note">Aucun relevé archivé pour l'instant.</div>
 
-<h2>Tous les points</h2>
+<h2 id="htp">Tous les points</h2>
 <div class="tw"><table id="tousp"><tbody></tbody></table></div>
 
 </div>
@@ -1461,19 +1456,17 @@ function majEtat(){
   el.className='etat';
   let txt;
   if(EN_COURS){ el.classList.add('charge');
-    txt='<span class="pulse">Mise à jour en cours…</span>'
-        + (TS_DONNEES? ' affichage des données de <b>'+ageTexte()+'</b>' : ''); }
-  else if(!TS_DONNEES){ el.classList.add('vieux'); txt='Aucune donnée en mémoire.'; }
+    txt='<span class="pulse">mise à jour…</span>'
+        + (TS_DONNEES? ' <b>'+ageTexte()+'</b>' : ''); }
+  else if(!TS_DONNEES){ el.classList.add('vieux'); txt='aucune donnée'; }
   else {
     const n=Object.keys(DATA).length;
-    txt='<b>'+n+' modèle'+(n>1?'s':'')+'</b> · relevé '+ageTexte()
-        +' ('+new Date(TS_DONNEES).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',
-          hour:'2-digit',minute:'2-digit'})+')';
-    if(HORS_LIGNE){ el.classList.add('horsligne'); txt+=' · <b>hors ligne</b>, données conservées'; }
+    txt='<b>'+n+'</b> modèle'+(n>1?'s':'')+' · '+ageTexte();
+    if(HORS_LIGNE){ el.classList.add('horsligne'); txt+=' · <b>hors ligne</b>'; }
     else if(ageHeures()>PERIME_H) el.classList.add('vieux');
   }
   el.innerHTML='<span class="pastille"></span><span>'+txt+'</span>'
-    + (EN_COURS? '' : '<button id="maj">Actualiser</button>');
+    + '';
   const b=q('#maj'); if(b) b.onclick=()=>interroger();
 }
 
@@ -1796,9 +1789,7 @@ function dessine(){
   q('#hmg').textContent = SEG? 'M\u00e9t\u00e9ogramme \u2014 segment '+String(SEG).padStart(2,'0')
     : 'M\u00e9t\u00e9ogramme de course';
   const nMod=Object.keys(DATA).length;
-  q('#mgnote').textContent = nMod? (EN_COURS? 'Relev\u00e9 en cours \u2014 affichage des '
-      +'donn\u00e9es pr\u00e9c\u00e9dentes, elles seront compl\u00e9t\u00e9es sans \u00eatre effac\u00e9es.' : '')
-    : 'Relief et horaires affich\u00e9s. Le temps arrive d\u00e8s la premi\u00e8re r\u00e9ponse.';
+  q('#mgnote').textContent = nMod? '' : 'en attente des mod\u00e8les\u2026';
 }
 
 /* ---------- segments ---------- */
@@ -2287,9 +2278,8 @@ function fiche(){
   const p=POIS[SEL], s=Object.keys(DATA).length? sonde(SEL):null;
   const f=q('#fiche');
   const nDispo=modelesDisponibles().length;
-  let h='<h3>'+p.nom+'</h3><div class="meta">km '+p.km.toFixed(1)+' · '+p.alt+' m · '+p.type
-    +' · passage '+hhmm(p.t[SCENARIO])+' (scénario '+SCENARIO+' h)<br>'
-    +p.lat.toFixed(5)+', '+p.lon.toFixed(5)+'</div>';
+  let h='<h3>'+p.nom+'</h3><div class="meta">km '+p.km.toFixed(1)+' · '+p.alt+' m · '
+    +hhmm(p.t[SCENARIO])+'</div>';
   if(!s){ h+='<div class="note" style="margin-top:12px">Pas encore de données. Lance « Interroger les modèles ».</div>';
     f.innerHTML=h; return; }
 
@@ -2299,27 +2289,22 @@ function fiche(){
 
   if(s.code!==null) h+='<div style="margin:10px 0 2px;font-size:15px">'+(WMO[s.code]||'—')+'</div>';
   if(!MODELE_ACTIF && s.lignes.length<nDispo)
-    h+='<div class="note alerte" style="margin:4px 0 0">'+s.lignes.length+' mod\u00e8les sur '+nDispo
-      +' couvrent ce point : les autres n\u2019atteignent pas cette \u00e9ch\u00e9ance. '
-      +'Le consensus y est plus fragile qu\u2019au d\u00e9part.</div>';
+    h+='<div class="note alerte" style="margin:4px 0 0">'+s.lignes.length+'/'+nDispo
+      +' mod\u00e8les couvrent ce point</div>';
   if(s.confiance){
     const c=s.confiance;
     const coul = c.niveau==='bonne'?'var(--accord)':c.niveau==='moyenne'?'var(--chaud)':'var(--alerte)';
     h+= (s.lignes.length<2)
-      ? '<div class="note" style="margin:6px 0 0">Un seul mod\u00e8le : ni \u00e9cart ni confiance '
-        +'mesurables. Les valeurs ci-dessous sont une hypoth\u00e8se, pas une fourchette.</div>'
-      : '<div class="note" style="margin:6px 0 0">Confiance <b style="color:'+coul+'">'+c.niveau
-        +'</b> \u00b7 '+c.familles+' famille'+(c.familles>1?'s ind\u00e9pendantes':' de mod\u00e8les')
-        +' \u00b7 '+c.etendue+' \u00b0C entre les extr\u00eames</div>';
+      ? '<div class="note alerte" style="margin:4px 0 0">mod\u00e8le unique \u2014 aucune incertitude mesur\u00e9e</div>'
+      : '<div class="note" style="margin:4px 0 0">confiance <b style="color:'+coul+'">'+c.niveau
+        +'</b> \u00b7 \u00b1'+(c.etendue/2).toFixed(1)+' \u00b0C</div>';
   }
   const en=ENS[p.nom];
-  if(en) h+='<div class="note" style="margin:6px 0 0;color:var(--froid)">Ensembles '
-    +(MODELE_ACTIF? 'ECMWF et GEFS, ind\u00e9pendants du mod\u00e8le choisi ' : '')+'('+en.membres
-    +' membres) : pluie '+(en.pluie02!==null?en.pluie02+' %':'?')
-    +(en.pluie1!==null? ' \u00b7 >1 mm '+en.pluie1+' %':'')
-    +(en.pluie5!==null? ' \u00b7 >5 mm '+en.pluie5+' %':'')
-    +(en.raf50!==null? ' \u00b7 rafales >50 '+en.raf50+' %':'')
-    +' \u00b7 T '+en.t10+' \u00e0 '+en.t90+' \u00b0C</div>';
+  if(en) h+='<div class="note" style="margin:4px 0 0;color:var(--froid)">ens. '+en.membres+'m \u00b7 '
+    +'pluie '+(en.pluie02!==null?en.pluie02+'%':'?')
+    +(en.pluie1!==null? ' (>1mm '+en.pluie1+'%)':'')
+    +(en.raf50!==null? ' \u00b7 raf>50 '+en.raf50+'%':'')
+    +' \u00b7 T '+en.t10+'\u2013'+en.t90+'\u00b0</div>';
 
   h+='<div class="gros">'
    +'<div><b style="color:'+couleurT(s.t?s.t.m:null)+'">'+V(s.t,1,'°')+'</b><s>température</s>'
@@ -2387,7 +2372,7 @@ function fiche(){
       : 'relief mod\u00e8le '+Math.round(l.alt_modele)+' m ('+(l.ecart_relief>0?'+':'')+l.ecart_relief+' m)';
     h+='<tr'+(l.divergent?' style="opacity:.62"':'')+'><td>'+l.nom
      +(l.divergent?' <span style="color:var(--chaud)">\u26a0 diverge</span>':'')
-     +'<div class="res">'+rel+' \u00b7 '+((POIDS[l.id]||[0,0,''])[2])+'</div></td>'
+     +'</td>'
      +'<td>'+l.poids.toFixed(2)+'</td>'
      +'<td>'+L(l,'t',1,'')+'</td><td>'+L(l,'tlibre',1,'')+'</td><td>'+L(l,'res',1,'')+'</td>'
      +'<td>'+L(l,'hum',0,'')+'</td><td>'+L(l,'nu',0,'')+'</td><td>'+L(l,'pr',1,'')+'</td>'
@@ -2485,9 +2470,7 @@ async function convergence(){
      +'<td>'+(v&&v.v!=null?v.v.toFixed(0):'—')+'</td>'
      +'<td>'+(v&&v.raf!=null?v.raf.toFixed(0):'—')+'</td></tr>';
   });
-  h+='</tbody></table></div><div class="note" style="margin-top:8px">Convergence sur <b>'+cible
-   +'</b>. L\'écart entre modèles doit se resserrer à mesure que la date approche : c\'est le signal à surveiller, '
-   +'plus que la valeur elle-même.</div>';
+  h+='</tbody></table></div>';
   el.innerHTML=h;
 }
 
@@ -2542,7 +2525,6 @@ async function convergence(){
 
   /* 1. on affiche immédiatement ce qu'on a en mémoire, même périmé */
   (async()=>{
-    q('#mgnote').textContent='Lecture des donn\u00e9es en m\u00e9moire\u2026';
     if(!(PRECHARGE && PRECHARGE.modeles)){
       const c=await cacheLire();
       if(c){
