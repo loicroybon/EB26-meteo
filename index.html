@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v9 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v10 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -114,7 +114,7 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
 <header>
   <div class="eyebrow">Sonde multi-modèles · dossard 348</div>
   <h1>Échappée Belle Intégrale <span>2026</span></h1>
-  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 9 · quota maîtrisé</b></div>
+  <div class="sub" id="entete">Vizille, vendredi 21 août 06:30 → Aiguebelle · 149,5 km · 11 000 m D+<br><b style="color:var(--accord)">version 10 · meteoblue</b></div>
   <div class="ctl">
     <label for="scen">Scénario</label>
     <select id="scen"></select>
@@ -181,6 +181,7 @@ const SEGMENTS = [{"n":1,"de":"Vizille","vers":"R1 Arselle","km0":0.0,"km1":17.5
 let SEG = 0;
 
 const MODELES = [
+  ["meteoblue","meteoblue MOS",7],
   ["meteofrance_arome_france_hd","AROME HD 1,3 km",2.1],
   ["meteofrance_arome_france","AROME 2,5 km",2.1],
   ["meteofrance_arpege_europe","ARPEGE Europe 11 km",4.2],
@@ -368,6 +369,7 @@ async function interroger(){
   const jours = (new Date(POIS[0].t[SCENARIO]) - Date.now())/864e5;
   const dispo=[];
   for(const [id,nom,portee] of MODELES){
+    if(id===MB_ID) continue;                 /* API distincte, traitée plus bas */
     if(portee < jours){ REPORTES.push([nom, portee]); continue; }
     log('Interrogation : '+nom+' …');
     try{
@@ -406,6 +408,21 @@ async function interroger(){
         + (ECHECS.length? ' Détail : '+ECHECS.join(' | ') : ''));
     afficheDispo(dispo); return;
   }
+  /* meteoblue : API séparée, quota indépendant d'Open-Meteo */
+  try{
+    log('Interrogation : meteoblue (point par point)…');
+    const mbP = await meteoblueSerie(POIS, p=>p.t[SCENARIO],
+      (f,n)=>log('meteoblue : '+f+' / '+n+' points…'));
+    const mbJ = await meteoblueSerie(JALONS, p=>p.t,
+      (f,n)=>log('meteoblue : jalons '+f+' / '+n+'…'));
+    const couvre=mbP.filter(e=>e&&e.t!==null&&e.t!==undefined).length;
+    if(couvre>0){
+      nD[MB_ID]={nom:MB_NOM, pts:{[SCENARIO]:mbP}};
+      nJ[MB_ID]={nom:MB_NOM, jal:mbJ};
+    }
+    dispo.push([MB_NOM, couvre, POIS.length]);
+  }catch(e){ ECHECS.push(MB_NOM+' — '+e.message); }
+
   if(AVEC_ENS){
     try{
       log('Interrogation des ensembles (probabilités)…');
@@ -515,12 +532,114 @@ function sondeJalon(k){
   return agrege(out);
 }
 
+/* ================= METEOBLUE ================= */
+/* Intérêt propre : meteoblue applique un MOS, une correction statistique calée
+   sur la topographie réelle. C'est la seule source du lot qui ne se contente pas
+   d'interpoler une maille — donc une information indépendante en montagne.
+   Contrepartie : pas de niveaux de pression, donc ni air libre ni vent de crête. */
+const MB_CLE = 'CwGWT5rQ8m21jLMf';
+const MB_ID  = 'meteoblue';
+const MB_NOM = 'meteoblue MOS';
+
+function mbCode(pr, nu, neige, orage){
+  if(orage) return 95;
+  if(neige>0.05) return pr>1? 75 : 71;
+  if(pr>=2) return 65;
+  if(pr>=0.5) return 63;
+  if(pr>=0.1) return 61;
+  if(nu>=85) return 3;
+  if(nu>=50) return 2;
+  if(nu>=20) return 1;
+  return 0;
+}
+function rosee(t, hr){
+  if(t===null||hr===null||hr<=0) return null;
+  const a=17.27, b=237.7;
+  const g=Math.log(hr/100)+a*t/(b+t);
+  return Math.round((b*g/(a-g))*10)/10;
+}
+
+async function meteobluePoint(p, iso){
+  const base='https://my.meteoblue.com/packages/';
+  const q=new URLSearchParams();
+  q.set('apikey', MB_CLE);
+  q.set('lat', p.lat); q.set('lon', p.lon); q.set('asl', p.alt);
+  q.set('format','json'); q.set('tz','Europe/Paris');
+  q.set('temperature','C'); q.set('windspeed','kmh'); q.set('precipitationamount','mm');
+  q.set('history_days','0');
+  let j=null;
+  /* on tente le lot complet, puis on se rabat sur le paquet de base */
+  for(const paquets of ['basic-1h_clouds-1h_wind-1h','basic-1h_clouds-1h','basic-1h']){
+    try{
+      const r=await fetch(base+paquets+'?'+q.toString());
+      if(!r.ok) continue;
+      const o=await r.json();
+      if(o&&o.data_1h){ j=o; break; }
+    }catch(e){}
+  }
+  if(!j) return null;
+  const d=j.data_1h, T=d.time||[];
+  if(!T.length) return null;
+  const vise=new Date(iso).getTime();
+  let bi=-1, dt=1e15;
+  for(let i=0;i<T.length;i++){
+    const dd=Math.abs(new Date(String(T[i]).replace(' ','T')).getTime()-vise);
+    if(dd<dt){ dt=dd; bi=i; }
+  }
+  if(bi<0||dt>2*3.6e6) return null;
+  const g=(k,f)=>{ const a=d[k]; if(!a||a[bi]===null||a[bi]===undefined) return null;
+                   return f? f(a[bi]) : a[bi]; };
+
+  const t=g('temperature'), hr=g('relativehumidity'), pr=g('precipitation');
+  const nu=g('totalcloudcover'), sf=g('snowfraction');
+  /* unités demandées explicitement dans la requête : °C, km/h, mm */
+  const v=g('windspeed');
+  const neige = (sf!==null&&pr!==null)? Math.round(sf*pr*0.7*10)/10 : null;
+  const orage = (d.pictocode&&[8,17].indexOf(d.pictocode[bi])>=0);
+
+  const r1=x=>x===null||x===undefined?null:Math.round(x*10)/10;
+  const r0=x=>x===null||x===undefined?null:Math.round(x);
+  return {
+    t: r1(t), res: r1(g('felttemperature')),
+    ros: r1(g('dewpointtemperature')!==null? g('dewpointtemperature') : rosee(t,hr)),
+    hum: r0(hr), pr: r1(pr), pp: r0(g('precipitation_probability')), neige: neige,
+    code: mbCode(pr||0, nu===null?0:nu, neige||0, orage),
+    nu: r0(nu), nub: r0(g('lowclouds')), num: r0(g('midclouds')), nuh: r0(g('highclouds')),
+    sol: r0(g('sunshinetime', x=>x*60)),      /* minutes -> secondes, comme les autres */
+    uv: r1(g('uvindex')), vis: r0(g('visibility')),
+    v: r0(v), raf: r0(g('windgust')), dir: r0(g('winddirection')),
+    iso0: null, cape: null, li: null,
+    /* meteoblue donne la pression ramenée au niveau de la mer : incomparable
+       avec la pression au sol des autres modèles, on ne l'agrège pas */
+    pres: null, pres_mer: r0(g('sealevelpressure')),
+    alt_demandee: p.alt, source_mb: true
+  };
+}
+
+/* on limite la concurrence : l'API répond point par point */
+async function meteoblueSerie(points, cible, avance){
+  const out=new Array(points.length).fill(null);
+  const FILE=3;
+  let i=0, faits=0;
+  async function ouvrier(){
+    while(i<points.length){
+      const k=i++;
+      out[k]=await meteobluePoint(points[k], cible(points[k]));
+      faits++;
+      if(avance && faits%12===0) avance(faits, points.length);
+    }
+  }
+  await Promise.all(Array.from({length:FILE}, ouvrier));
+  return out;
+}
+
 /* ================= PONDÉRATION DES MODÈLES ================= */
 /* Deux corrections au simple médian :
    1. tous les modèles ne se valent pas sur les Alpes ;
    2. IFS, AIFS et MET Norway partagent l'analyse d'ECMWF — les compter
       séparément revient à faire voter trois fois la même famille. */
 const POIDS = {
+  meteoblue:                      [1.05,'MB',   'MOS calé sur la topographie réelle'],
   meteofrance_arome_france_hd:    [1.15,'MF',   'maille 1,3 km sur le relief'],
   meteofrance_arome_france:       [1.00,'MF',   'maille 2,5 km'],
   meteofrance_arpege_europe:      [0.80,'MF',   'maille 11 km'],
