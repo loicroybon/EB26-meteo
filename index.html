@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v28 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v29 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -695,7 +695,24 @@ const FIABILITE = {
      +"maille fine sur les Alpes. Portée courte, environ 2,5 jours. Points du parcours seulement."
 };
 
+/* Un modèle retiré de la liste survit dans le cache du téléphone :
+   il faut le purger explicitement, sinon il continue d'être affiché et compté. */
+function modeleConnu(id){
+  if(id===MB_ID) return true;
+  if(MODELES.some(m=>m[0]===id)) return true;
+  if(WY_MODELES.some(m=>('windy_'+m[0])===id)) return true;
+  return false;
+}
+function purgerInconnus(){
+  let n=0;
+  Object.keys(DATA).forEach(function(id){
+    if(!modeleConnu(id)){ delete DATA[id]; delete DATA_J[id]; n++; }
+  });
+  return n;
+}
+
 function modelesDisponibles(){
+  purgerInconnus();
   return Object.keys(DATA).filter(id=>{
     for(let i=0;i<POIS.length;i++){ const e=extraitPoi(DATA[id], i);
       if(e&&e.t!==null&&e.t!==undefined) return true; }
@@ -1512,7 +1529,11 @@ function appliqueCache(c){
     DATA[id]  ={nom:c.modeles[id].nom, pts:{[c.scenario]:c.modeles[id].pts}};
     DATA_J[id]={nom:c.modeles[id].nom, jal:c.modeles[id].jal};
   }
-  REPORTES=c.reportes||[]; ECHECS=c.echecs||[]; ENS=c.ens||{};
+  REPORTES=(c.reportes||[]).filter(r=>!r[2]||modeleConnu(r[2]));
+  ECHECS=c.echecs||[]; ENS=c.ens||{};
+  const purges=purgerInconnus();
+  if(purges) log(purges+' modèle'+(purges>1?'s':'')+' obsolète'+(purges>1?'s':'')
+    +' retiré'+(purges>1?'s':'')+' du cache.');
   TS_DONNEES=c.ts; SCENARIO=c.scenario;
   const sel=q('#scen'); if(sel) sel.value=String(SCENARIO);
 }
@@ -1536,7 +1557,12 @@ function majEtat(){
   else if(!TS_DONNEES){ el.classList.add('vieux'); txt='aucune donnée'; }
   else {
     const n=Object.keys(DATA).length;
-    txt='<b>'+n+'</b> modèle'+(n>1?'s':'')+' · '+ageTexte();
+    const fam={}; modelesDisponibles().forEach(function(id){
+      const d=DOUBLON[id];
+      if(!(d && DATA[d.parent])) fam[famille(id)]=1;
+    });
+    const nS=Object.keys(fam).length;
+    txt='<b>'+nS+'</b> source'+(nS>1?'s':'')+' · '+n+' modèles · '+ageTexte();
     if(HORS_LIGNE){ el.classList.add('horsligne'); txt+=' · <b>hors ligne</b>'; }
     else if(ageHeures()>PERIME_H) el.classList.add('vieux');
   }
