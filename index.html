@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v30 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v31 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -2339,15 +2339,22 @@ async function exportMD(){
   M.push('Une ligne par heure de course et par modèle. La position est celle où le coureur '
     +'devrait se trouver à cette heure selon le scénario '+SCENARIO+' h.');
   M.push('');
-  M.push(enteteMD('H | Heure locale | km | alt m | Modèle'));
+  M.push(enteteMD('H | Heure locale | km | alt m | Modèle | Poids | Statut'));
   JALONS.forEach(function(jl,k){
     const cons=sondeJalon(k);
     const pre='H+'+jl.h+' | '+jl.t.replace('T',' ')+' | '+jl.km.toFixed(1)+' | '+jl.alt+' | ';
-    if(cons&&cons.lignes.length>1) M.push(ligneMD(pre+'**consensus ('+cons.lignes.length+')**',
-      Object.fromEntries(COLS.map(c=>[c[0], cons[c[0]]? cons[c[0]].m : null]))));
-    ids.forEach(function(id){
-      const e=extraitJalonD(DATA_J[id], k);
-      if(e) M.push(ligneMD(pre+DATA[id].nom, e));
+    if(cons&&cons.lignes.length>1){
+      M.push(ligneMD(pre+'**consensus** | '+cons.lignes.filter(l=>!l.doublon).length+' voix | pondéré',
+        Object.fromEntries(COLS.map(c=>[c[0], cons[c[0]]? cons[c[0]].m : null]))));
+      M.push(ligneMD(pre+'_étendue min–max_ |  | dispersion',
+        Object.fromEntries(COLS.map(c=>[c[0],
+          (cons[c[0]]&&cons[c[0]].n>1)? (cons[c[0]].hi-cons[c[0]].lo) : null]))));
+    }
+    (cons? cons.lignes : []).forEach(function(l){
+      const st=l.doublon? (l.doublon.length? 'doublon, gardé pour pluie conv. et base nuages'
+                                           : 'doublon, écarté')
+               : (l.divergent? 'diverge du groupe' : 'compté');
+      M.push(ligneMD(pre+l.nom+' | '+l.poids.toFixed(2)+' | '+st, l));
     });
   });
   M.push('');
@@ -2355,20 +2362,86 @@ async function exportMD(){
   /* ---- B. points d'intérêt ---- */
   M.push('## B. Points du parcours, à l\'heure de passage');
   M.push('');
-  M.push(enteteMD('Point | Type | km | alt m | Passage | alt_modele | Modèle'));
+  M.push(enteteMD('Point | Type | km | alt m | Passage | Modèle | Poids | Statut'));
   POIS.forEach(function(p,i){
     const cons=sonde(i);
     const pre=p.nom+' | '+p.type+' | '+p.km.toFixed(1)+' | '+p.alt+' | '
       +p.t[SCENARIO].replace('T',' ')+' | ';
-    if(cons&&cons.lignes.length>1) M.push(ligneMD(pre+' | **consensus ('+cons.lignes.length+')**',
-      Object.fromEntries(COLS.map(c=>[c[0], cons[c[0]]? cons[c[0]].m : null]))));
-    ids.forEach(function(id){
-      const e=extraitPoi(DATA[id], i);
-      if(e && e.t!==null && e.t!==undefined)
-        M.push(ligneMD(pre+(e.alt_modele!==undefined&&e.alt_modele!==null?Math.round(e.alt_modele):'')
-          +' | '+DATA[id].nom, e));
+    if(cons&&cons.lignes.length>1){
+      M.push(ligneMD(pre+'**consensus** | '+cons.lignes.filter(l=>!l.doublon).length+' voix | pondéré',
+        Object.fromEntries(COLS.map(c=>[c[0], cons[c[0]]? cons[c[0]].m : null]))));
+      M.push(ligneMD(pre+'_étendue min–max_ |  | dispersion',
+        Object.fromEntries(COLS.map(c=>[c[0],
+          (cons[c[0]]&&cons[c[0]].n>1)? (cons[c[0]].hi-cons[c[0]].lo) : null]))));
+    }
+    (cons? cons.lignes : []).forEach(function(l){
+      const st=l.doublon? (l.doublon.length? 'doublon, gardé pour pluie conv. et base nuages'
+                                           : 'doublon, écarté')
+               : (l.divergent? 'diverge du groupe' : 'compté');
+      M.push(ligneMD(pre+l.nom+' | '+l.poids.toFixed(2)+' | '+st, l));
     });
   });
+  M.push('');
+
+  /* ---- B3. signature de chaque modèle ---- */
+  M.push('## B3. Écart systématique de chaque modèle au consensus');
+  M.push('');
+  M.push('Moyenne de l\'écart au consensus pondéré, sur tous les points où le modèle répond. '
+    +'C\'est la lecture la plus utile pour un regard critique : elle révèle qui court '
+    +'chaud, qui court sec, et si le biais s\'aggrave en altitude.');
+  M.push('');
+  M.push('| Modèle | Poids | Points | ΔT °C | ΔT au-dessus de 2000 m | ΔRessenti | ΔPluie mm/h | ΔRafales | ΔNuages % |');
+  M.push('|---|--:|--:|--:|--:|--:|--:|--:|--:|');
+  const sig={};
+  POIS.forEach(function(p,i){
+    const cons=sonde(i); if(!cons) return;
+    cons.lignes.forEach(function(l){
+      const s=sig[l.id]=sig[l.id]||{nom:l.nom, poids:l.poids, n:0, t:0, tAlt:0, nAlt:0,
+                                    res:0, nres:0, pr:0, npr:0, raf:0, nraf:0, nu:0, nnu:0,
+                                    doublon:!!l.doublon};
+      if(l.t!==null&&cons.t){ s.n++; s.t+=l.t-cons.t.m;
+        if(p.alt>=2000){ s.nAlt++; s.tAlt+=l.t-cons.t.m; } }
+      if(l.res!==null&&l.res!==undefined&&cons.res){ s.nres++; s.res+=l.res-cons.res.m; }
+      if(l.pr!==null&&l.pr!==undefined&&cons.pr){ s.npr++; s.pr+=l.pr-cons.pr.m; }
+      if(l.raf!==null&&l.raf!==undefined&&cons.raf){ s.nraf++; s.raf+=l.raf-cons.raf.m; }
+      if(l.nu!==null&&l.nu!==undefined&&cons.nu){ s.nnu++; s.nu+=l.nu-cons.nu.m; }
+    });
+  });
+  const moy=(v,n)=>n? (v/n>=0?'+':'')+(v/n).toFixed(1) : '';
+  Object.keys(sig).sort((a,b)=>sig[b].poids-sig[a].poids).forEach(function(id){
+    const s=sig[id];
+    M.push('| '+s.nom+(s.doublon?' _(doublon)_':'')+' | '+s.poids.toFixed(2)+' | '+s.n+' | '
+      +moy(s.t,s.n)+' | '+moy(s.tAlt,s.nAlt)+' | '+moy(s.res,s.nres)+' | '
+      +moy(s.pr,s.npr)+' | '+moy(s.raf,s.nraf)+' | '+moy(s.nu,s.nnu)+' |');
+  });
+  M.push('');
+  M.push('> Un écart nul ne veut pas dire « juste » : il veut dire « conforme au groupe ». '
+    +'Si tous les modèles partagent un biais d\'altitude, aucun ne ressortira ici.');
+  M.push('');
+
+  /* ---- B4. desaccords maximaux ---- */
+  M.push('## B4. Points de désaccord maximal');
+  M.push('');
+  const des=[];
+  POIS.forEach(function(p,i){
+    const cons=sonde(i);
+    if(!cons||!cons.t||cons.t.n<3) return;
+    const tri=cons.lignes.filter(l=>l.t!==null&&!l.doublon).sort((a,b)=>a.t-b.t);
+    if(tri.length<3) return;
+    des.push({p:p, ecart:cons.t.hi-cons.t.lo, bas:tri[0], haut:tri[tri.length-1],
+              med:cons.t.m, n:tri.length});
+  });
+  des.sort((a,b)=>b.ecart-a.ecart);
+  M.push('| Point | Passage | alt | Écart T | Le plus froid | Le plus chaud | Consensus |');
+  M.push('|---|---|--:|--:|---|---|--:|');
+  des.slice(0,12).forEach(function(d){
+    M.push('| '+d.p.nom+' | '+d.p.t[SCENARIO].slice(11,16)+' | '+d.p.alt+' | '
+      +d.ecart.toFixed(1)+' | '+d.bas.nom+' '+d.bas.t.toFixed(1)+' | '
+      +d.haut.nom+' '+d.haut.t.toFixed(1)+' | '+d.med.toFixed(1)+' |');
+  });
+  M.push('');
+  M.push('C\'est là que la prévision ne dit rien de sûr, et là qu\'il faut regarder '
+    +'l\'arrivée des mailles fines en priorité.');
   M.push('');
 
   /* ---- B2. probabilités d'ensemble ---- */
