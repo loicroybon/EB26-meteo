@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v26 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v27 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -692,7 +692,9 @@ const FIABILITE = {
   windy_arome: "AROME servi par Windy, avec deux variables que les autres n'ont pas : "
      +"précipitations convectives et base des nuages. Points du parcours seulement.",
   windy_iconD2: "ICON-D2 servi par Windy. Points du parcours seulement.",
-  windy_iconEu: "ICON-EU servi par Windy. Points du parcours seulement."
+  windy_iconEu: "ICON-EU servi par Windy. Points du parcours seulement.",
+  windy_aladin: "ALADIN 2,3 km, servi par Windy. Cousin d'AROME, développé avec Météo-France, "
+     +"maille fine sur les Alpes. Portée courte, environ 2,5 jours. Points du parcours seulement."
 };
 
 function modelesDisponibles(){
@@ -1131,7 +1133,8 @@ const WY_URL = 'https://api.windy.com/api/point-forecast/v2';
 const WY_MODELES = [
   ['arome',   'Windy AROME 1,3 km', 2.1, 'MF'],
   ['iconD2',  'Windy ICON-D2',      2.0, 'DWD'],
-  ['iconEu',  'Windy ICON-EU',      5.0, 'DWD']
+  ['iconEu',  'Windy ICON-EU',      5.0, 'DWD'],
+  ['aladin',  'Windy ALADIN 2,3 km', 2.5, 'MF']
 ];
 const WY_PARAMS = ['temp','dewpoint','rh','precip','convPrecip','snowPrecip',
                    'wind','windGust','cape','ptype','lclouds','mclouds','hclouds',
@@ -1256,6 +1259,7 @@ const POIDS = {
   windy_arome:                    [1.10,'MF',   'AROME par Windy, avec pluie convective'],
   windy_iconD2:                   [1.05,'DWD',  'ICON-D2 par Windy'],
   windy_iconEu:                   [0.85,'DWD',  'ICON-EU par Windy'],
+  windy_aladin:                   [1.00,'ALADIN','maille 2,3 km, m\u00eame famille qu\u2019AROME'],
   windy_gfs:                      [0.55,'NOAA', 'GFS par Windy'],
   meteoblue:                      [0.95,'MB',   'MOS calé sur le relief, mais source unique et sans ensemble'],
   meteofrance_arome_france_hd:    [1.15,'MF',   'maille 1,3 km sur le relief'],
