@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v29 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v30 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -287,7 +287,7 @@ const MODELES = [
 const VARS = ["temperature_2m","apparent_temperature","dew_point_2m","relative_humidity_2m",
               "precipitation","precipitation_probability","snowfall","weather_code",
               "cloud_cover","cloud_cover_low","cloud_cover_mid","cloud_cover_high",
-              "sunshine_duration","uv_index","visibility",
+              "sunshine_duration","shortwave_radiation","uv_index","visibility",
               "wind_speed_10m","wind_gusts_10m","wind_direction_10m",
               "freezing_level_height","cape","lifted_index","surface_pressure",
               "temperature_850hPa","temperature_750hPa","temperature_700hPa",
@@ -493,7 +493,7 @@ function extraitSuffixe(rep, isoCible, suffixe){
     hum:g('relative_humidity_2m'), pr:g('precipitation'), pp:g('precipitation_probability'),
     neige:g('snowfall'), code:g('weather_code'),
     nu:g('cloud_cover'), nub:g('cloud_cover_low'), num:g('cloud_cover_mid'), nuh:g('cloud_cover_high'),
-    sol:g('sunshine_duration'), uv:g('uv_index'), vis:g('visibility'),
+    sol:g('sunshine_duration'), ray:g('shortwave_radiation'), uv:g('uv_index'), vis:g('visibility'),
     v:g('wind_speed_10m'), raf:g('wind_gusts_10m'), dir:g('wind_direction_10m'),
     iso0:g('freezing_level_height'), cape:g('cape'), li:g('lifted_index'), pres:g('surface_pressure'),
     t850:g('temperature_850hPa'), t750:g('temperature_750hPa'), t700:g('temperature_700hPa'),
@@ -575,8 +575,18 @@ function extrait(rep, isoCible){
           alt_demandee:rep.elevation};
 }
 
-function enrichir(e, alt, altNative){
+function enrichir(e, alt, altNative, p){
   if(!e) return e;
+  if(p){
+    e.tpi=Math.round(tpiKm(p.km));
+    e.speedup=Math.round(speedupKm(p.km)*100)/100;
+    e.vterrain=(e.v===null||e.v===undefined)? null : Math.round(e.v*e.speedup);
+    const d=new Date((p.t&&p.t.length>10)? p.t : POIS[0].t[SCENARIO]);
+    const hh=d.getHours(); const nuit=(hh>=21||hh<6);
+    e.nuit=nuit;
+    e.ressT=ressTerrain(e,p,nuit);
+    e.tw=humide(e.t, e.hum);
+  }
   e.alt_modele = (altNative===null||altNative===undefined)? null : altNative;
   e.ecart_relief = (altNative===null||altNative===undefined)? null : Math.round(alt-altNative);
   /* sous 1400 m on serait sous le niveau 850 hPa : l'extrapolation n'a plus de sens */
@@ -594,7 +604,7 @@ function enrichir(e, alt, altNative){
 function extraitPoi(d, i){
   if(d.pts) return (d.pts[SCENARIO]||{})[i] || null;
   if(!d.reps) return null;
-  return enrichir(extraitSuffixe(d.reps[i], POIS[i].t[SCENARIO], d.suffixe||''), POIS[i].alt, null);
+  return enrichir(extraitSuffixe(d.reps[i], POIS[i].t[SCENARIO], d.suffixe||''), POIS[i].alt, null, POIS[i]);
 }
 
 /* ================= SONDE D'IDENTIFIANTS ================= */
@@ -870,7 +880,7 @@ async function interroger(){
         const s=await windySerie(POIS, p=>p.t[SCENARIO], mid, null);
         const c=s.filter(e=>e&&e.t!==null).length;
         if(c>0){
-          const enr=s.map((e,i)=>e? enrichir(e,POIS[i].alt,null):null);
+          const enr=s.map((e,i)=>e? enrichir(e,POIS[i].alt,null,POIS[i]):null);
           nD['windy_'+mid]={nom:mnom, pts:{[SCENARIO]:enr}};
           livrer('Windy '+mnom, ['windy_'+mid]);
         }
@@ -1033,15 +1043,15 @@ function extraitJalonD(d, k){
   };
   const ea=lire(a), eb=lire(b);
   if(!ea&&!eb) return null;
-  if(!ea) return enrichir(Object.assign({},eb), J.alt, null);
-  if(!eb||a===b) return enrichir(Object.assign({},ea), J.alt, null);
+  if(!ea) return enrichir(Object.assign({},eb), J.alt, null, J);
+  if(!eb||a===b) return enrichir(Object.assign({},ea), J.alt, null, J);
   const m={};
   Object.keys(ea).forEach(cle=>{
     const x=ea[cle], y=eb[cle];
     if(typeof x==='number'&&typeof y==='number') m[cle]=x+(y-x)*f;
     else m[cle]=(f<0.5? x : y);
   });
-  return enrichir(m, J.alt, null);
+  return enrichir(m, J.alt, null, J);
 }
 function sondeJalon(k){
   if(!JALONS[k]) return null;
@@ -1280,6 +1290,101 @@ async function windySerie(points, cible, modele, avance){
   }
   await Promise.all(Array.from({length:FILE}, ouvrier));
   return out;
+}
+
+/* ================= PHYSIQUE DE TERRAIN =================
+   Tout ce qui suit se calcule depuis la trace GPX, sans donnée extérieure.
+   Trois corrections que les modèles ne font pas à cette maille. */
+
+/* --- 1. Position topographique le long du parcours ---
+   Altitude du point moins altitude moyenne sur ±750 m de trace.
+   > 0 : convexe, col ou croupe, couplé au flux libre.
+   < 0 : concave, cuvette ou fond de vallon, l'air froid s'y accumule.
+   Réserve : c'est un indice le long de la trace, pas un vrai indice
+   topographique calculé sur un modèle numérique de terrain. Un col traversé
+   dans le sens de la crête peut être mal classé. */
+function _altKm(km){
+  km=Math.max(0,Math.min(TRACE[TRACE.length-1][0],km));
+  for(let i=0;i<TRACE.length-1;i++){
+    if(km>=TRACE[i][0]&&km<=TRACE[i+1][0]){
+      const f=(km-TRACE[i][0])/Math.max(1e-9,TRACE[i+1][0]-TRACE[i][0]);
+      return TRACE[i][1]+f*(TRACE[i+1][1]-TRACE[i][1]);
+    }
+  }
+  return TRACE[TRACE.length-1][1];
+}
+function tpiKm(km, demi){
+  demi=demi||0.75;
+  let s=0,n=0;
+  for(let i=0;i<TRACE.length;i++){
+    if(TRACE[i][0]>=km-demi&&TRACE[i][0]<=km+demi){ s+=TRACE[i][1]; n++; }
+  }
+  if(n<3) return 0;
+  return _altKm(km)-s/n;
+}
+
+/* --- 2. Accélération du vent au relief ---
+   Approximation linéaire usuelle en éolien : environ 2·H/L au sommet,
+   où H est la hauteur au-dessus des creux voisins et L la demi-largeur.
+   Ne s'applique qu'aux formes convexes ; une cuvette est abritée. */
+function speedupKm(km){
+  const t=tpiKm(km);
+  if(t<-8) return Math.max(0.55, 1+t/90);
+  if(t<8)  return 1.0;
+  let mn=1e9;
+  for(let i=0;i<TRACE.length;i++)
+    if(TRACE[i][0]>=km-2&&TRACE[i][0]<=km+2) mn=Math.min(mn,TRACE[i][1]);
+  const H=_altKm(km)-mn;
+  if(H<=15) return 1.0;
+  const seuil=_altKm(km)-H/2;
+  let g=km-2, d=km+2;
+  for(let i=0;i<TRACE.length;i++){
+    if(TRACE[i][0]<km&&TRACE[i][1]<=seuil) g=TRACE[i][0];
+    if(TRACE[i][0]>km&&TRACE[i][1]<=seuil){ d=TRACE[i][0]; break; }
+  }
+  const L=Math.max(120,(d-g)*1000/2);
+  return Math.min(2.0, 1+2*H/L);
+}
+
+/* --- 3. Température du thermomètre mouillé (approximation de Stull) ---
+   La limite pluie-neige suit l'humide, pas le sec : par air sec il peut
+   neiger à 3 ou 4 °C au thermomètre sec. */
+function humide(T, HR){
+  if(T===null||HR===null||HR<=0) return null;
+  const h=Math.max(1,Math.min(100,HR));
+  return T*Math.atan(0.151977*Math.sqrt(h+8.313659))
+       + Math.atan(T+h) - Math.atan(h-1.676331)
+       + 0.00391838*Math.pow(h,1.5)*Math.atan(0.023101*h) - 4.686035;
+}
+
+/* --- 4. Ressenti corrigé du terrain ---
+   Le ressenti des modèles est calculé sans soleil et pour un corps immobile,
+   à l'altitude lissée de la maille. On y ajoute trois choses. */
+function ressTerrain(e, p, nuit){
+  if(!e || e.res===null||e.res===undefined) return null;
+  let R=e.res;
+
+  // (a) rayonnement solaire : jusqu'à environ 8 °C de gain sur un corps exposé
+  if(!nuit && e.ray!==null && e.ray!==undefined && e.ray>50)
+    R += Math.min(8.0, e.ray/120.0);
+
+  // (b) vent réel du lieu : accéléré sur un col, freiné dans une cuvette.
+  //     On corrige l'écart de refroidissement entre le vent modèle et celui-ci.
+  const su=speedupKm(p.km);
+  if(e.v!==null && e.v!==undefined && Math.abs(su-1)>0.05){
+    const f=v=>0.6*Math.sqrt(Math.max(0,v));
+    R -= (f(e.v*su)-f(e.v));
+  }
+
+  // (c) accumulation d'air froid : nuit claire, vent faible, forme concave.
+  //     C'est le mécanisme qui gèle un fond de vallon sous ciel dégagé.
+  const t=tpiKm(p.km);
+  if(nuit && t<-15){
+    const ciel = (e.nu===null||e.nu===undefined)? 0.5 : Math.max(0,(60-e.nu)/60);
+    const calme= (e.v===null||e.v===undefined)? 0.5 : Math.max(0,(10-e.v)/10);
+    R -= Math.min(4.0, (-t-15)/12) * ciel * calme;
+  }
+  return Math.round(R*10)/10;
 }
 
 /* ================= PONDÉRATION DES MODÈLES ================= */
@@ -2121,6 +2226,8 @@ const COLS = [
   ['v','Vent km/h',0],['raf','Raf km/h',0],['dir','Dir °',0],
   ['vis','Visi m',0],['iso0','Iso0 m',0],['iso0calc','Iso0 calculé m',0],
   ['cape','CAPE',0],['li','LI',1],['uv','UV',1],['pres','P hPa',0],
+  ['ressT','Ressenti terrain °C',1],['tw','T humide °C',1],['tpi','Position topo m',0],
+  ['vterrain','Vent du lieu km/h',0],['speedup','Facteur relief',2],
   ['tlibre','T air libre °C',1],['vcrete','Vent crête km/h',0],['ecart_relief','Écart relief m',0]
 ];
 
@@ -2540,7 +2647,9 @@ function fiche(){
   h+='<div class="gros">'
    +'<div><b style="color:'+couleurT(s.t?s.t.m:null)+'">'+V(s.t,1,'°')+'</b><s>température</s>'
      +'<div class="spread">'+E(s.t,0,'°')+'</div></div>'
-   +'<div><b>'+V(s.res,1,'°')+'</b><s>ressenti</s></div>'
+   +'<div><b>'+V((s.ressT&&s.ressT.m!==null)? s.ressT : s.res,1,'°')+'</b><s>ressenti terrain</s>'
+     +((s.ressT&&s.res&&s.ressT.m!==null&&Math.abs(s.ressT.m-s.res.m)>=1)
+        ? '<div class="spread">modèles '+s.res.m.toFixed(1)+'°</div>':'')+'</div>'
    +'<div><b style="color:'+(s.pr&&s.pr.m>0.2?'var(--pluie)':'')+'">'+V(s.pr,1,'')+'</b><s>pluie mm/h</s>'
      +'<div class="spread">'+(s.pp&&s.pp.m!==null? V(s.pp,0,' % de risque') : (s.pr?'max '+V(s.pr,1,' mm'):''))+'</div></div>'
    +'<div><b>'+V(s.raf,0,'')+'</b><s>rafales km/h</s>'
@@ -2558,10 +2667,19 @@ function fiche(){
     ['ensoleillement', soleil!==null? soleil+' %':'—',
       s.ray&&s.ray.m!==null? V(s.ray,0)+' W/m²':''],
     ['humidité', V(s.hum,0,' %'), s.ros&&s.ros.m!==null? 'rosée '+V(s.ros,1,'°'):''],
-    ['vent moyen', V(s.v,0,' km/h'), 'de '+cap(s.dir?s.dir.m:null)+' · '+E(s.raf,0,' en rafales')],
+    ['vent du lieu', V((s.vterrain&&s.vterrain.m!==null)? s.vterrain : s.v,0,' km/h'),
+      (s.speedup&&s.speedup.m!==null&&Math.abs(s.speedup.m-1)>0.05
+        ? (s.speedup.m>1? 'accéléré ×'+s.speedup.m.toFixed(2)+' par le relief'
+                        : 'abrité ×'+s.speedup.m.toFixed(2)+' en creux')
+        : 'de '+cap(s.dir?s.dir.m:null))],
     ['visibilité', s.vis&&s.vis.m!==null? (s.vis.m/1000).toFixed(1)+' km':'—',
       s.vis&&s.vis.m<1000? 'brouillard' : ''],
     ['indice UV', V(s.uv,1), soleil!==null&&soleil>50? 'crème et lunettes':''],
+    ['thermomètre mouillé', V(s.tw,1,'°'),
+      (s.tw&&s.tw.m!==null)? (s.tw.m<1.5? 'neige possible ici':'pluie') : ''],
+    ['forme du terrain', (s.tpi&&s.tpi.m!==null)?
+      (s.tpi.m>12? 'col ou croupe' : (s.tpi.m<-12? 'cuvette' : 'versant')) : '—',
+      (s.tpi&&s.tpi.m!==null)? ((s.tpi.m>0?'+':'')+s.tpi.m.toFixed(0)+' m sur 1,5 km') : ''],
     ['limite pluie-neige', s.iso0&&s.iso0.m!==null? V(s.iso0,0,' m') : V(s.iso0calc,0,' m'),
       (s.iso0&&s.iso0.m!==null? (s.iso0.m-p.alt).toFixed(0)
        : (s.iso0calc&&s.iso0calc.m!==null? (s.iso0calc.m-p.alt).toFixed(0):null))!==null?
@@ -2583,6 +2701,10 @@ function fiche(){
   if(s.raf&&s.raf.hi>55) risques.push('rafales possibles à '+s.raf.hi.toFixed(0)+' km/h');
   if(s.iso0&&s.iso0.lo!==null&&s.iso0.lo<p.alt+200) risques.push('isotherme 0 °C proche du point ('+s.iso0.lo.toFixed(0)+' m)');
   if(s.res&&s.res.lo!==null&&s.res.lo<3) risques.push('ressenti jusqu\'à '+s.res.lo.toFixed(0)+' °C');
+  if(s.ressT&&s.res&&s.ressT.m!==null&&s.ressT.m<s.res.m-1.5)
+    risques.push('creux par nuit claire : '+(s.res.m-s.ressT.m).toFixed(0)+' °C sous la maille');
+  if(s.speedup&&s.speedup.m>1.35)
+    risques.push('vent accéléré ×'+s.speedup.m.toFixed(2)+' par le relief');
   if(s.vis&&s.vis.lo!==null&&s.vis.lo<500) risques.push('visibilité réduite à '+(s.vis.lo/1000).toFixed(1)+' km');
   if(s.t&&s.t.hi-s.t.lo>8) risques.push('désaccord des modèles : '+(s.t.hi-s.t.lo).toFixed(0)+' °C d\'écart');
   if(risques.length) h+='<div class="note alerte" style="margin:10px 0">⚠ '+risques.join(' · ')+'</div>';
