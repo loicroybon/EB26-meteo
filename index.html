@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v27 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v28 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -282,9 +282,7 @@ const MODELES = [
   ["ecmwf_aifs025_single","ECMWF AIFS (IA)",15],
   ["ukmo_global_deterministic_10km","UKMO Global 10 km",6.5],
   ["gfs_seamless","GFS (NOAA)",16],
-  ["gfs_graphcast025","GraphCast (IA)",10],
-  ["metno_seamless","MET Norway",9.5],
-  ["jma_seamless","JMA (Japon)",11]
+  ["metno_seamless","MET Norway",9.5]
 ];
 const VARS = ["temperature_2m","apparent_temperature","dew_point_2m","relative_humidity_2m",
               "precipitation","precipitation_probability","snowfall","weather_code",
@@ -716,8 +714,15 @@ function majSelecteurModele(){
   else if(dispo.length===1 && !MODELE_ACTIF){ /* un seul modèle : ce n'est pas un consensus */ }
 
   const ordre=dispo.slice().sort((a,b)=>poidsBase(b)-poidsBase(a));
+  /* le nombre de modèles flatte : ce qui compte, ce sont les sources indépendantes */
+  const fam={}; dispo.forEach(function(id){
+    const d=DOUBLON[id];
+    if(!(d && dispo.indexOf(d.parent)>=0)) fam[famille(id)]=1;
+  });
+  const nSrc=Object.keys(fam).length;
   let h='<option value=""'+(MODELE_ACTIF===''?' selected':'')+'>'
-       +(dispo.length>1? 'Multimodèle ('+dispo.length+')' : 'Multimodèle')+'</option>';
+       +(dispo.length>1? 'Multimodèle \u00b7 '+nSrc+' source'+(nSrc>1?'s':'') : 'Multimodèle')
+       +'</option>';
   ordre.forEach(id=>{
     h+='<option value="'+id+'"'+(MODELE_ACTIF===id?' selected':'')+'>'
       +(DATA[id].nom||id)+'</option>';
@@ -929,16 +934,24 @@ function agrege(out){
   out = out.filter(o=>o.t!==null&&o.t!==undefined);
   if(!out.length) return null;
 
-  const ids=out.map(o=>o.id);
-  const wFam=poidsFamille(ids);
+  const presents={}; out.forEach(o=>presents[o.id]=1);
+  out.forEach(function(o){
+    const d=DOUBLON[o.id];
+    o.doublon = (d && presents[d.parent])? (d.garde||[]) : null;
+  });
+  const ids=out.filter(o=>!o.doublon||o.doublon.length).map(o=>o.id);
+  const wFam=poidsFamille(out.map(o=>o.id));
   out.forEach(o=>{ o.poids=wFam[o.id]!==undefined? wFam[o.id] : 0.5; o.divergent=false; });
 
-  const CLES=['t','res','ros','hum','pr','pp','neige','nu','nub','num','nuh','sol','ray','uv',
-    'vis','v','raf','dir','iso0','cape','pres','tlibre','vcrete','iso0calc','li','ecart_relief'];
+  const CLES=['t','res','ros','hum','pr','pr_conv','pp','neige','nu','nub','num','nuh','sol','ray',
+    'uv','vis','cbase','v','raf','dir','iso0','cape','pres','tlibre','vcrete','iso0calc','li'];
 
   const S={};
   CLES.forEach(function(k){
-    const vals=out.map(o=>(o[k]===null||o[k]===undefined)?null:o[k]);
+    const vals=out.map(function(o){
+      if(o.doublon && o.doublon.indexOf(k)<0) return null;   // doublon : muet sur cette variable
+      return (o[k]===null||o[k]===undefined)? null : o[k];
+    });
     const w0=out.map(o=>o.poids);
     const bruts=vals.filter(v=>v!==null);
     if(!bruts.length){ S[k]=null; return; }
@@ -954,7 +967,8 @@ function agrege(out){
            brut: bruts.slice().sort((a,b)=>a-b)[Math.floor(bruts.length/2)] };
   });
 
-  const codes=out.map(o=>[o.code, o.poids]).filter(c=>c[0]!==null&&c[0]!==undefined);
+  const codes=out.filter(o=>!o.doublon).map(o=>[o.code, o.poids])
+    .filter(c=>c[0]!==null&&c[0]!==undefined);
   if(codes.length){
     const score={};
     codes.forEach(c=>{ score[c[0]]=(score[c[0]]||0)+c[1]; });
@@ -962,8 +976,9 @@ function agrege(out){
   } else S.code=null;
 
   /* confiance : nombre de familles indépendantes présentes, et resserrement en T */
-  const familles={}; ids.forEach(id=>familles[famille(id)]=1);
+  const familles={}; out.filter(o=>!o.doublon).forEach(o=>familles[famille(o.id)]=1);
   const nFam=Object.keys(familles).length;
+  S.independants=nFam; S.doublons=out.filter(o=>o.doublon).length;
   const etendue = S.t? (S.t.hi-S.t.lo) : 99;
   let conf = 'faible';
   if(nFam>=3 && etendue<=3) conf='bonne';
@@ -1281,6 +1296,17 @@ const POIDS = {
   jma_seamless:                   [0.35,'JMA',  'peu adapté aux Alpes'],
   cma_grapes_global:              [0.25,'CMA',  'peu adapté aux Alpes'],
   bom_access_global:              [0.25,'BOM',  'peu adapté aux Alpes']
+};
+/* Doublons : un modèle qui redit ce qu'un autre a déjà dit ne doit pas
+   gonfler le consensus. On le garde uniquement pour ce qu'il apporte seul. */
+const DOUBLON = {
+  metno_seamless:       {parent:'ecmwf_ifs025',    garde:[]},
+  dwd_icon_global:      {parent:'dwd_icon_eu',     garde:[]},
+  windy_iconEu:         {parent:'dwd_icon_eu',     garde:['pr_conv','cbase']},
+  windy_iconD2:         {parent:'dwd_icon_d2',     garde:['pr_conv','cbase']},
+  windy_arome:          {parent:'meteofrance_arome_france_hd', garde:['pr_conv','cbase']},
+  meteofrance_arome_france: {parent:'meteofrance_arome_france_hd', garde:[]},
+  meteoswiss_icon_ch2:  {parent:'meteoswiss_icon_ch1', garde:[]}
 };
 const poidsBase = id => (POIDS[id]||[0.5,'?',''])[0];
 const famille   = id => (POIDS[id]||[0.5,'?',''])[1];
@@ -2475,7 +2501,8 @@ function fiche(){
     h+= (s.lignes.length<2)
       ? '<div class="note alerte" style="margin:4px 0 0">mod\u00e8le unique \u2014 aucune incertitude mesur\u00e9e</div>'
       : '<div class="note" style="margin:4px 0 0">confiance <b style="color:'+coul+'">'+c.niveau
-        +'</b> \u00b7 \u00b1'+(c.etendue/2).toFixed(1)+' \u00b0C</div>';
+        +'</b> \u00b7 '+c.familles+' source'+(c.familles>1?'s':'')
+        +' \u00b7 \u00b1'+(c.etendue/2).toFixed(1)+' \u00b0C</div>';
   }
   const en=ENS[p.nom];
   if(en) h+='<div class="note" style="margin:4px 0 0;color:var(--froid)">ens. '+en.membres+'m \u00b7 '
@@ -2549,8 +2576,9 @@ function fiche(){
       : l.source_mb? 'correction statistique sur le relief \u00b7 pas de niveaux de pression'
       : (l.ecart_relief===null||l.ecart_relief===undefined)? 'maille non sond\u00e9e'
       : 'relief mod\u00e8le '+Math.round(l.alt_modele)+' m ('+(l.ecart_relief>0?'+':'')+l.ecart_relief+' m)';
-    h+='<tr'+(l.divergent?' style="opacity:.62"':'')+'><td>'+l.nom
-     +(l.divergent?' <span style="color:var(--chaud)">\u26a0 diverge</span>':'')
+    h+='<tr'+(l.doublon?' style="opacity:.45"':(l.divergent?' style="opacity:.62"':''))+'><td>'+l.nom
+     +(l.doublon?' <span style="color:var(--brume)">doublon</span>':'')
+     +(l.divergent&&!l.doublon?' <span style="color:var(--chaud)">\u26a0 diverge</span>':'')
      +'</td>'
      +'<td>'+l.poids.toFixed(2)+'</td>'
      +'<td>'+L(l,'t',1,'')+'</td><td>'+L(l,'tlibre',1,'')+'</td><td>'+L(l,'res',1,'')+'</td>'
