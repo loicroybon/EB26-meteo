@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v35 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v36 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -787,8 +787,21 @@ let OM_PAUSE = 0;
 async function attendreQuota(){}
 function signalerQuota(){}
 
-async function interroger(){
+/* Les modeles ne changent de run que toutes les 3 a 6 h. Deux releves
+   rapproches coutent deux fois le quota pour la meme donnee, et le quota
+   gratuit Open-Meteo se compte en quelques releves par jour. */
+const DELAI_MIN_MS = 20*60*1000;
+async function interroger(force){
   if(EN_COURS) return;
+  if(!force && TS_DONNEES && !HORS_LIGNE && (Date.now()-TS_DONNEES) < DELAI_MIN_MS){
+    const min=Math.round((Date.now()-TS_DONNEES)/60000);
+    const reste=Math.ceil((DELAI_MIN_MS-(Date.now()-TS_DONNEES))/60000);
+    log('Donn\u00e9es d\u2019il y a '+min+' min, conserv\u00e9es. Les mod\u00e8les ne changent '
+      + 'de run que toutes les 3 h et le quota gratuit est limit\u00e9 : '
+      + 'nouvelle interrogation possible dans '+reste+' min. '
+      + 'Double-clic sur le bouton pour forcer.');
+    rendreTout(); return;
+  }
   const debut=Date.now();
   EN_COURS=true; majEtat(); q('#go').disabled=true;
   const anciens={D:DATA, J:DATA_J, ts:TS_DONNEES};
@@ -823,6 +836,23 @@ async function interroger(){
       if(id===MB_ID) continue;
       if(portee < jours){ REPORTES.push([nom, portee, id]); continue; }
       utiles.push([id,nom]);
+    }
+    /* Un doublon strict n'a rien de propre a garder : des que son parent
+       repond, ses valeurs sont ecartees du consensus. Le telecharger coute
+       52 points x 27 variables pour rien. On ne le demande donc pas.
+       Cas permanent : metno_seamless, parent ecmwf_ifs025 (portee 15 j). */
+    const demandes = new Set(utiles.map(u=>u[0]));
+    const ecartes = [];
+    const retenus = utiles.filter(function([id,nom]){
+      const d = DOUBLON[id];
+      if(d && (!d.garde || !d.garde.length) && demandes.has(d.parent)){
+        ecartes.push(nom); return false;
+      }
+      return true;
+    });
+    if(ecartes.length){
+      utiles.length=0; retenus.forEach(u=>utiles.push(u));
+      log('Doublons non interrog\u00e9s (leur source r\u00e9pond d\u00e9j\u00e0) : '+ecartes.join(', '));
     }
     if(!utiles.length) return;
     log('Open-Meteo : '+utiles.length+' mod\u00e8les en un appel group\u00e9\u2026');
@@ -2994,7 +3024,8 @@ async function convergence(){
       interroger();
     }
   };
-  q('#go').onclick=interroger;
+  q('#go').onclick=function(){ interroger(false); };
+  q('#go').ondblclick=function(){ log('Actualisation forc\u00e9e.'); interroger(true); };
   q('#raz').onclick=async()=>{
     if(!confirm('Effacer l\'historique des relevés ? C\'est lui qui permet de suivre la '
       +'convergence des modèles jour après jour, et il ne peut pas être reconstitué.')) return;
