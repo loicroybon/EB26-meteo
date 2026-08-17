@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v52 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v53 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -286,7 +286,8 @@ const MODELES = [
   ["ukmo_global_deterministic_10km","UKMO Global 10 km",6.5],
   ["gfs_seamless","GFS (NOAA)",16],
   ["metno_seamless","MET Norway",9.5],
-  ["metno_direct","MET Norway direct",9.5]
+  ["metno_direct","MET Norway direct",9.5],
+  ["arome_direct","AROME 1,3 km direct",2.1]
 ];
 const VARS = ["temperature_2m","apparent_temperature","dew_point_2m","relative_humidity_2m",
               "precipitation","precipitation_probability","snowfall","weather_code",
@@ -506,6 +507,53 @@ function extraitSuffixe(rep, isoCible, suffixe){
     v750:g('wind_speed_750hPa'), v700:g('wind_speed_700hPa'),
     alt_demandee: rep.elevation};
   return (e.t===null&&e.nu===null&&e.pr===null)? null : e;
+}
+
+/* ================= AROME 1,3 km, asset committe =================
+   Produit hors ligne par scripts/arome.py depuis les GRIB ouverts Meteo-France,
+   sans aucune cle, puis commite dans data/arome.json. La page ne fait donc
+   qu'un fetch de fichier statique : aucun quota, aucune cle dans le client.
+   Le paquet SP1 donne temperature, humidite et vent. Pas de pluie ni de
+   rafales : les cles correspondantes restent nulles, on n'invente rien.
+   Declare doublon de meteofrance_arome_france_hd : silencieux quand la version
+   Open-Meteo repond, seul a parler quand elle manque. */
+const AR_ID = 'arome_direct';
+const AR_NOM = 'AROME 1,3 km direct';
+const AR_URL = 'data/arome.json';
+async function aromeLire(){
+  try{
+    const r = await fetch(AR_URL + '?t=' + Math.floor(Date.now()/60000), {cache:'no-store'});
+    if(!r.ok) return null;
+    const o = await r.json();
+    return (o && o.points && Object.keys(o.points).length)? o : null;
+  }catch(e){ return null; }
+}
+/* Le producteur a deja interpole a l'heure de passage : ici on ne fait que
+   traduire vers les cles du moteur. */
+function aromeExtrait(paquet, i, p){
+  const e = paquet.points[String(i)];
+  if(!e || e.t2m===null || e.t2m===undefined) return null;
+  const t = e.t2m, hum = (e.r2===undefined? null : Math.round(e.r2));
+  const v = (e.vent_kmh===undefined? null : e.vent_kmh);
+  let dir = null;
+  if(typeof e.u10==='number' && typeof e.v10==='number'){
+    /* direction d'ou vient le vent, convention meteo */
+    dir = Math.round((270 - Math.atan2(e.v10, e.u10)*180/Math.PI + 360) % 360);
+  }
+  const vms = (v===null)? null : v/3.6;
+  return {
+    t: Math.round(t*10)/10,
+    res: (function(){ const r=ressentiAT(t, hum, vms); return r===null? null : Math.round(r*10)/10; })(),
+    ros: rosee(Math.round(t*10)/10, hum),
+    hum: hum, pr:null, pp:null, neige:null, code:null,
+    nu:null, nub:null, num:null, nuh:null,
+    sol:null, ray:null, uv:null, vis:null,
+    v: v, raf:null, dir: dir,
+    iso0:null, cape:null, li:null, pres:null,
+    /* le GRIB est lu sur sa grille native a 1,3 km : pas de descente d'echelle
+       a faire, l'altitude de maille est celle du modele */
+    alt_demandee: p.alt, corrige_alt:false
+  };
 }
 
 /* ================= MET NORWAY (api.met.no) =================
@@ -1062,7 +1110,7 @@ async function interroger(force){
   const tacheOM = (async()=>{
     const utiles=[];
     for(const [id,nom,portee] of MODELES){
-      if(id===MB_ID || id===MN_ID) continue;
+      if(id===MB_ID || id===MN_ID || id===AR_ID) continue;
       if(portee < jours){ REPORTES.push([nom, portee, id]); continue; }
       utiles.push([id,nom]);
     }
@@ -1129,6 +1177,25 @@ async function interroger(force){
     }catch(e){ ECHECS.push(MB_NOM+' — '+e.message); }
   })();
 
+  /* ---- AROME 1,3 km : asset committe, aucun quota ---- */
+  const tacheAR = (async()=>{
+    try{
+      const paquet = await aromeLire();
+      if(!paquet){ return; }
+      const pts = POIS.map((p,i)=> aromeExtrait(paquet, i, p));
+      const c = pts.filter(e=>e&&e.t!==null&&e.t!==undefined).length;
+      if(c>0){
+        const d={nom:AR_NOM, pts:{[SCENARIO]:pts},
+                 serie:(i)=> aromeExtrait(paquet, i, POIS[i])};
+        nD[AR_ID]=d; nJ[AR_ID]=d;
+        livrer('AROME direct', [AR_ID]);
+        log('AROME 1,3 km : '+c+' points depuis le run '+(paquet.run||'?')
+            +' \u2014 asset commit\u00e9, aucun quota.');
+      }
+      dispo.push([AR_NOM, c, POIS.length]);
+    }catch(e){ ECHECS.push(AR_NOM+' \u2014 '+e.message); }
+  })();
+
   /* ---- MET Norway : libre et sans quota, donc toujours interroge ---- */
   const tacheMN = (async()=>{
     try{
@@ -1166,7 +1233,7 @@ async function interroger(force){
 
   /* ---- sonde des identifiants hors de portée, notamment les suisses ---- */
   const tacheSONDE = (async()=>{
-    const dehors = MODELES.filter(m=>m[0]!==MB_ID && m[0]!==MN_ID && m[2] < jours).map(m=>m[0]);
+    const dehors = MODELES.filter(m=>m[0]!==MB_ID && m[0]!==MN_ID && m[0]!==AR_ID && m[2] < jours).map(m=>m[0]);
     try{ await sonderIdentifiants(dehors); }catch(e){}
   })();
 
@@ -1179,7 +1246,7 @@ async function interroger(force){
     }catch(e){}
   })();
 
-  await Promise.all([tacheOM, tacheMB, tacheMN, tacheWY, tacheENS, tacheSONDE]);
+  await Promise.all([tacheOM, tacheMB, tacheMN, tacheAR, tacheWY, tacheENS, tacheSONDE]);
 
   /* un modèle sorti de portée ne doit pas survivre indéfiniment dans l'affichage */
   REPORTES.forEach(r=>{ const id=r[2]; if(id&&!rafraichis[id]){ delete nD[id]; delete nJ[id]; } });
@@ -1850,6 +1917,7 @@ const POIDS = {
   ecmwf_aifs025_single:           [0.25,'ECMWF','IA, même analyse qu’IFS'],
   metno_seamless:                 [0.20,'ECMWF','post-traitement d’ECMWF'],
   metno_direct:                   [0.20,'ECMWF','post-traitement d’ECMWF, source libre sans quota'],
+  arome_direct:                   [2.20,'MF',   'AROME 1,3 km, GRIB Météo-France sans clé, grille native'],
   ukmo_global_deterministic_10km: [0.25,'UKMO','global solide, maille trop large ici'],
   gfs_seamless:                   [0.25,'NOAA','faible sur le relief alpin'],
   gfs_graphcast025:               [0.20,'NOAA','IA, même analyse que GFS'],
@@ -1862,6 +1930,7 @@ const POIDS = {
 const DOUBLON = {
   metno_seamless:       {parent:'ecmwf_ifs025',    garde:[]},
   metno_direct:         {parent:'ecmwf_ifs025',    garde:[]},
+  arome_direct:         {parent:'meteofrance_arome_france_hd', garde:[]},
   dwd_icon_global:      {parent:'dwd_icon_eu',     garde:[]},
   windy_iconEu:         {parent:'dwd_icon_eu',     garde:['pr_conv','cbase']},
   windy_iconD2:         {parent:'dwd_icon_d2',     garde:['pr_conv','cbase']},
