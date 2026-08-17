@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v54 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v55 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -1037,6 +1037,18 @@ function runPublie(maintenant){
 function prochainRun(maintenant){
   return runPublie(maintenant)+RUN_H*3600000+RUN_LAG_MS;
 }
+/* Combien de modeles devraient repondre a cette echeance : ceux dont la portee
+   couvre le depart, moins les doublons stricts dont le parent est aussi la.
+   C'est la meme regle que celle qui filtre la requete Open-Meteo. */
+function modelesAttendus(){
+  const j = (new Date(POIS[0].t[SCENARIO]) - Date.now())/864e5;
+  const dedans = MODELES.filter(m=>m[2] >= j).map(m=>m[0]);
+  const ens = new Set(dedans);
+  return dedans.filter(function(id){
+    const d = DOUBLON[id];
+    return !(d && (!d.garde || !d.garde.length) && ens.has(d.parent));
+  }).length;
+}
 async function interroger(force){
   if(EN_COURS) return;
   /* Avant de depenser le moindre quota : le releve partage est-il plus frais
@@ -1065,7 +1077,17 @@ async function interroger(force){
     const dejaAJour = TS_DONNEES >= runPublie(Date.now());
     /* au-del\u00e0 de PERIME_H on autorise toujours : le rafra\u00eechissement
        automatique ne doit jamais \u00eatre bloqu\u00e9 */
-    if((dejaAJour && age < PERIME_H*3600000) || age < PLANCHER_MS){
+    /* Un releve partiel ne doit pas geler la fenetre : si des modeles a portee
+       manquent encore, on autorise une reprise. Bornee pour ne pas boucler sur
+       un modele durablement muet : au moins deux manquants, et 20 min depuis la
+       derniere tentative, donc trois reprises par heure au pire. */
+    const manque = Math.max(0, modelesAttendus() - Object.keys(DATA).length);
+    const repriseUtile = manque >= 2 && (Date.now() - TS_TENTATIVE) > 20*60*1000;
+    if(repriseUtile){
+      log(manque+' mod\u00e8le'+(manque>1?'s':'')+' \u00e0 port\u00e9e manque'+(manque>1?'nt':'')
+          +' encore : nouvelle tentative.');
+    }
+    else if((dejaAJour && age < PERIME_H*3600000) || age < PLANCHER_MS){
       const min=Math.round(age/60000);
       const hh=new Date(prochainRun(Date.now()));
       log('Donn\u00e9es d\u2019il y a '+min+' min, conserv\u00e9es : elles contiennent d\u00e9j\u00e0 '
@@ -1082,6 +1104,7 @@ async function interroger(force){
      propres modèles au fur et à mesure, rien ne disparaît entre-temps */
   const nD=Object.assign({}, DATA), nJ=Object.assign({}, DATA_J);
   const rafraichis={};
+  TS_TENTATIVE=Date.now();
   ECHECS=[]; REPORTES=[]; WY_APPELS=0; N429=0; WY_TEST=null;
   JALONS = construireJalons();
   const jours = (new Date(POIS[0].t[SCENARIO]) - Date.now())/864e5;
@@ -2164,6 +2187,9 @@ let MAJ_MODELE = {};
    meurt, TS_DONNEES peut rester frais grace au cache local alors que plus
    personne n'alimente les autres appareils. Rien ne le dirait sans ca. */
 let TS_PARTAGE = null;
+/* Derniere TENTATIVE de releve, distincte du dernier SUCCES (TS_DONNEES).
+   Sert a borner les reprises quand des modeles manquent durablement. */
+let TS_TENTATIVE = 0;
 
 /* on ne stocke pas les réponses brutes (trop volumineuses) mais les valeurs extraites,
    arrondies et débarrassées des champs vides */
