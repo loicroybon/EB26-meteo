@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v55 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v56 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -2586,6 +2586,34 @@ function dessine(){
         +s[cle].m.toFixed(0)+'</text>');
     }
   });
+
+  /* ---- Couverture nuageuse a l'altitude reelle, derriere le relief ----
+     Repond a la question qui compte en montagne : serai-je dessous, dedans ou
+     au-dessus ? On dessine les etages nuageux la ou ils sont vraiment, dans le
+     meme repere d'altitude que le profil, et non dans une bande separee.
+     Aucune donnee nouvelle et aucun cout de quota : nub, num et nuh sont deja
+     agreges dans le consensus. Les bornes suivent les definitions de l'OMM :
+     nuages bas sous 2000 m, moyens de 2000 a 6000 m. L'echelle du profil
+     s'arretant a ALT_MAX, seuls les bas et le pied des moyens sont visibles -
+     ce qui est exactement la tranche que le coureur traverse.
+     Dessine AVANT le relief : le terrain repeint par-dessus, donc la teinte ne
+     subsiste que dans l'air, au-dessus du sol. */
+  const ETAGES = [[0, 2000, 'nub'], [2000, ALT_MAX, 'num']];
+  for(let hh=h0; hh<h1; hh++){
+    const s0 = j(hh);
+    if(!s0) continue;
+    const xa = x(hh), xb = x(hh+1);
+    ETAGES.forEach(function(et){
+      const v = s0[et[2]];
+      if(!v || v.m===null || v.m===undefined || v.m < 8) return;
+      const ya = yAlt(Math.min(et[1], ALT_MAX)), yb = yAlt(et[0]);
+      /* opacite proportionnelle a la nebulosite, plafonnee pour rester lisible */
+      const op = Math.min(0.42, 0.42 * v.m / 100);
+      S.push('<rect x="'+xa.toFixed(1)+'" y="'+ya.toFixed(1)
+        +'" width="'+Math.max(0.5,(xb-xa)).toFixed(1)+'" height="'+(yb-ya).toFixed(1)
+        +'" fill="'+PAL.nuage+'" opacity="'+op.toFixed(3)+'"/>');
+    });
+  }
 
   [1000,2000,3000].forEach(a=>S.push('<line x1="'+GUT+'" y1="'+yAlt(a)+'" x2="'+(W-8)+'" y2="'+yAlt(a)
     +'" stroke="'+PAL.grille+'" stroke-width="1" opacity=".55"/>'));
