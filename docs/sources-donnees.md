@@ -142,3 +142,5 @@ GRIB du point 1, qui est documentée et outillée.
 3. Ne rien faire des fichiers `.om` : la voie GRIB les remplace.
 4. Ne rien payer chez Windy : le niveau gratuit est inexploitable et Météo-France
    donne AROME 1,3 km gratuitement, mieux qu'ALADIN 2,3 km.
+
+<!-- test de course : push manuel pendant un run du cron, pour verifier le rebase -->
