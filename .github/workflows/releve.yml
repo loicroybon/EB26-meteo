@@ -88,5 +88,14 @@ jobs:
             echo "Relevé identique au précédent, rien à publier."
           else
             git commit -m "data: relevé partagé $(date -u +'%Y-%m-%dT%H:%MZ')"
-            git push
+            # Un asset pousse a la main depuis le poste pendant que le job
+            # tournait ferait echouer un push direct. On se rebase donc avant,
+            # et on retente : le rebase ne touche que data/dernier.json, dont
+            # notre version contient deja les modeles de la precedente puisque
+            # la page fusionne au demarrage.
+            for essai in 1 2 3; do
+              git push && break
+              echo "push refuse, rebase sur l'origine puis nouvelle tentative ($essai/3)"
+              git pull --rebase --strategy-option=ours origin main || exit 1
+            done
           fi
