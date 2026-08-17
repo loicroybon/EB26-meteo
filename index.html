@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v61 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v63 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -2596,33 +2596,49 @@ function dessine(){
      relief : le terrain repeint par-dessus, la teinte ne subsiste que dans l'air. */
   S.push('<defs><filter id="flouNu" x="-12%" y="-40%" width="124%" height="180%">'
     +'<feGaussianBlur stdDeviation="4.5"/></filter></defs>');
+  /* les colonnes servent deux fois : au dessin du nuage, puis au surlignage de
+     la trace. On les expose donc au lieu de les enfermer. */
+  let COL = null;
   (function(){
     const col = [];
     for(let hh=h0; hh<=h1; hh++){
       const s0 = j(hh), J0 = JALONS[hh];
       if(!s0 || !J0){ col.push(null); continue; }
       const g = k => (s0[k] && s0[k].m!==null && s0[k].m!==undefined)? s0[k].m : null;
-      const nu = g('nu'), t = g('t'), ros = g('ros'), code = g('code');
+      /* Le code temps est un SCALAIRE, un mode entre modeles, pas un quantile.
+         Le lire avec l'accesseur des quantiles renvoyait null aux 45 heures, si
+         bien que les regimes brouillard et convectif n'ont jamais pu se
+         declencher. Mesure a l'appui avant correction. */
+      const code = (s0.code===null || s0.code===undefined)? null : +s0.code;
+      const nu = g('nu'), t = g('t'), ros = g('ros');
       const cape = g('cape'), vis = g('vis');
-      if(nu===null || nu < 12){ col.push(null); continue; }
+      const brouillard = (code===45 || code===48 || (vis!==null && vis < 900));
+      /* Le brouillard se dessine meme si la couverture totale est faible : c'est
+         un nuage au sol, et la variable de couverture ne le voit pas. */
+      if(!brouillard && (nu===null || nu < 12)){ col.push(null); continue; }
+      /* nebulosite de travail : le brouillard est dense par nature */
+      const nuE = (nu===null)? 90 : nu;
       const sol = J0.alt || 0;
       /* base d'Espy, bornee : jamais sous le sol, jamais au-dela de l'echelle */
       let base = (t!==null && ros!==null)? sol + 125*Math.max(0, t-ros) : sol + 300;
-      const brouillard = (code===45 || code===48 || (vis!==null && vis < 900));
       if(brouillard) base = sol;                      /* colle au relief */
       base = Math.max(0, Math.min(base, ALT_MAX-120));
-      const convectif = (code!==null && code>=95) || (cape!==null && cape>800);
+      /* Seuil de CAPE abaisse a 300 : sur ce parcours de montagne le maximum
+         mesure est de 380, un seuil a 800 ne se declenchait donc jamais. Le
+         code d'orage, desormais lisible, reste le signal principal. */
+      const convectif = (code!==null && code>=95) || (cape!==null && cape>300);
       /* Epaisseur bornee par la physique du regime. L'ancienne formule montait
          jusqu'a ALT_MAX des que nu depassait 80 % : plus de ciel visible, donc
          plus de contraste et plus rien de lisible. Un stratus fait quelques
          centaines de metres, un cumulonimbus plusieurs milliers. */
-      const ep = convectif  ? 700 + 1900*(nu/100)
-               : brouillard ? 120 +  480*(nu/100)
-                            : 200 +  700*(nu/100);
+      const ep = convectif  ? 700 + 1900*(nuE/100)
+               : brouillard ? 120 +  480*(nuE/100)
+                            : 200 +  700*(nuE/100);
       const haut = Math.min(ALT_MAX, base + ep);
-      col.push({x:x(hh), base:base, haut:haut, nu:nu,
+      col.push({x:x(hh), base:base, haut:haut, nu:nuE,
                 regime: brouillard? 'brouillard' : (convectif? 'convectif' : 'normal')});
     }
+    COL = col;
     if(!col.some(Boolean)) return;
     /* Un nuage se voit CLAIR dans les deux themes : c'est un objet eclaire par
        le haut, pas une teinte d'interface. D'ou un degrade vertical du sommet
@@ -2686,6 +2702,49 @@ function dessine(){
     d+=' L '+cx(pts[pts.length-1][0])+' '+yAlt(0)+' Z';
     S.push('<path d="'+d+'" fill="url(#gTemp)"/>');
     S.push('<path d="'+d.replace(/ Z$/,'')+'" fill="none" stroke="'+PAL.contour+'" stroke-width="1.2" opacity=".45"/>');
+
+    /* ---- Ou suis-je DANS la nuee ? ----
+       On surligne la crete la ou elle depasse la base du nuage. La couleur est
+       celle du nuage lui-meme : le lecteur associe sans apprendre de convention.
+       Un liseré sombre dessous donne la lisibilite sur le vert du relief. */
+    if(COL){
+      const plafond = function(th){
+        const k = th - h0;
+        if(k < 0 || k > COL.length-1) return null;
+        const a = COL[Math.floor(k)], b = COL[Math.min(COL.length-1, Math.ceil(k))];
+        if(!a || !b) return null;
+        return a.base + (b.base - a.base) * (k - Math.floor(k));
+      };
+      const segs = []; let seg = [];
+      pts.forEach(function(p){
+        const pl = plafond(heureAuKm(p[0]));
+        if(pl !== null && p[1] >= pl) seg.push(p);
+        else if(seg.length){ segs.push(seg); seg = []; }
+      });
+      if(seg.length) segs.push(seg);
+      const casing = PAL.jour==='clair'? '#66788E' : '#1A2434';
+      segs.forEach(function(sg){
+        if(sg.length < 2) return;
+        let dd = 'M '+cx(sg[0][0]).toFixed(1)+' '+yAlt(sg[0][1]).toFixed(1);
+        for(let i=1;i<sg.length;i++) dd += ' L '+cx(sg[i][0]).toFixed(1)+' '+yAlt(sg[i][1]).toFixed(1);
+        S.push('<path d="'+dd+'" fill="none" stroke="'+casing+'" stroke-width="5.2"'
+          +' opacity=".55" stroke-linecap="round" stroke-linejoin="round"/>');
+        S.push('<path d="'+dd+'" fill="none" stroke="#FFFFFF" stroke-width="3"'
+          +' opacity=".96" stroke-linecap="round" stroke-linejoin="round"/>');
+      });
+      /* Legende : l'utilisateur dit ne pas comprendre la lecture, un dessin muet
+         ne suffit donc pas. Deux mots suffisent, cales en haut a droite. */
+      if(segs.length){
+        const lx = W-14, ly = yAlt(ALT_MAX)+11;
+        S.push('<line x1="'+(lx-116)+'" y1="'+(ly-3.5)+'" x2="'+(lx-100)+'" y2="'+(ly-3.5)
+          +'" stroke="'+casing+'" stroke-width="5.2" opacity=".55" stroke-linecap="round"/>');
+        S.push('<line x1="'+(lx-116)+'" y1="'+(ly-3.5)+'" x2="'+(lx-100)+'" y2="'+(ly-3.5)
+          +'" stroke="#FFFFFF" stroke-width="3" opacity=".96" stroke-linecap="round"/>');
+        S.push('<text x="'+(lx-94)+'" y="'+ly+'" fill="'+PAL.libelleFort
+          +'" font-size="9.5" text-anchor="start" font-family="sans-serif">'
+          +'trace dans les nuages</text>');
+      }
+    }
   }
 
   const CLEFS=['Croix de Belledonne','Col de Mor\u00e9tan','Col de la Vache','Sommet du Grand Chat',
