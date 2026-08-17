@@ -1,0 +1,127 @@
+#!/usr/bin/env python3
+"""Relevé partagé — exécuté par GitHub Actions, jamais par un navigateur d'utilisateur.
+
+Le principe : on charge la page réellement déployée dans un Chrome sans écran, on
+force un relevé, puis on récupère le paquet de cache que la page vient de
+construire et on l'écrit dans data/dernier.json.
+
+Pourquoi charger la page plutôt que réécrire le pipeline en Python : index.html
+reste la source unique de vérité pour la prévision. Aucune logique de consensus,
+de doublon ou de physique de terrain n'est dupliquée ici. En prime, le Referer
+envoyé est celui du domaine autorisé pour les clés restreintes.
+
+Usage :
+    python scripts/releve.py [url] [chemin_sortie]
+"""
+import json
+import os
+import sys
+import time
+
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+
+URL = sys.argv[1] if len(sys.argv) > 1 else "https://loicroybon.github.io/EB26-meteo/"
+SORTIE = sys.argv[2] if len(sys.argv) > 2 else "data/dernier.json"
+
+CLE_CACHE = "cache:v3"          # doit suivre index.html
+ATTENTE_MAX_S = 300
+STABLE_REQUIS = 4               # nombre de sondages identiques avant de conclure
+
+
+def journal(msg):
+    print(msg, flush=True)
+
+
+def navigateur():
+    opts = Options()
+    for a in ("--headless=new", "--no-sandbox", "--disable-dev-shm-usage",
+              "--disable-gpu", "--window-size=1400,2400", "--lang=fr-FR"):
+        opts.add_argument(a)
+    opts.set_capability("goog:loggingPrefs", {"browser": "ALL"})
+    return webdriver.Chrome(options=opts)
+
+
+def main():
+    journal(f"Relevé partagé — {URL}")
+    d = navigateur()
+    try:
+        d.get(URL)
+        time.sleep(5)
+
+        version = d.execute_script("return document.title") or "?"
+        journal(f"  page chargée : {version}")
+
+        # `true` force le relevé : sans lui, le garde-fou aligné sur le run le
+        # refuserait puisque la page vient d'appliquer data/dernier.json.
+        d.execute_script("interroger(true)")
+
+        precedent, stable = None, 0
+        debut = time.time()
+        while time.time() - debut < ATTENTE_MAX_S:
+            time.sleep(3)
+            try:
+                courant = d.find_element(By.TAG_NAME, "body").text
+            except Exception:
+                break
+            if courant == precedent:
+                stable += 1
+                if stable >= STABLE_REQUIS:
+                    break
+            else:
+                stable = 0
+            precedent = courant
+        journal(f"  relevé terminé en {time.time()-debut:.0f} s")
+
+        # on demande explicitement l'écriture du cache, puis on le relit
+        d.execute_script("try{cacheEcrire()}catch(e){console.error(e.message)}")
+        time.sleep(2)
+        brut = d.execute_script(
+            "return localStorage.getItem(arguments[0])", CLE_CACHE)
+        if not brut:
+            journal("  ÉCHEC : aucun paquet de cache produit")
+            return 1
+
+        paquet = json.loads(brut)
+        modeles = sorted((paquet.get("modeles") or {}).keys())
+        if not modeles:
+            journal("  ÉCHEC : paquet sans aucun modèle, rien à publier")
+            return 1
+
+        # métadonnées propres au relevé partagé, pour que la page sache d'où ça vient
+        paquet["partage"] = {
+            "genere_par": "github-actions",
+            "version_page": version,
+            "url": URL,
+            "modeles": modeles,
+        }
+
+        couverture = d.execute_script("""
+          const out = {};
+          for (const id in DATA) {
+            const arr = (DATA[id].pts && DATA[id].pts[SCENARIO]) || [];
+            let n = 0; arr.forEach(e => { if (e && e.t !== null && e.t !== undefined) n++; });
+            out[id] = n + '/' + POIS.length;
+          }
+          return out;
+        """) or {}
+        for mid in modeles:
+            journal(f"    {mid} : {couverture.get(mid, '?')}")
+
+        for e in d.get_log("browser"):
+            if e["level"] == "SEVERE" and "favicon" not in e["message"]:
+                journal(f"    [navigateur] {e['message'][:160]}")
+
+        os.makedirs(os.path.dirname(SORTIE) or ".", exist_ok=True)
+        with open(SORTIE, "w", encoding="utf-8") as f:
+            json.dump(paquet, f, ensure_ascii=False, separators=(",", ":"))
+        taille = os.path.getsize(SORTIE)
+        journal(f"  écrit : {SORTIE}, {taille/1024:.0f} ko, {len(modeles)} modèle(s)")
+        return 0
+    finally:
+        d.quit()
+
+
+if __name__ == "__main__":
+    sys.exit(main())

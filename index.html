@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v42 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v43 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -2002,6 +2002,21 @@ async function cacheLire(){
     return (c&&c.modeles&&Object.keys(c.modeles).length)? c : null;
   }catch(e){ return null; }
 }
+/* Releve partage, produit toutes les 3 h par .github/workflows/releve.yml et
+   servi par Pages. Un seul releve pour tous les appareils : la consommation de
+   quota ne depend plus du nombre de consultations. Facultatif : si le fichier
+   est absent, la page se comporte comme avant. */
+const URL_PARTAGE = 'data/dernier.json';
+async function partageLire(){
+  try{
+    /* le CDN de Pages garde le fichier une dizaine de minutes */
+    const r = await fetch(URL_PARTAGE + '?t=' + Math.floor(Date.now()/60000),
+                          {cache:'no-store'});
+    if(!r.ok) return null;
+    const c = await r.json();
+    return (c && c.modeles && Object.keys(c.modeles).length)? c : null;
+  }catch(e){ return null; }
+}
 function appliqueCache(c){
   DATA={}; DATA_J={}; JALONS=c.jalons||[];
   for(const id in c.modeles){
@@ -3345,13 +3360,27 @@ async function convergence(){
   /* 1. on affiche immédiatement ce qu'on a en mémoire, même périmé */
   (async()=>{
     if(!(PRECHARGE && PRECHARGE.modeles)){
-      const c=await cacheLire();
+      /* on interroge les deux en parallele et on garde le plus recent : le
+         releve partage est en general plus frais que la memoire de l'appareil,
+         mais l'inverse arrive si l'utilisateur vient de forcer une actualisation */
+      const [local, partage] = await Promise.all([cacheLire(), partageLire()]);
+      const c = (partage && (!local || (partage.ts||0) > (local.ts||0)))? partage : local;
+      const dOu = (c === partage && partage)? 'partagé' : 'local';
       if(c){
         appliqueCache(c);
         afficheDispo(Object.keys(DATA).map(id=>[DATA[id].nom,
           POIS.filter((p,i)=>{const e=extraitPoi(DATA[id],i); return e&&e.t!==null&&e.t!==undefined;}).length,
           POIS.length]));
-        log('Données restaurées depuis la mémoire du téléphone, relevé '+ageTexte()+'.');
+        if(dOu==='partagé'){
+          const src=(c.partage&&c.partage.genere_par)||'serveur';
+          log('Relevé partagé ('+src+') du '+ageTexte()+', '
+              +Object.keys(c.modeles).length+' modèles — aucun quota consommé '
+              +'par cet appareil.');
+          /* on le recopie en memoire locale : la page reste utilisable hors ligne */
+          try{ await cacheEcrire(); }catch(e){}
+        } else {
+          log('Données restaurées depuis la mémoire du téléphone, relevé '+ageTexte()+'.');
+        }
       }
     }
     majSelecteurModele();
