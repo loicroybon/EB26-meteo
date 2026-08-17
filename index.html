@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v51 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v52 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -3290,8 +3290,19 @@ function fiche(){
   const p=POIS[SEL], s=Object.keys(DATA).length? sonde(SEL):null;
   const f=q('#fiche');
   const nDispo=modelesDisponibles().length;
-  let h='<h3>'+p.nom+'</h3><div class="meta">km '+p.km.toFixed(1)+' · '+p.alt+' m · '
-    +hhmm(p.t[SCENARIO])+'</div>';
+  /* Lien vers le site public de Windy, centre sur le point.
+     Pourquoi un lien et pas la carte embarquee : le Map Forecast API gratuit est
+     lui aussi un niveau "Testing", declare "not intended for production", limite
+     a GFS seul et a trois couches - vent, temperature, pression - donc SANS
+     couche nuages, justement celle qui servirait ici. Le site public, lui, est
+     gratuit, sans cle, sans restriction d'usage, et donne toutes les couches.
+     Un lien ne pese rien, n'ajoute aucune dependance externe au fichier unique,
+     et ne casse rien si Windy est injoignable en montagne. */
+  const wy = 'https://www.windy.com/?clouds,'+p.lat.toFixed(3)+','+p.lon.toFixed(3)+',11';
+  let h='<h3>'+p.nom+'</h3><div class="meta">km '+p.km.toFixed(1)+' \u00b7 '+p.alt+' m \u00b7 '
+    +hhmm(p.t[SCENARIO])
+    +' \u00b7 <a href="'+wy+'" target="_blank" rel="noopener noreferrer"'
+    +' style="color:var(--froid)">nuages sur Windy \u2197</a></div>';
   if(!s){ h+='<div class="note" style="margin-top:12px">Pas encore de données. Lance « Interroger les modèles ».</div>';
     f.innerHTML=h; return; }
 
