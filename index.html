@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v38 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v39 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -564,11 +564,12 @@ async function mnBrut1(p){
 
 async function mnBrut(points, avance){
   const out=new Array(points.length).fill(null);
+  const ordre=ordreServiceParImportance(points);
   let i=0, faits=0;
   const FILE=4;
   async function ouvrier(){
-    while(i<points.length){
-      const k=i++;
+    while(i<ordre.length){
+      const k=ordre[i++];
       out[k]=await mnBrut1(points[k]);
       faits++; if(avance) avance(faits, points.length);
     }
@@ -670,6 +671,26 @@ const MEM = (window.storage) ? window.storage : {
   async list(p){ const ks=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i);
     if(!p||k.startsWith(p)) ks.push(k); } return {keys:ks}; }
 };
+
+/* Ordre de service pour les fournisseurs qui interrogent un point par requete
+   et peuvent s'arreter en route (credits epuises, refus, echec reseau).
+   On sert d'abord les endroits ou une decision se prend : ravitos officiels,
+   points de controle, puis les points que la passation designe comme
+   decisifs. Le reste ensuite. Les resultats restent ranges a leur index
+   d'origine, seul l'ordre de passage change. */
+const POI_DECISIFS = ['Croix de Belledonne','Col de la Mine de Fer',
+  'Col de la Vache','Col de Mor\u00e9tan','Sommet du Grand Chat','Lac du Cos'];
+function ordreServiceParImportance(points){
+  const rang = p => {
+    if(p.type==='Ravito') return 0;
+    if(POI_DECISIFS.indexOf(p.nom)>=0) return 1;
+    if(p.type==='Point ctrl') return 2;
+    if(p.type==='Col'||p.type==='Sommet') return 3;
+    return 4;
+  };
+  return points.map((p,i)=>i)
+               .sort((a,b)=> (rang(points[a])-rang(points[b])) || (a-b));
+}
 
 /* ---------- interrogation Open-Meteo ---------- */
 /* le météogramme n'a pas besoin des 30 variables : les jalons en demandent 13,
@@ -1382,11 +1403,12 @@ async function meteoblueBrut(points, avance){
   const out=new Array(points.length).fill(null);
   out[0]=await meteoblueBrut1(points[0]);
   if(!out[0]) return out;           /* accès refusé : on ne lance pas les 51 autres */
-  let i=1, faits=1;
+  const ordre=ordreServiceParImportance(points).filter(k=>k!==0);
+  let i=0, faits=1;
   const FILE=6;
   async function ouvrier(){
-    while(i<points.length){
-      const k=i++;
+    while(i<ordre.length){
+      const k=ordre[i++];
       out[k]=await meteoblueBrut1(points[k]);
       faits++; if(avance) avance(faits, points.length);
     }
