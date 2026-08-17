@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v33 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v34 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -969,7 +969,9 @@ function agrege(out){
        sans descente d'échelle. Au Lac du Cos, 2195 m, elle donne 18,8 °C
        quand le même ICON-EU corrigé en donne 8,9. Windy ne vote donc que
        sur les deux variables qu'il est seul à fournir. */
-    if(o.id && o.id.indexOf('windy_')===0) o.doublon=['pr_conv'];
+    /* Windy est désormais corrigé en altitude : il peut de nouveau voter,
+       sauf s'il double une source déjà présente. Seule ALADIN est unique. */
+    if(o.id && o.id.indexOf('windy_')===0 && !o.corrige_alt) o.doublon=['pr_conv'];
   });
   const ids=out.filter(o=>!o.doublon||o.doublon.length).map(o=>o.id);
   const wFam=poidsFamille(out.map(o=>o.id));
@@ -1237,10 +1239,26 @@ async function windyPoint(p, iso, modele){
   if(bi<0||dt>1.6*3.6e6) return null;
 
   /* on lit les unités renvoyées plutôt que de les supposer */
+  /* Windy ne descend pas en altitude : il renvoie la valeur à l'altitude de sa
+     maille, donnée dans l'en-tête. On corrige nous-mêmes plutôt que d'écarter
+     la source : au lac du Cos, 2195 m contre une maille vers 1200 m, ça vaut
+     une dizaine de degrés. */
+  const altMaille = (o.header && (o.header.elevation!==undefined? o.header.elevation
+                     : o.header.modelElevation)) ??
+                    (o.elevation!==undefined? o.elevation : null);
+  const corrige_alt = (altMaille!==null && altMaille!==undefined
+                       && Math.abs(p.alt-altMaille)>30);
+
   const U=o.units||{};
+  /* écart d'altitude à corriger, et gradient : celui du profil de pression
+     du point si on l'a, sinon la valeur standard de l'atmosphère */
+  const dz = (altMaille===null||altMaille===undefined)? 0 : (p.alt-altMaille);
+  const grad = (typeof GRAD_LOCAL==='number' && isFinite(GRAD_LOCAL))? GRAD_LOCAL : 6.5;
+  const corrT = -grad*dz/1000;
   const K=(x,cle)=>{ if(x===null) return null;
     const u=(U[cle]||'K').toLowerCase();
-    return Math.round((u.indexOf('k')===0? x-273.15 : x)*10)/10; };
+    const c=(u.indexOf('k')===0? x-273.15 : x)+corrT;
+    return Math.round(c*10)/10; };
   const enMM=(x,cle)=>{ if(x===null) return null;
     const u=(U[cle]||'mm').toLowerCase();
     return u==='m'? x*1000 : x; };
@@ -1266,6 +1284,7 @@ async function windyPoint(p, iso, modele){
   const t=K(wyVal(o,'temp-surface',bi),'temp-surface');
 
   const e={
+    corrige_alt: corrige_alt, alt_modele: altMaille, dz_corrige: Math.round(corrT*10)/10,
     t: t, res: null, ros: K(wyVal(o,'dewpoint-surface',bi),'dewpoint-surface'),
     hum: wyVal(o,'rh-surface',bi)===null?null:Math.round(wyVal(o,'rh-surface',bi)),
     pr: pr, pr_conv: prConv, pp: null,
@@ -1309,6 +1328,33 @@ async function windySerie(points, cible, modele, avance){
   }
   await Promise.all(Array.from({length:FILE}, ouvrier));
   return out;
+}
+
+/* Gradient thermique local, estimé une fois par relevé depuis les profils de
+   pression déjà téléchargés. Le −6,5 °C/km standard est une moyenne d'atmosphère
+   libre ; en montagne le gradient de surface varie de −3 à −8 selon l'heure et
+   la nébulosité. */
+let GRAD_LOCAL = 6.5;
+function estimerGradient(){
+  const ec=[];
+  for(let i=0;i<POIS.length;i++){
+    const s=sonde(i);
+    if(!s||!s.t||s.t.m===null) continue;
+    for(let j=i+1;j<POIS.length;j++){
+      const dz=POIS[i].alt-POIS[j].alt;
+      if(Math.abs(dz)<600) continue;
+      const s2=sonde(j);
+      if(!s2||!s2.t||s2.t.m===null) continue;
+      const dt=new Date(POIS[i].t[SCENARIO])-new Date(POIS[j].t[SCENARIO]);
+      if(Math.abs(dt)>2.5*3.6e6) continue;      /* même moment, sinon le cycle diurne pollue */
+      ec.push(-(s.t.m-s2.t.m)/dz*1000);
+      break;
+    }
+  }
+  if(ec.length<4) return;
+  ec.sort((a,b)=>a-b);
+  const md=ec[Math.floor(ec.length/2)];
+  if(md>2.0 && md<9.5) GRAD_LOCAL=Math.round(md*10)/10;
 }
 
 /* ================= PHYSIQUE DE TERRAIN =================
@@ -2633,6 +2679,7 @@ function alertesSimples(s, p){
 
 /* chaque bloc se rend isolément : si l'un échoue, les autres s'affichent quand même */
 function rendreTout(){
+  try{ estimerGradient(); }catch(e){}
   const etapes=[['selecteur',majSelecteurModele],['etat',majEtat],['meteogramme',dessine],
     ['resume',resumeSegment],['hero',heroRender],['heures',heuresRender],
     ['fiche',fiche],['sms',majSMS],['tableau',tableauTous]];
