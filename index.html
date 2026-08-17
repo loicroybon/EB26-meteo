@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v43 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v44 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -2017,6 +2017,35 @@ async function partageLire(){
     return (c && c.modeles && Object.keys(c.modeles).length)? c : null;
   }catch(e){ return null; }
 }
+/* Fusionne deux paquets de cache au lieu d'en sacrifier un. La v43 gardait le
+   plus recent, ce qui faisait remplacer 11 modeles en cache local par les 2
+   d'un releve partage produit pendant une panne de quota. C'est exactement
+   l'erreur que la v17 avait corrigee dans livrer() : on fusionne, on ne
+   remplace pas. Un modele present des deux cotes est pris dans le paquet le
+   plus recent ; les autres sont conserves.
+   La fusion exige le meme scenario et le meme nombre de jalons, sinon les
+   tableaux pts et jal ne sont pas comparables. */
+function fusionneCaches(a, b){
+  if(!a) return b || null;
+  if(!b) return a;
+  const recent = ((b.ts||0) >= (a.ts||0))? b : a;
+  const autre  = (recent === b)? a : b;
+  if(recent.scenario !== autre.scenario
+     || (recent.jalons||[]).length !== (autre.jalons||[]).length){
+    return recent;                 /* pas comparables : on ne bricole pas */
+  }
+  const c = Object.assign({}, autre, recent);
+  c.modeles = Object.assign({}, autre.modeles||{}, recent.modeles||{});
+  /* les ensembles ne se fusionnent pas point par point : on garde le jeu le
+     plus fourni des deux */
+  const eR = recent.ens && Object.keys(recent.ens).length;
+  const eA = autre.ens && Object.keys(autre.ens).length;
+  c.ens = (eR >= eA)? (recent.ens||{}) : (autre.ens||{});
+  c.fusion = {recent:Object.keys(recent.modeles||{}).length,
+              autre:Object.keys(autre.modeles||{}).length,
+              total:Object.keys(c.modeles).length};
+  return c;
+}
 function appliqueCache(c){
   DATA={}; DATA_J={}; JALONS=c.jalons||[];
   for(const id in c.modeles){
@@ -3364,8 +3393,10 @@ async function convergence(){
          releve partage est en general plus frais que la memoire de l'appareil,
          mais l'inverse arrive si l'utilisateur vient de forcer une actualisation */
       const [local, partage] = await Promise.all([cacheLire(), partageLire()]);
-      const c = (partage && (!local || (partage.ts||0) > (local.ts||0)))? partage : local;
-      const dOu = (c === partage && partage)? 'partagé' : 'local';
+      /* fusion : le partage apporte ce que l'appareil n'a pas, sans jamais
+         retirer ce qu'il avait deja */
+      const c = fusionneCaches(local, partage);
+      const dOu = (partage && c && c.ts === partage.ts)? 'partagé' : 'local';
       if(c){
         appliqueCache(c);
         afficheDispo(Object.keys(DATA).map(id=>[DATA[id].nom,
