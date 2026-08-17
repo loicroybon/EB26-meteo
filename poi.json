@@ -1,0 +1,3901 @@
+{
+  "generated_from": {
+    "repo": "course-analyze",
+    "reference_edition": "echappee-belle/integrale-2026",
+    "cohort_editions": [
+      "echappee-belle/integrale-2016",
+      "echappee-belle/integrale-2024",
+      "echappee-belle/integrale-2025"
+    ],
+    "cohort_tag": "echappee-belle_integrale-2016__echappee-belle_integrale-2024__echappee-belle_integrale-2025",
+    "sources": [
+      "datascience\\output\\echappee-belle\\integrale-2026\\cohorts\\echappee-belle_integrale-2016__echappee-belle_integrale-2024__echappee-belle_integrale-2025\\canonical_checkpoints.json",
+      "datascience\\output\\echappee-belle\\integrale-2026\\cohorts\\echappee-belle_integrale-2016__echappee-belle_integrale-2024__echappee-belle_integrale-2025\\segment_scenarios_multi.json"
+    ]
+  },
+  "depart": {
+    "lieu": "Vizille",
+    "date_heure_locale": "2026-08-21 06:30",
+    "fuseau": "Europe/Paris (UTC+2, heure d'ete)"
+  },
+  "scenarios_horaires": [
+    "35h",
+    "36h",
+    "37h",
+    "38h",
+    "39h",
+    "40h",
+    "41h",
+    "42h",
+    "43h",
+    "44h",
+    "45h"
+  ],
+  "poi_count": 56,
+  "poi": [
+    {
+      "id": "vizille",
+      "nom": "Vizille",
+      "nom_court": "Vizille",
+      "officiel": true,
+      "type": "ravito_chrono_officiel",
+      "categorie_terrain": null,
+      "lat": 45.07085,
+      "lon": 5.77318,
+      "altitude_ign_m": 282.6,
+      "km_depart": 0.0,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T06:30:00+02:00",
+          "label": "ven. 21/08 06h30",
+          "elapsed_depuis_depart": "0h00"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T06:30:00+02:00",
+          "label": "ven. 21/08 06h30",
+          "elapsed_depuis_depart": "0h00"
+        },
+        "37h": {
+          "iso_local": "2026-08-21T06:30:00+02:00",
+          "label": "ven. 21/08 06h30",
+          "elapsed_depuis_depart": "0h00"
+        },
+        "38h": {
+          "iso_local": "2026-08-21T06:30:00+02:00",
+          "label": "ven. 21/08 06h30",
+          "elapsed_depuis_depart": "0h00"
+        },
+        "39h": {
+          "iso_local": "2026-08-21T06:30:00+02:00",
+          "label": "ven. 21/08 06h30",
+          "elapsed_depuis_depart": "0h00"
+        },
+        "40h": {
+          "iso_local": "2026-08-21T06:30:00+02:00",
+          "label": "ven. 21/08 06h30",
+          "elapsed_depuis_depart": "0h00"
+        },
+        "41h": {
+          "iso_local": "2026-08-21T06:30:00+02:00",
+          "label": "ven. 21/08 06h30",
+          "elapsed_depuis_depart": "0h00"
+        },
+        "42h": {
+          "iso_local": "2026-08-21T06:30:00+02:00",
+          "label": "ven. 21/08 06h30",
+          "elapsed_depuis_depart": "0h00"
+        },
+        "43h": {
+          "iso_local": "2026-08-21T06:30:00+02:00",
+          "label": "ven. 21/08 06h30",
+          "elapsed_depuis_depart": "0h00"
+        },
+        "44h": {
+          "iso_local": "2026-08-21T06:30:00+02:00",
+          "label": "ven. 21/08 06h30",
+          "elapsed_depuis_depart": "0h00"
+        },
+        "45h": {
+          "iso_local": "2026-08-21T06:30:00+02:00",
+          "label": "ven. 21/08 06h30",
+          "elapsed_depuis_depart": "0h00"
+        }
+      }
+    },
+    {
+      "id": "poi-002",
+      "nom": "Mont-Sec",
+      "nom_court": "Mont-Sec",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "passage",
+      "lat": 45.068322,
+      "lon": 5.801925,
+      "altitude_ign_m": 1115.3,
+      "km_depart": 7.006,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T07:38:25.232990+02:00",
+          "label": "ven. 21/08 07h38",
+          "elapsed_depuis_depart": "1h08"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T07:41:24.365380+02:00",
+          "label": "ven. 21/08 07h41",
+          "elapsed_depuis_depart": "1h11"
+        },
+        "37h": {
+          "iso_local": "2026-08-21T07:41:24.365380+02:00",
+          "label": "ven. 21/08 07h41",
+          "elapsed_depuis_depart": "1h11"
+        },
+        "38h": {
+          "iso_local": "2026-08-21T07:42:04.635453+02:00",
+          "label": "ven. 21/08 07h42",
+          "elapsed_depuis_depart": "1h12"
+        },
+        "39h": {
+          "iso_local": "2026-08-21T07:42:12.041443+02:00",
+          "label": "ven. 21/08 07h42",
+          "elapsed_depuis_depart": "1h12"
+        },
+        "40h": {
+          "iso_local": "2026-08-21T07:42:12.041443+02:00",
+          "label": "ven. 21/08 07h42",
+          "elapsed_depuis_depart": "1h12"
+        },
+        "41h": {
+          "iso_local": "2026-08-21T07:43:26.101346+02:00",
+          "label": "ven. 21/08 07h43",
+          "elapsed_depuis_depart": "1h13"
+        },
+        "42h": {
+          "iso_local": "2026-08-21T07:44:36.458253+02:00",
+          "label": "ven. 21/08 07h44",
+          "elapsed_depuis_depart": "1h14"
+        },
+        "43h": {
+          "iso_local": "2026-08-21T07:46:19.910680+02:00",
+          "label": "ven. 21/08 07h46",
+          "elapsed_depuis_depart": "1h16"
+        },
+        "44h": {
+          "iso_local": "2026-08-21T07:48:11.000535+02:00",
+          "label": "ven. 21/08 07h48",
+          "elapsed_depuis_depart": "1h18"
+        },
+        "45h": {
+          "iso_local": "2026-08-21T07:48:57.982285+02:00",
+          "label": "ven. 21/08 07h48",
+          "elapsed_depuis_depart": "1h18"
+        }
+      }
+    },
+    {
+      "id": "poi-003",
+      "nom": "Col de la Madeleine",
+      "nom_court": "Col de la Mad.",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "col",
+      "lat": 45.071943,
+      "lon": 5.814483,
+      "altitude_ign_m": 1164.9,
+      "km_depart": 8.469,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T07:48:21.196964+02:00",
+          "label": "ven. 21/08 07h48",
+          "elapsed_depuis_depart": "1h18"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T07:51:46.334321+02:00",
+          "label": "ven. 21/08 07h51",
+          "elapsed_depuis_depart": "1h21"
+        },
+        "37h": {
+          "iso_local": "2026-08-21T07:51:46.334321+02:00",
+          "label": "ven. 21/08 07h51",
+          "elapsed_depuis_depart": "1h21"
+        },
+        "38h": {
+          "iso_local": "2026-08-21T07:52:32.450471+02:00",
+          "label": "ven. 21/08 07h52",
+          "elapsed_depuis_depart": "1h22"
+        },
+        "39h": {
+          "iso_local": "2026-08-21T07:52:40.931602+02:00",
+          "label": "ven. 21/08 07h52",
+          "elapsed_depuis_depart": "1h22"
+        },
+        "40h": {
+          "iso_local": "2026-08-21T07:52:40.931602+02:00",
+          "label": "ven. 21/08 07h52",
+          "elapsed_depuis_depart": "1h22"
+        },
+        "41h": {
+          "iso_local": "2026-08-21T07:54:05.742913+02:00",
+          "label": "ven. 21/08 07h54",
+          "elapsed_depuis_depart": "1h24"
+        },
+        "42h": {
+          "iso_local": "2026-08-21T07:55:26.313658+02:00",
+          "label": "ven. 21/08 07h55",
+          "elapsed_depuis_depart": "1h25"
+        },
+        "43h": {
+          "iso_local": "2026-08-21T07:57:24.784458+02:00",
+          "label": "ven. 21/08 07h57",
+          "elapsed_depuis_depart": "1h27"
+        },
+        "44h": {
+          "iso_local": "2026-08-21T07:59:32.001424+02:00",
+          "label": "ven. 21/08 07h59",
+          "elapsed_depuis_depart": "1h29"
+        },
+        "45h": {
+          "iso_local": "2026-08-21T08:00:25.803599+02:00",
+          "label": "ven. 21/08 08h00",
+          "elapsed_depuis_depart": "1h30"
+        }
+      }
+    },
+    {
+      "id": "poi-004",
+      "nom": "Baraque Pagnot",
+      "nom_court": "Baraque Pagnot",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "abri",
+      "lat": 45.084365,
+      "lon": 5.828533,
+      "altitude_ign_m": 1377.0,
+      "km_depart": 10.522,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T08:07:37.436045+02:00",
+          "label": "ven. 21/08 08h07",
+          "elapsed_depuis_depart": "1h37"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T08:11:53.026049+02:00",
+          "label": "ven. 21/08 08h11",
+          "elapsed_depuis_depart": "1h41"
+        },
+        "37h": {
+          "iso_local": "2026-08-21T08:11:53.026049+02:00",
+          "label": "ven. 21/08 08h11",
+          "elapsed_depuis_depart": "1h41"
+        },
+        "38h": {
+          "iso_local": "2026-08-21T08:12:50.484267+02:00",
+          "label": "ven. 21/08 08h12",
+          "elapsed_depuis_depart": "1h42"
+        },
+        "39h": {
+          "iso_local": "2026-08-21T08:13:01.051296+02:00",
+          "label": "ven. 21/08 08h13",
+          "elapsed_depuis_depart": "1h43"
+        },
+        "40h": {
+          "iso_local": "2026-08-21T08:13:01.051296+02:00",
+          "label": "ven. 21/08 08h13",
+          "elapsed_depuis_depart": "1h43"
+        },
+        "41h": {
+          "iso_local": "2026-08-21T08:14:46.721582+02:00",
+          "label": "ven. 21/08 08h14",
+          "elapsed_depuis_depart": "1h44"
+        },
+        "42h": {
+          "iso_local": "2026-08-21T08:16:27.108354+02:00",
+          "label": "ven. 21/08 08h16",
+          "elapsed_depuis_depart": "1h46"
+        },
+        "43h": {
+          "iso_local": "2026-08-21T08:18:54.716534+02:00",
+          "label": "ven. 21/08 08h18",
+          "elapsed_depuis_depart": "1h48"
+        },
+        "44h": {
+          "iso_local": "2026-08-21T08:21:33.221964+02:00",
+          "label": "ven. 21/08 08h21",
+          "elapsed_depuis_depart": "1h51"
+        },
+        "45h": {
+          "iso_local": "2026-08-21T08:22:40.256551+02:00",
+          "label": "ven. 21/08 08h22",
+          "elapsed_depuis_depart": "1h52"
+        }
+      }
+    },
+    {
+      "id": "poi-005",
+      "nom": "Lac de Luitel",
+      "nom_court": "Lac de Luitel",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "lac",
+      "lat": 45.091614,
+      "lon": 5.847508,
+      "altitude_ign_m": 1257.9,
+      "km_depart": 12.833,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T08:22:32.755716+02:00",
+          "label": "ven. 21/08 08h22",
+          "elapsed_depuis_depart": "1h52"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T08:27:27.413114+02:00",
+          "label": "ven. 21/08 08h27",
+          "elapsed_depuis_depart": "1h57"
+        },
+        "37h": {
+          "iso_local": "2026-08-21T08:27:27.413114+02:00",
+          "label": "ven. 21/08 08h27",
+          "elapsed_depuis_depart": "1h57"
+        },
+        "38h": {
+          "iso_local": "2026-08-21T08:28:33.653925+02:00",
+          "label": "ven. 21/08 08h28",
+          "elapsed_depuis_depart": "1h58"
+        },
+        "39h": {
+          "iso_local": "2026-08-21T08:28:45.836143+02:00",
+          "label": "ven. 21/08 08h28",
+          "elapsed_depuis_depart": "1h58"
+        },
+        "40h": {
+          "iso_local": "2026-08-21T08:28:45.836143+02:00",
+          "label": "ven. 21/08 08h28",
+          "elapsed_depuis_depart": "1h58"
+        },
+        "41h": {
+          "iso_local": "2026-08-21T08:30:47.658323+02:00",
+          "label": "ven. 21/08 08h30",
+          "elapsed_depuis_depart": "2h00"
+        },
+        "42h": {
+          "iso_local": "2026-08-21T08:32:43.389394+02:00",
+          "label": "ven. 21/08 08h32",
+          "elapsed_depuis_depart": "2h02"
+        },
+        "43h": {
+          "iso_local": "2026-08-21T08:35:33.559751+02:00",
+          "label": "ven. 21/08 08h35",
+          "elapsed_depuis_depart": "2h05"
+        },
+        "44h": {
+          "iso_local": "2026-08-21T08:38:36.293021+02:00",
+          "label": "ven. 21/08 08h38",
+          "elapsed_depuis_depart": "2h08"
+        },
+        "45h": {
+          "iso_local": "2026-08-21T08:39:53.573967+02:00",
+          "label": "ven. 21/08 08h39",
+          "elapsed_depuis_depart": "2h09"
+        }
+      }
+    },
+    {
+      "id": "poi-006",
+      "nom": "Baraque de Boulac",
+      "nom_court": "Baraque de Bo.",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "abri",
+      "lat": 45.103086,
+      "lon": 5.86048,
+      "altitude_ign_m": 1490.4,
+      "km_depart": 15.052,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T08:41:19.155185+02:00",
+          "label": "ven. 21/08 08h41",
+          "elapsed_depuis_depart": "2h11"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T08:47:02.963174+02:00",
+          "label": "ven. 21/08 08h47",
+          "elapsed_depuis_depart": "2h17"
+        },
+        "37h": {
+          "iso_local": "2026-08-21T08:47:02.963174+02:00",
+          "label": "ven. 21/08 08h47",
+          "elapsed_depuis_depart": "2h17"
+        },
+        "38h": {
+          "iso_local": "2026-08-21T08:48:20.253343+02:00",
+          "label": "ven. 21/08 08h48",
+          "elapsed_depuis_depart": "2h18"
+        },
+        "39h": {
+          "iso_local": "2026-08-21T08:48:34.467626+02:00",
+          "label": "ven. 21/08 08h48",
+          "elapsed_depuis_depart": "2h18"
+        },
+        "40h": {
+          "iso_local": "2026-08-21T08:48:34.467626+02:00",
+          "label": "ven. 21/08 08h48",
+          "elapsed_depuis_depart": "2h18"
+        },
+        "41h": {
+          "iso_local": "2026-08-21T08:50:56.610464+02:00",
+          "label": "ven. 21/08 08h50",
+          "elapsed_depuis_depart": "2h20"
+        },
+        "42h": {
+          "iso_local": "2026-08-21T08:53:11.646160+02:00",
+          "label": "ven. 21/08 08h53",
+          "elapsed_depuis_depart": "2h23"
+        },
+        "43h": {
+          "iso_local": "2026-08-21T08:56:30.201937+02:00",
+          "label": "ven. 21/08 08h56",
+          "elapsed_depuis_depart": "2h26"
+        },
+        "44h": {
+          "iso_local": "2026-08-21T09:00:03.416194+02:00",
+          "label": "ven. 21/08 09h00",
+          "elapsed_depuis_depart": "2h30"
+        },
+        "45h": {
+          "iso_local": "2026-08-21T09:01:33.588057+02:00",
+          "label": "ven. 21/08 09h01",
+          "elapsed_depuis_depart": "2h31"
+        }
+      }
+    },
+    {
+      "id": "r1-arselle",
+      "nom": "R1 Arselle",
+      "nom_court": "Arselle",
+      "officiel": true,
+      "type": "ravito_chrono_officiel",
+      "categorie_terrain": null,
+      "lat": 45.09849,
+      "lon": 5.87467,
+      "altitude_ign_m": 1620.9,
+      "km_depart": 17.17,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T08:57:49+02:00",
+          "label": "ven. 21/08 08h57",
+          "elapsed_depuis_depart": "2h27"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T09:04:16+02:00",
+          "label": "ven. 21/08 09h04",
+          "elapsed_depuis_depart": "2h34"
+        },
+        "37h": {
+          "iso_local": "2026-08-21T09:04:16+02:00",
+          "label": "ven. 21/08 09h04",
+          "elapsed_depuis_depart": "2h34"
+        },
+        "38h": {
+          "iso_local": "2026-08-21T09:05:43+02:00",
+          "label": "ven. 21/08 09h05",
+          "elapsed_depuis_depart": "2h35"
+        },
+        "39h": {
+          "iso_local": "2026-08-21T09:05:59+02:00",
+          "label": "ven. 21/08 09h05",
+          "elapsed_depuis_depart": "2h35"
+        },
+        "40h": {
+          "iso_local": "2026-08-21T09:05:59+02:00",
+          "label": "ven. 21/08 09h05",
+          "elapsed_depuis_depart": "2h35"
+        },
+        "41h": {
+          "iso_local": "2026-08-21T09:08:39+02:00",
+          "label": "ven. 21/08 09h08",
+          "elapsed_depuis_depart": "2h38"
+        },
+        "42h": {
+          "iso_local": "2026-08-21T09:11:11+02:00",
+          "label": "ven. 21/08 09h11",
+          "elapsed_depuis_depart": "2h41"
+        },
+        "43h": {
+          "iso_local": "2026-08-21T09:14:54.500000+02:00",
+          "label": "ven. 21/08 09h14",
+          "elapsed_depuis_depart": "2h44"
+        },
+        "44h": {
+          "iso_local": "2026-08-21T09:18:54.500000+02:00",
+          "label": "ven. 21/08 09h18",
+          "elapsed_depuis_depart": "2h48"
+        },
+        "45h": {
+          "iso_local": "2026-08-21T09:20:36+02:00",
+          "label": "ven. 21/08 09h20",
+          "elapsed_depuis_depart": "2h50"
+        }
+      }
+    },
+    {
+      "id": "poi-008",
+      "nom": "Lac Achard",
+      "nom_court": "Lac Achard",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "lac",
+      "lat": 45.114,
+      "lon": 5.9016,
+      "altitude_ign_m": 1927.3,
+      "km_depart": 20.278,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T09:43:38.848463+02:00",
+          "label": "ven. 21/08 09h43",
+          "elapsed_depuis_depart": "3h13"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T09:50:45.485991+02:00",
+          "label": "ven. 21/08 09h50",
+          "elapsed_depuis_depart": "3h20"
+        },
+        "37h": {
+          "iso_local": "2026-08-21T09:50:45.485991+02:00",
+          "label": "ven. 21/08 09h50",
+          "elapsed_depuis_depart": "3h20"
+        },
+        "38h": {
+          "iso_local": "2026-08-21T09:53:43.856322+02:00",
+          "label": "ven. 21/08 09h53",
+          "elapsed_depuis_depart": "3h23"
+        },
+        "39h": {
+          "iso_local": "2026-08-21T09:55:33.412547+02:00",
+          "label": "ven. 21/08 09h55",
+          "elapsed_depuis_depart": "3h25"
+        },
+        "40h": {
+          "iso_local": "2026-08-21T09:55:33.412547+02:00",
+          "label": "ven. 21/08 09h55",
+          "elapsed_depuis_depart": "3h25"
+        },
+        "41h": {
+          "iso_local": "2026-08-21T09:58:46.929574+02:00",
+          "label": "ven. 21/08 09h58",
+          "elapsed_depuis_depart": "3h28"
+        },
+        "42h": {
+          "iso_local": "2026-08-21T10:01:21.844098+02:00",
+          "label": "ven. 21/08 10h01",
+          "elapsed_depuis_depart": "3h31"
+        },
+        "43h": {
+          "iso_local": "2026-08-21T10:06:33.217001+02:00",
+          "label": "ven. 21/08 10h06",
+          "elapsed_depuis_depart": "3h36"
+        },
+        "44h": {
+          "iso_local": "2026-08-21T10:11:08.337017+02:00",
+          "label": "ven. 21/08 10h11",
+          "elapsed_depuis_depart": "3h41"
+        },
+        "45h": {
+          "iso_local": "2026-08-21T10:16:31.195124+02:00",
+          "label": "ven. 21/08 10h16",
+          "elapsed_depuis_depart": "3h46"
+        }
+      }
+    },
+    {
+      "id": "poi-009",
+      "nom": "Col de l'Infernet",
+      "nom_court": "Col de l'Infe.",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "col",
+      "lat": 45.117833,
+      "lon": 5.905821,
+      "altitude_ign_m": 2027.0,
+      "km_depart": 20.848,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T09:50:42.500949+02:00",
+          "label": "ven. 21/08 09h50",
+          "elapsed_depuis_depart": "3h20"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T09:57:58.216267+02:00",
+          "label": "ven. 21/08 09h57",
+          "elapsed_depuis_depart": "3h27"
+        },
+        "37h": {
+          "iso_local": "2026-08-21T09:57:58.216267+02:00",
+          "label": "ven. 21/08 09h57",
+          "elapsed_depuis_depart": "3h27"
+        },
+        "38h": {
+          "iso_local": "2026-08-21T10:01:17.512241+02:00",
+          "label": "ven. 21/08 10h01",
+          "elapsed_depuis_depart": "3h31"
+        },
+        "39h": {
+          "iso_local": "2026-08-21T10:03:28.494722+02:00",
+          "label": "ven. 21/08 10h03",
+          "elapsed_depuis_depart": "3h33"
+        },
+        "40h": {
+          "iso_local": "2026-08-21T10:03:28.494722+02:00",
+          "label": "ven. 21/08 10h03",
+          "elapsed_depuis_depart": "3h33"
+        },
+        "41h": {
+          "iso_local": "2026-08-21T10:06:49.687823+02:00",
+          "label": "ven. 21/08 10h06",
+          "elapsed_depuis_depart": "3h36"
+        },
+        "42h": {
+          "iso_local": "2026-08-21T10:09:25.269831+02:00",
+          "label": "ven. 21/08 10h09",
+          "elapsed_depuis_depart": "3h39"
+        },
+        "43h": {
+          "iso_local": "2026-08-21T10:14:56.767395+02:00",
+          "label": "ven. 21/08 10h14",
+          "elapsed_depuis_depart": "3h44"
+        },
+        "44h": {
+          "iso_local": "2026-08-21T10:19:39.930600+02:00",
+          "label": "ven. 21/08 10h19",
+          "elapsed_depuis_depart": "3h49"
+        },
+        "45h": {
+          "iso_local": "2026-08-21T10:25:53.484164+02:00",
+          "label": "ven. 21/08 10h25",
+          "elapsed_depuis_depart": "3h55"
+        }
+      }
+    },
+    {
+      "id": "poi-010",
+      "nom": "Col de la Botte",
+      "nom_court": "Col de la Bot.",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "col",
+      "lat": 45.125006,
+      "lon": 5.911909,
+      "altitude_ign_m": 2162.5,
+      "km_depart": 22.163,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T10:04:44.461491+02:00",
+          "label": "ven. 21/08 10h04",
+          "elapsed_depuis_depart": "3h34"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T10:12:18.217874+02:00",
+          "label": "ven. 21/08 10h12",
+          "elapsed_depuis_depart": "3h42"
+        },
+        "37h": {
+          "iso_local": "2026-08-21T10:12:18.217874+02:00",
+          "label": "ven. 21/08 10h12",
+          "elapsed_depuis_depart": "3h42"
+        },
+        "38h": {
+          "iso_local": "2026-08-21T10:16:19.101154+02:00",
+          "label": "ven. 21/08 10h16",
+          "elapsed_depuis_depart": "3h46"
+        },
+        "39h": {
+          "iso_local": "2026-08-21T10:19:12.665852+02:00",
+          "label": "ven. 21/08 10h19",
+          "elapsed_depuis_depart": "3h49"
+        },
+        "40h": {
+          "iso_local": "2026-08-21T10:19:12.665852+02:00",
+          "label": "ven. 21/08 10h19",
+          "elapsed_depuis_depart": "3h49"
+        },
+        "41h": {
+          "iso_local": "2026-08-21T10:22:49.114264+02:00",
+          "label": "ven. 21/08 10h22",
+          "elapsed_depuis_depart": "3h52"
+        },
+        "42h": {
+          "iso_local": "2026-08-21T10:25:26.022822+02:00",
+          "label": "ven. 21/08 10h25",
+          "elapsed_depuis_depart": "3h55"
+        },
+        "43h": {
+          "iso_local": "2026-08-21T10:31:37.515833+02:00",
+          "label": "ven. 21/08 10h31",
+          "elapsed_depuis_depart": "4h01"
+        },
+        "44h": {
+          "iso_local": "2026-08-21T10:36:36.663951+02:00",
+          "label": "ven. 21/08 10h36",
+          "elapsed_depuis_depart": "4h06"
+        },
+        "45h": {
+          "iso_local": "2026-08-21T10:44:30.968899+02:00",
+          "label": "ven. 21/08 10h44",
+          "elapsed_depuis_depart": "4h14"
+        }
+      }
+    },
+    {
+      "id": "poi-011",
+      "nom": "Col des Lessines",
+      "nom_court": "Col des Lessi.",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "col",
+      "lat": 45.1286,
+      "lon": 5.9197,
+      "altitude_ign_m": 2100.4,
+      "km_depart": 22.917,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T10:09:49.533326+02:00",
+          "label": "ven. 21/08 10h09",
+          "elapsed_depuis_depart": "3h39"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T10:17:29.826619+02:00",
+          "label": "ven. 21/08 10h17",
+          "elapsed_depuis_depart": "3h47"
+        },
+        "37h": {
+          "iso_local": "2026-08-21T10:17:30.407229+02:00",
+          "label": "ven. 21/08 10h17",
+          "elapsed_depuis_depart": "3h47"
+        },
+        "38h": {
+          "iso_local": "2026-08-21T10:21:45.778438+02:00",
+          "label": "ven. 21/08 10h21",
+          "elapsed_depuis_depart": "3h51"
+        },
+        "39h": {
+          "iso_local": "2026-08-21T10:24:54.772167+02:00",
+          "label": "ven. 21/08 10h24",
+          "elapsed_depuis_depart": "3h54"
+        },
+        "40h": {
+          "iso_local": "2026-08-21T10:24:54.772167+02:00",
+          "label": "ven. 21/08 10h24",
+          "elapsed_depuis_depart": "3h54"
+        },
+        "41h": {
+          "iso_local": "2026-08-21T10:28:36.748114+02:00",
+          "label": "ven. 21/08 10h28",
+          "elapsed_depuis_depart": "3h58"
+        },
+        "42h": {
+          "iso_local": "2026-08-21T10:31:14.137327+02:00",
+          "label": "ven. 21/08 10h31",
+          "elapsed_depuis_depart": "4h01"
+        },
+        "43h": {
+          "iso_local": "2026-08-21T10:37:40.122091+02:00",
+          "label": "ven. 21/08 10h37",
+          "elapsed_depuis_depart": "4h07"
+        },
+        "44h": {
+          "iso_local": "2026-08-21T10:42:45.062104+02:00",
+          "label": "ven. 21/08 10h42",
+          "elapsed_depuis_depart": "4h12"
+        },
+        "45h": {
+          "iso_local": "2026-08-21T10:51:15.872812+02:00",
+          "label": "ven. 21/08 10h51",
+          "elapsed_depuis_depart": "4h21"
+        }
+      }
+    },
+    {
+      "id": "poi-012",
+      "nom": "Lacs Robert",
+      "nom_court": "Lacs Robert",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "lac",
+      "lat": 45.131389,
+      "lon": 5.915278,
+      "altitude_ign_m": 1998.7,
+      "km_depart": 23.298,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T10:13:19.617160+02:00",
+          "label": "ven. 21/08 10h13",
+          "elapsed_depuis_depart": "3h43"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T10:21:04.412013+02:00",
+          "label": "ven. 21/08 10h21",
+          "elapsed_depuis_depart": "3h51"
+        },
+        "37h": {
+          "iso_local": "2026-08-21T10:21:13.565447+02:00",
+          "label": "ven. 21/08 10h21",
+          "elapsed_depuis_depart": "3h51"
+        },
+        "38h": {
+          "iso_local": "2026-08-21T10:25:30.740590+02:00",
+          "label": "ven. 21/08 10h25",
+          "elapsed_depuis_depart": "3h55"
+        },
+        "39h": {
+          "iso_local": "2026-08-21T10:28:50.359325+02:00",
+          "label": "ven. 21/08 10h28",
+          "elapsed_depuis_depart": "3h58"
+        },
+        "40h": {
+          "iso_local": "2026-08-21T10:28:50.359325+02:00",
+          "label": "ven. 21/08 10h28",
+          "elapsed_depuis_depart": "3h58"
+        },
+        "41h": {
+          "iso_local": "2026-08-21T10:32:36.141737+02:00",
+          "label": "ven. 21/08 10h32",
+          "elapsed_depuis_depart": "4h02"
+        },
+        "42h": {
+          "iso_local": "2026-08-21T10:35:13.861947+02:00",
+          "label": "ven. 21/08 10h35",
+          "elapsed_depuis_depart": "4h05"
+        },
+        "43h": {
+          "iso_local": "2026-08-21T10:41:49.826273+02:00",
+          "label": "ven. 21/08 10h41",
+          "elapsed_depuis_depart": "4h11"
+        },
+        "44h": {
+          "iso_local": "2026-08-21T10:46:58.754801+02:00",
+          "label": "ven. 21/08 10h46",
+          "elapsed_depuis_depart": "4h16"
+        },
+        "45h": {
+          "iso_local": "2026-08-21T10:55:54.704735+02:00",
+          "label": "ven. 21/08 10h55",
+          "elapsed_depuis_depart": "4h25"
+        }
+      }
+    },
+    {
+      "id": "poi-013",
+      "nom": "Lac Léama",
+      "nom_court": "Lac Léama",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "lac",
+      "lat": 45.147549,
+      "lon": 5.929969,
+      "altitude_ign_m": 1889.6,
+      "km_depart": 25.869,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T10:36:16.142355+02:00",
+          "label": "ven. 21/08 10h36",
+          "elapsed_depuis_depart": "4h06"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T10:44:30.432628+02:00",
+          "label": "ven. 21/08 10h44",
+          "elapsed_depuis_depart": "4h14"
+        },
+        "37h": {
+          "iso_local": "2026-08-21T10:45:35.757485+02:00",
+          "label": "ven. 21/08 10h45",
+          "elapsed_depuis_depart": "4h15"
+        },
+        "38h": {
+          "iso_local": "2026-08-21T10:50:04.752484+02:00",
+          "label": "ven. 21/08 10h50",
+          "elapsed_depuis_depart": "4h20"
+        },
+        "39h": {
+          "iso_local": "2026-08-21T10:54:33.989083+02:00",
+          "label": "ven. 21/08 10h54",
+          "elapsed_depuis_depart": "4h24"
+        },
+        "40h": {
+          "iso_local": "2026-08-21T10:54:33.989083+02:00",
+          "label": "ven. 21/08 10h54",
+          "elapsed_depuis_depart": "4h24"
+        },
+        "41h": {
+          "iso_local": "2026-08-21T10:58:44.712475+02:00",
+          "label": "ven. 21/08 10h58",
+          "elapsed_depuis_depart": "4h28"
+        },
+        "42h": {
+          "iso_local": "2026-08-21T11:01:24.601466+02:00",
+          "label": "ven. 21/08 11h01",
+          "elapsed_depuis_depart": "4h31"
+        },
+        "43h": {
+          "iso_local": "2026-08-21T11:09:05.954534+02:00",
+          "label": "ven. 21/08 11h09",
+          "elapsed_depuis_depart": "4h39"
+        },
+        "44h": {
+          "iso_local": "2026-08-21T11:14:41.016871+02:00",
+          "label": "ven. 21/08 11h14",
+          "elapsed_depuis_depart": "4h44"
+        },
+        "45h": {
+          "iso_local": "2026-08-21T11:26:21.685709+02:00",
+          "label": "ven. 21/08 11h26",
+          "elapsed_depuis_depart": "4h56"
+        }
+      }
+    },
+    {
+      "id": "r2-refuge-de-la-pra",
+      "nom": "R2 Refuge de la Pra",
+      "nom_court": "La Pra",
+      "officiel": true,
+      "type": "ravito_chrono_officiel",
+      "categorie_terrain": null,
+      "lat": 45.15997,
+      "lon": 5.94439,
+      "altitude_ign_m": 2088.4,
+      "km_depart": 28.049,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T10:58:36+02:00",
+          "label": "ven. 21/08 10h58",
+          "elapsed_depuis_depart": "4h28"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T11:07:19+02:00",
+          "label": "ven. 21/08 11h07",
+          "elapsed_depuis_depart": "4h37"
+        },
+        "37h": {
+          "iso_local": "2026-08-21T11:09:19+02:00",
+          "label": "ven. 21/08 11h09",
+          "elapsed_depuis_depart": "4h39"
+        },
+        "38h": {
+          "iso_local": "2026-08-21T11:13:59.500000+02:00",
+          "label": "ven. 21/08 11h13",
+          "elapsed_depuis_depart": "4h43"
+        },
+        "39h": {
+          "iso_local": "2026-08-21T11:19:36.500000+02:00",
+          "label": "ven. 21/08 11h19",
+          "elapsed_depuis_depart": "4h49"
+        },
+        "40h": {
+          "iso_local": "2026-08-21T11:19:36.500000+02:00",
+          "label": "ven. 21/08 11h19",
+          "elapsed_depuis_depart": "4h49"
+        },
+        "41h": {
+          "iso_local": "2026-08-21T11:24:11.500000+02:00",
+          "label": "ven. 21/08 11h24",
+          "elapsed_depuis_depart": "4h54"
+        },
+        "42h": {
+          "iso_local": "2026-08-21T11:26:53.500000+02:00",
+          "label": "ven. 21/08 11h26",
+          "elapsed_depuis_depart": "4h56"
+        },
+        "43h": {
+          "iso_local": "2026-08-21T11:35:38.500000+02:00",
+          "label": "ven. 21/08 11h35",
+          "elapsed_depuis_depart": "5h05"
+        },
+        "44h": {
+          "iso_local": "2026-08-21T11:41:39+02:00",
+          "label": "ven. 21/08 11h41",
+          "elapsed_depuis_depart": "5h11"
+        },
+        "45h": {
+          "iso_local": "2026-08-21T11:56:00+02:00",
+          "label": "ven. 21/08 11h56",
+          "elapsed_depuis_depart": "5h26"
+        }
+      }
+    },
+    {
+      "id": "poi-015",
+      "nom": "Croix de Belledonne",
+      "nom_court": "Croix de Bell.",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "sommet",
+      "lat": 45.16861,
+      "lon": 5.98814,
+      "altitude_ign_m": 2879.6,
+      "km_depart": 33.392,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T12:25:59.820898+02:00",
+          "label": "ven. 21/08 12h25",
+          "elapsed_depuis_depart": "5h55"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T12:34:41.214356+02:00",
+          "label": "ven. 21/08 12h34",
+          "elapsed_depuis_depart": "6h04"
+        },
+        "37h": {
+          "iso_local": "2026-08-21T12:38:46.792363+02:00",
+          "label": "ven. 21/08 12h38",
+          "elapsed_depuis_depart": "6h08"
+        },
+        "38h": {
+          "iso_local": "2026-08-21T12:47:39.251647+02:00",
+          "label": "ven. 21/08 12h47",
+          "elapsed_depuis_depart": "6h17"
+        },
+        "39h": {
+          "iso_local": "2026-08-21T12:57:58.467466+02:00",
+          "label": "ven. 21/08 12h57",
+          "elapsed_depuis_depart": "6h27"
+        },
+        "40h": {
+          "iso_local": "2026-08-21T12:57:58.467466+02:00",
+          "label": "ven. 21/08 12h57",
+          "elapsed_depuis_depart": "6h27"
+        },
+        "41h": {
+          "iso_local": "2026-08-21T13:05:37.148729+02:00",
+          "label": "ven. 21/08 13h05",
+          "elapsed_depuis_depart": "6h35"
+        },
+        "42h": {
+          "iso_local": "2026-08-21T13:07:30.684722+02:00",
+          "label": "ven. 21/08 13h07",
+          "elapsed_depuis_depart": "6h37"
+        },
+        "43h": {
+          "iso_local": "2026-08-21T13:18:08.678153+02:00",
+          "label": "ven. 21/08 13h18",
+          "elapsed_depuis_depart": "6h48"
+        },
+        "44h": {
+          "iso_local": "2026-08-21T13:33:04.692040+02:00",
+          "label": "ven. 21/08 13h33",
+          "elapsed_depuis_depart": "7h03"
+        },
+        "45h": {
+          "iso_local": "2026-08-21T13:40:44.592138+02:00",
+          "label": "ven. 21/08 13h40",
+          "elapsed_depuis_depart": "7h10"
+        }
+      }
+    },
+    {
+      "id": "poi-016",
+      "nom": "Rochers Rouges",
+      "nom_court": "Rochers Rouges",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "passage",
+      "lat": 45.167332,
+      "lon": 5.985116,
+      "altitude_ign_m": 2817.9,
+      "km_depart": 33.72,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T12:29:37.267300+02:00",
+          "label": "ven. 21/08 12h29",
+          "elapsed_depuis_depart": "5h59"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T12:38:18.580337+02:00",
+          "label": "ven. 21/08 12h38",
+          "elapsed_depuis_depart": "6h08"
+        },
+        "37h": {
+          "iso_local": "2026-08-21T12:42:30.444626+02:00",
+          "label": "ven. 21/08 12h42",
+          "elapsed_depuis_depart": "6h12"
+        },
+        "38h": {
+          "iso_local": "2026-08-21T12:51:35.516686+02:00",
+          "label": "ven. 21/08 12h51",
+          "elapsed_depuis_depart": "6h21"
+        },
+        "39h": {
+          "iso_local": "2026-08-21T13:02:08.859887+02:00",
+          "label": "ven. 21/08 13h02",
+          "elapsed_depuis_depart": "6h32"
+        },
+        "40h": {
+          "iso_local": "2026-08-21T13:02:08.859887+02:00",
+          "label": "ven. 21/08 13h02",
+          "elapsed_depuis_depart": "6h32"
+        },
+        "41h": {
+          "iso_local": "2026-08-21T13:09:56.736011+02:00",
+          "label": "ven. 21/08 13h09",
+          "elapsed_depuis_depart": "6h39"
+        },
+        "42h": {
+          "iso_local": "2026-08-21T13:11:47.845955+02:00",
+          "label": "ven. 21/08 13h11",
+          "elapsed_depuis_depart": "6h41"
+        },
+        "43h": {
+          "iso_local": "2026-08-21T13:22:31.495699+02:00",
+          "label": "ven. 21/08 13h22",
+          "elapsed_depuis_depart": "6h52"
+        },
+        "44h": {
+          "iso_local": "2026-08-21T13:37:54.316762+02:00",
+          "label": "ven. 21/08 13h37",
+          "elapsed_depuis_depart": "7h07"
+        },
+        "45h": {
+          "iso_local": "2026-08-21T13:45:14.138286+02:00",
+          "label": "ven. 21/08 13h45",
+          "elapsed_depuis_depart": "7h15"
+        }
+      }
+    },
+    {
+      "id": "poi-017",
+      "nom": "Col de Freydane",
+      "nom_court": "Col de Freyda.",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "col",
+      "lat": 45.1694,
+      "lon": 5.9774,
+      "altitude_ign_m": 2640.7,
+      "km_depart": 35.169,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T12:44:18.650978+02:00",
+          "label": "ven. 21/08 12h44",
+          "elapsed_depuis_depart": "6h14"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T12:52:59.638040+02:00",
+          "label": "ven. 21/08 12h52",
+          "elapsed_depuis_depart": "6h22"
+        },
+        "37h": {
+          "iso_local": "2026-08-21T12:57:36.982754+02:00",
+          "label": "ven. 21/08 12h57",
+          "elapsed_depuis_depart": "6h27"
+        },
+        "38h": {
+          "iso_local": "2026-08-21T13:07:33.178654+02:00",
+          "label": "ven. 21/08 13h07",
+          "elapsed_depuis_depart": "6h37"
+        },
+        "39h": {
+          "iso_local": "2026-08-21T13:19:03.784900+02:00",
+          "label": "ven. 21/08 13h19",
+          "elapsed_depuis_depart": "6h49"
+        },
+        "40h": {
+          "iso_local": "2026-08-21T13:19:03.784900+02:00",
+          "label": "ven. 21/08 13h19",
+          "elapsed_depuis_depart": "6h49"
+        },
+        "41h": {
+          "iso_local": "2026-08-21T13:27:28.930901+02:00",
+          "label": "ven. 21/08 13h27",
+          "elapsed_depuis_depart": "6h57"
+        },
+        "42h": {
+          "iso_local": "2026-08-21T13:29:10.207247+02:00",
+          "label": "ven. 21/08 13h29",
+          "elapsed_depuis_depart": "6h59"
+        },
+        "43h": {
+          "iso_local": "2026-08-21T13:40:16.783942+02:00",
+          "label": "ven. 21/08 13h40",
+          "elapsed_depuis_depart": "7h10"
+        },
+        "44h": {
+          "iso_local": "2026-08-21T13:57:28.263536+02:00",
+          "label": "ven. 21/08 13h57",
+          "elapsed_depuis_depart": "7h27"
+        },
+        "45h": {
+          "iso_local": "2026-08-21T14:03:26.699820+02:00",
+          "label": "ven. 21/08 14h03",
+          "elapsed_depuis_depart": "7h33"
+        }
+      }
+    },
+    {
+      "id": "r3-refuge-jean-collet",
+      "nom": "R3 Refuge Jean Collet",
+      "nom_court": "J.Collet",
+      "officiel": true,
+      "type": "ravito_chrono_officiel",
+      "categorie_terrain": null,
+      "lat": 45.19225,
+      "lon": 5.96834,
+      "altitude_ign_m": 1940.3,
+      "km_depart": 39.538,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T13:28:47.500000+02:00",
+          "label": "ven. 21/08 13h28",
+          "elapsed_depuis_depart": "6h58"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T13:37:27.500000+02:00",
+          "label": "ven. 21/08 13h37",
+          "elapsed_depuis_depart": "7h07"
+        },
+        "37h": {
+          "iso_local": "2026-08-21T13:43:22+02:00",
+          "label": "ven. 21/08 13h43",
+          "elapsed_depuis_depart": "7h13"
+        },
+        "38h": {
+          "iso_local": "2026-08-21T13:55:53+02:00",
+          "label": "ven. 21/08 13h55",
+          "elapsed_depuis_depart": "7h25"
+        },
+        "39h": {
+          "iso_local": "2026-08-21T14:10:17+02:00",
+          "label": "ven. 21/08 14h10",
+          "elapsed_depuis_depart": "7h40"
+        },
+        "40h": {
+          "iso_local": "2026-08-21T14:12:06+02:00",
+          "label": "ven. 21/08 14h12",
+          "elapsed_depuis_depart": "7h42"
+        },
+        "41h": {
+          "iso_local": "2026-08-21T14:20:35+02:00",
+          "label": "ven. 21/08 14h20",
+          "elapsed_depuis_depart": "7h50"
+        },
+        "42h": {
+          "iso_local": "2026-08-21T14:21:46.500000+02:00",
+          "label": "ven. 21/08 14h21",
+          "elapsed_depuis_depart": "7h51"
+        },
+        "43h": {
+          "iso_local": "2026-08-21T14:34:02.500000+02:00",
+          "label": "ven. 21/08 14h34",
+          "elapsed_depuis_depart": "8h04"
+        },
+        "44h": {
+          "iso_local": "2026-08-21T14:56:43+02:00",
+          "label": "ven. 21/08 14h56",
+          "elapsed_depuis_depart": "8h26"
+        },
+        "45h": {
+          "iso_local": "2026-08-21T14:58:35+02:00",
+          "label": "ven. 21/08 14h58",
+          "elapsed_depuis_depart": "8h28"
+        }
+      }
+    },
+    {
+      "id": "poi-019",
+      "nom": "Col de la Mine de Fer",
+      "nom_court": "Col de la Min.",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "col",
+      "lat": 45.197,
+      "lon": 5.9876,
+      "altitude_ign_m": 2392.2,
+      "km_depart": 42.166,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T14:23:44.772191+02:00",
+          "label": "ven. 21/08 14h23",
+          "elapsed_depuis_depart": "7h53"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T14:32:56.861387+02:00",
+          "label": "ven. 21/08 14h32",
+          "elapsed_depuis_depart": "8h02"
+        },
+        "37h": {
+          "iso_local": "2026-08-21T14:43:29.177086+02:00",
+          "label": "ven. 21/08 14h43",
+          "elapsed_depuis_depart": "8h13"
+        },
+        "38h": {
+          "iso_local": "2026-08-21T14:54:22.863112+02:00",
+          "label": "ven. 21/08 14h54",
+          "elapsed_depuis_depart": "8h24"
+        },
+        "39h": {
+          "iso_local": "2026-08-21T15:12:50.496842+02:00",
+          "label": "ven. 21/08 15h12",
+          "elapsed_depuis_depart": "8h42"
+        },
+        "40h": {
+          "iso_local": "2026-08-21T15:13:48.572684+02:00",
+          "label": "ven. 21/08 15h13",
+          "elapsed_depuis_depart": "8h43"
+        },
+        "41h": {
+          "iso_local": "2026-08-21T15:23:32.214943+02:00",
+          "label": "ven. 21/08 15h23",
+          "elapsed_depuis_depart": "8h53"
+        },
+        "42h": {
+          "iso_local": "2026-08-21T15:26:11.088242+02:00",
+          "label": "ven. 21/08 15h26",
+          "elapsed_depuis_depart": "8h56"
+        },
+        "43h": {
+          "iso_local": "2026-08-21T15:38:53.247913+02:00",
+          "label": "ven. 21/08 15h38",
+          "elapsed_depuis_depart": "9h08"
+        },
+        "44h": {
+          "iso_local": "2026-08-21T16:02:45.948603+02:00",
+          "label": "ven. 21/08 16h02",
+          "elapsed_depuis_depart": "9h32"
+        },
+        "45h": {
+          "iso_local": "2026-08-21T16:07:08.802702+02:00",
+          "label": "ven. 21/08 16h07",
+          "elapsed_depuis_depart": "9h37"
+        }
+      }
+    },
+    {
+      "id": "r4-habert-d-aiguebelle",
+      "nom": "R4 Habert d'Aiguebelle",
+      "nom_court": "H.Aiguebel",
+      "officiel": true,
+      "type": "ravito_chrono_officiel",
+      "categorie_terrain": null,
+      "lat": 45.22193,
+      "lon": 6.02281,
+      "altitude_ign_m": 1742.1,
+      "km_depart": 48.562,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T15:38:20.500000+02:00",
+          "label": "ven. 21/08 15h38",
+          "elapsed_depuis_depart": "9h08"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T15:48:32.500000+02:00",
+          "label": "ven. 21/08 15h48",
+          "elapsed_depuis_depart": "9h18"
+        },
+        "37h": {
+          "iso_local": "2026-08-21T16:07:43.500000+02:00",
+          "label": "ven. 21/08 16h07",
+          "elapsed_depuis_depart": "9h37"
+        },
+        "38h": {
+          "iso_local": "2026-08-21T16:15:35.500000+02:00",
+          "label": "ven. 21/08 16h15",
+          "elapsed_depuis_depart": "9h45"
+        },
+        "39h": {
+          "iso_local": "2026-08-21T16:41:38+02:00",
+          "label": "ven. 21/08 16h41",
+          "elapsed_depuis_depart": "10h11"
+        },
+        "40h": {
+          "iso_local": "2026-08-21T16:41:38+02:00",
+          "label": "ven. 21/08 16h41",
+          "elapsed_depuis_depart": "10h11"
+        },
+        "41h": {
+          "iso_local": "2026-08-21T16:53:04+02:00",
+          "label": "ven. 21/08 16h53",
+          "elapsed_depuis_depart": "10h23"
+        },
+        "42h": {
+          "iso_local": "2026-08-21T16:58:26+02:00",
+          "label": "ven. 21/08 16h58",
+          "elapsed_depuis_depart": "10h28"
+        },
+        "43h": {
+          "iso_local": "2026-08-21T17:11:57+02:00",
+          "label": "ven. 21/08 17h11",
+          "elapsed_depuis_depart": "10h41"
+        },
+        "44h": {
+          "iso_local": "2026-08-21T17:38:04.500000+02:00",
+          "label": "ven. 21/08 17h38",
+          "elapsed_depuis_depart": "11h08"
+        },
+        "45h": {
+          "iso_local": "2026-08-21T17:47:09+02:00",
+          "label": "ven. 21/08 17h47",
+          "elapsed_depuis_depart": "11h17"
+        }
+      }
+    },
+    {
+      "id": "poi-021",
+      "nom": "Col de l'Aigleton",
+      "nom_court": "Col de l'Aigl.",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "col",
+      "lat": 45.23086,
+      "lon": 6.036939,
+      "altitude_ign_m": 2263.8,
+      "km_depart": 51.509,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T16:31:58.117456+02:00",
+          "label": "ven. 21/08 16h31",
+          "elapsed_depuis_depart": "10h01"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T16:43:08.879029+02:00",
+          "label": "ven. 21/08 16h43",
+          "elapsed_depuis_depart": "10h13"
+        },
+        "37h": {
+          "iso_local": "2026-08-21T17:05:16.950232+02:00",
+          "label": "ven. 21/08 17h05",
+          "elapsed_depuis_depart": "10h35"
+        },
+        "38h": {
+          "iso_local": "2026-08-21T17:15:13.214668+02:00",
+          "label": "ven. 21/08 17h15",
+          "elapsed_depuis_depart": "10h45"
+        },
+        "39h": {
+          "iso_local": "2026-08-21T17:41:49.533470+02:00",
+          "label": "ven. 21/08 17h41",
+          "elapsed_depuis_depart": "11h11"
+        },
+        "40h": {
+          "iso_local": "2026-08-21T17:44:21.514284+02:00",
+          "label": "ven. 21/08 17h44",
+          "elapsed_depuis_depart": "11h14"
+        },
+        "41h": {
+          "iso_local": "2026-08-21T17:58:51.474394+02:00",
+          "label": "ven. 21/08 17h58",
+          "elapsed_depuis_depart": "11h28"
+        },
+        "42h": {
+          "iso_local": "2026-08-21T18:02:09.659378+02:00",
+          "label": "ven. 21/08 18h02",
+          "elapsed_depuis_depart": "11h32"
+        },
+        "43h": {
+          "iso_local": "2026-08-21T18:20:58.735886+02:00",
+          "label": "ven. 21/08 18h20",
+          "elapsed_depuis_depart": "11h50"
+        },
+        "44h": {
+          "iso_local": "2026-08-21T18:44:59.387289+02:00",
+          "label": "ven. 21/08 18h44",
+          "elapsed_depuis_depart": "12h14"
+        },
+        "45h": {
+          "iso_local": "2026-08-21T18:55:25.456891+02:00",
+          "label": "ven. 21/08 18h55",
+          "elapsed_depuis_depart": "12h25"
+        }
+      }
+    },
+    {
+      "id": "poi-022",
+      "nom": "Col de la Vache",
+      "nom_court": "Col de la Vac.",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "col",
+      "lat": 45.230286,
+      "lon": 6.060199,
+      "altitude_ign_m": 2548.1,
+      "km_depart": 54.375,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T17:27:46.701006+02:00",
+          "label": "ven. 21/08 17h27",
+          "elapsed_depuis_depart": "10h57"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T17:39:58.615914+02:00",
+          "label": "ven. 21/08 17h39",
+          "elapsed_depuis_depart": "11h09"
+        },
+        "37h": {
+          "iso_local": "2026-08-21T18:05:10.965616+02:00",
+          "label": "ven. 21/08 18h05",
+          "elapsed_depuis_depart": "11h35"
+        },
+        "38h": {
+          "iso_local": "2026-08-21T18:17:16.552400+02:00",
+          "label": "ven. 21/08 18h17",
+          "elapsed_depuis_depart": "11h47"
+        },
+        "39h": {
+          "iso_local": "2026-08-21T18:44:28.066525+02:00",
+          "label": "ven. 21/08 18h44",
+          "elapsed_depuis_depart": "12h14"
+        },
+        "40h": {
+          "iso_local": "2026-08-21T18:50:16.720205+02:00",
+          "label": "ven. 21/08 18h50",
+          "elapsed_depuis_depart": "12h20"
+        },
+        "41h": {
+          "iso_local": "2026-08-21T19:07:19.622115+02:00",
+          "label": "ven. 21/08 19h07",
+          "elapsed_depuis_depart": "12h37"
+        },
+        "42h": {
+          "iso_local": "2026-08-21T19:08:28.952463+02:00",
+          "label": "ven. 21/08 19h08",
+          "elapsed_depuis_depart": "12h38"
+        },
+        "43h": {
+          "iso_local": "2026-08-21T19:32:49.052087+02:00",
+          "label": "ven. 21/08 19h32",
+          "elapsed_depuis_depart": "13h02"
+        },
+        "44h": {
+          "iso_local": "2026-08-21T19:54:37.691799+02:00",
+          "label": "ven. 21/08 19h54",
+          "elapsed_depuis_depart": "13h24"
+        },
+        "45h": {
+          "iso_local": "2026-08-21T20:06:28.651117+02:00",
+          "label": "ven. 21/08 20h06",
+          "elapsed_depuis_depart": "13h36"
+        }
+      }
+    },
+    {
+      "id": "poi-023",
+      "nom": "Lac du Cos",
+      "nom_court": "Lac du Cos",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "lac",
+      "lat": 45.233333,
+      "lon": 6.079167,
+      "altitude_ign_m": 2195.2,
+      "km_depart": 56.042,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T17:50:56.224747+02:00",
+          "label": "ven. 21/08 17h50",
+          "elapsed_depuis_depart": "11h20"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T18:03:33.515760+02:00",
+          "label": "ven. 21/08 18h03",
+          "elapsed_depuis_depart": "11h33"
+        },
+        "37h": {
+          "iso_local": "2026-08-21T18:30:02.333422+02:00",
+          "label": "ven. 21/08 18h30",
+          "elapsed_depuis_depart": "12h00"
+        },
+        "38h": {
+          "iso_local": "2026-08-21T18:43:01.583634+02:00",
+          "label": "ven. 21/08 18h43",
+          "elapsed_depuis_depart": "12h13"
+        },
+        "39h": {
+          "iso_local": "2026-08-21T19:10:27.702363+02:00",
+          "label": "ven. 21/08 19h10",
+          "elapsed_depuis_depart": "12h40"
+        },
+        "40h": {
+          "iso_local": "2026-08-21T19:17:37.967152+02:00",
+          "label": "ven. 21/08 19h17",
+          "elapsed_depuis_depart": "12h47"
+        },
+        "41h": {
+          "iso_local": "2026-08-21T19:35:44.333587+02:00",
+          "label": "ven. 21/08 19h35",
+          "elapsed_depuis_depart": "13h05"
+        },
+        "42h": {
+          "iso_local": "2026-08-21T19:36:00.194587+02:00",
+          "label": "ven. 21/08 19h36",
+          "elapsed_depuis_depart": "13h06"
+        },
+        "43h": {
+          "iso_local": "2026-08-21T20:02:37.655121+02:00",
+          "label": "ven. 21/08 20h02",
+          "elapsed_depuis_depart": "13h32"
+        },
+        "44h": {
+          "iso_local": "2026-08-21T20:23:31.515438+02:00",
+          "label": "ven. 21/08 20h23",
+          "elapsed_depuis_depart": "13h53"
+        },
+        "45h": {
+          "iso_local": "2026-08-21T20:35:57.700477+02:00",
+          "label": "ven. 21/08 20h35",
+          "elapsed_depuis_depart": "14h05"
+        }
+      }
+    },
+    {
+      "id": "poi-024",
+      "nom": "Col de la Vieille",
+      "nom_court": "Col de la Vie.",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "col",
+      "lat": 45.255212,
+      "lon": 6.077352,
+      "altitude_ign_m": 2096.6,
+      "km_depart": 59.092,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T18:22:16.680221+02:00",
+          "label": "ven. 21/08 18h22",
+          "elapsed_depuis_depart": "11h52"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T18:35:28.312956+02:00",
+          "label": "ven. 21/08 18h35",
+          "elapsed_depuis_depart": "12h05"
+        },
+        "37h": {
+          "iso_local": "2026-08-21T19:03:40.615422+02:00",
+          "label": "ven. 21/08 19h03",
+          "elapsed_depuis_depart": "12h33"
+        },
+        "38h": {
+          "iso_local": "2026-08-21T19:17:52.488853+02:00",
+          "label": "ven. 21/08 19h17",
+          "elapsed_depuis_depart": "12h47"
+        },
+        "39h": {
+          "iso_local": "2026-08-21T19:45:38.372129+02:00",
+          "label": "ven. 21/08 19h45",
+          "elapsed_depuis_depart": "13h15"
+        },
+        "40h": {
+          "iso_local": "2026-08-21T19:54:39.081994+02:00",
+          "label": "ven. 21/08 19h54",
+          "elapsed_depuis_depart": "13h24"
+        },
+        "41h": {
+          "iso_local": "2026-08-21T20:14:11.335564+02:00",
+          "label": "ven. 21/08 20h14",
+          "elapsed_depuis_depart": "13h44"
+        },
+        "42h": {
+          "iso_local": "2026-08-21T20:14:11.335564+02:00",
+          "label": "ven. 21/08 20h14",
+          "elapsed_depuis_depart": "13h44"
+        },
+        "43h": {
+          "iso_local": "2026-08-21T20:42:58.188333+02:00",
+          "label": "ven. 21/08 20h42",
+          "elapsed_depuis_depart": "14h12"
+        },
+        "44h": {
+          "iso_local": "2026-08-21T21:02:37.915183+02:00",
+          "label": "ven. 21/08 21h02",
+          "elapsed_depuis_depart": "14h32"
+        },
+        "45h": {
+          "iso_local": "2026-08-21T21:15:51.771522+02:00",
+          "label": "ven. 21/08 21h15",
+          "elapsed_depuis_depart": "14h45"
+        }
+      }
+    },
+    {
+      "id": "poi-025",
+      "nom": "Chalet du Pra",
+      "nom_court": "Chalet du Pra",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "chalet",
+      "lat": 45.256627,
+      "lon": 6.047873,
+      "altitude_ign_m": 1578.0,
+      "km_depart": 61.351,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T18:50:47.987925+02:00",
+          "label": "ven. 21/08 18h50",
+          "elapsed_depuis_depart": "12h20"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T19:04:30.873328+02:00",
+          "label": "ven. 21/08 19h04",
+          "elapsed_depuis_depart": "12h34"
+        },
+        "37h": {
+          "iso_local": "2026-08-21T19:34:17.352097+02:00",
+          "label": "ven. 21/08 19h34",
+          "elapsed_depuis_depart": "13h04"
+        },
+        "38h": {
+          "iso_local": "2026-08-21T19:49:35.316258+02:00",
+          "label": "ven. 21/08 19h49",
+          "elapsed_depuis_depart": "13h19"
+        },
+        "39h": {
+          "iso_local": "2026-08-21T20:17:39.186251+02:00",
+          "label": "ven. 21/08 20h17",
+          "elapsed_depuis_depart": "13h47"
+        },
+        "40h": {
+          "iso_local": "2026-08-21T20:28:20.406612+02:00",
+          "label": "ven. 21/08 20h28",
+          "elapsed_depuis_depart": "13h58"
+        },
+        "41h": {
+          "iso_local": "2026-08-21T20:49:10.821732+02:00",
+          "label": "ven. 21/08 20h49",
+          "elapsed_depuis_depart": "14h19"
+        },
+        "42h": {
+          "iso_local": "2026-08-21T20:49:10.821732+02:00",
+          "label": "ven. 21/08 20h49",
+          "elapsed_depuis_depart": "14h19"
+        },
+        "43h": {
+          "iso_local": "2026-08-21T21:19:40.993553+02:00",
+          "label": "ven. 21/08 21h19",
+          "elapsed_depuis_depart": "14h49"
+        },
+        "44h": {
+          "iso_local": "2026-08-21T21:38:13.255273+02:00",
+          "label": "ven. 21/08 21h38",
+          "elapsed_depuis_depart": "15h08"
+        },
+        "45h": {
+          "iso_local": "2026-08-21T21:52:10.494858+02:00",
+          "label": "ven. 21/08 21h52",
+          "elapsed_depuis_depart": "15h22"
+        }
+      }
+    },
+    {
+      "id": "poi-026",
+      "nom": "Chalet du Gleyzin",
+      "nom_court": "Chalet du Gle.",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "chalet",
+      "lat": 45.266019,
+      "lon": 6.068196,
+      "altitude_ign_m": 1560.7,
+      "km_depart": 61.566,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T18:52:43.972262+02:00",
+          "label": "ven. 21/08 18h52",
+          "elapsed_depuis_depart": "12h22"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T19:06:28.975824+02:00",
+          "label": "ven. 21/08 19h06",
+          "elapsed_depuis_depart": "12h36"
+        },
+        "37h": {
+          "iso_local": "2026-08-21T19:36:21.837416+02:00",
+          "label": "ven. 21/08 19h36",
+          "elapsed_depuis_depart": "13h06"
+        },
+        "38h": {
+          "iso_local": "2026-08-21T19:51:44.280894+02:00",
+          "label": "ven. 21/08 19h51",
+          "elapsed_depuis_depart": "13h21"
+        },
+        "39h": {
+          "iso_local": "2026-08-21T20:19:49.369942+02:00",
+          "label": "ven. 21/08 20h19",
+          "elapsed_depuis_depart": "13h49"
+        },
+        "40h": {
+          "iso_local": "2026-08-21T20:30:37.402428+02:00",
+          "label": "ven. 21/08 20h30",
+          "elapsed_depuis_depart": "14h00"
+        },
+        "41h": {
+          "iso_local": "2026-08-21T20:51:33.114968+02:00",
+          "label": "ven. 21/08 20h51",
+          "elapsed_depuis_depart": "14h21"
+        },
+        "42h": {
+          "iso_local": "2026-08-21T20:51:33.114968+02:00",
+          "label": "ven. 21/08 20h51",
+          "elapsed_depuis_depart": "14h21"
+        },
+        "43h": {
+          "iso_local": "2026-08-21T21:22:10.289266+02:00",
+          "label": "ven. 21/08 21h22",
+          "elapsed_depuis_depart": "14h52"
+        },
+        "44h": {
+          "iso_local": "2026-08-21T21:40:37.978519+02:00",
+          "label": "ven. 21/08 21h40",
+          "elapsed_depuis_depart": "15h10"
+        },
+        "45h": {
+          "iso_local": "2026-08-21T21:54:38.158415+02:00",
+          "label": "ven. 21/08 21h54",
+          "elapsed_depuis_depart": "15h24"
+        }
+      }
+    },
+    {
+      "id": "poi-027",
+      "nom": "Cascade du Pissou",
+      "nom_court": "Cascade du Pi.",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "cascade",
+      "lat": 45.27216,
+      "lon": 6.0801,
+      "altitude_ign_m": 1190.7,
+      "km_depart": 64.175,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T19:23:35.395825+02:00",
+          "label": "ven. 21/08 19h23",
+          "elapsed_depuis_depart": "12h53"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T19:37:54.210914+02:00",
+          "label": "ven. 21/08 19h37",
+          "elapsed_depuis_depart": "13h07"
+        },
+        "37h": {
+          "iso_local": "2026-08-21T20:09:28.959633+02:00",
+          "label": "ven. 21/08 20h09",
+          "elapsed_depuis_depart": "13h39"
+        },
+        "38h": {
+          "iso_local": "2026-08-21T20:26:02.905118+02:00",
+          "label": "ven. 21/08 20h26",
+          "elapsed_depuis_depart": "13h56"
+        },
+        "39h": {
+          "iso_local": "2026-08-21T20:54:27.453572+02:00",
+          "label": "ven. 21/08 20h54",
+          "elapsed_depuis_depart": "14h24"
+        },
+        "40h": {
+          "iso_local": "2026-08-21T21:07:04.226000+02:00",
+          "label": "ven. 21/08 21h07",
+          "elapsed_depuis_depart": "14h37"
+        },
+        "41h": {
+          "iso_local": "2026-08-21T21:29:24.499683+02:00",
+          "label": "ven. 21/08 21h29",
+          "elapsed_depuis_depart": "14h59"
+        },
+        "42h": {
+          "iso_local": "2026-08-21T21:29:24.499683+02:00",
+          "label": "ven. 21/08 21h29",
+          "elapsed_depuis_depart": "14h59"
+        },
+        "43h": {
+          "iso_local": "2026-08-21T22:01:53.452434+02:00",
+          "label": "ven. 21/08 22h01",
+          "elapsed_depuis_depart": "15h31"
+        },
+        "44h": {
+          "iso_local": "2026-08-21T22:19:08.152749+02:00",
+          "label": "ven. 21/08 22h19",
+          "elapsed_depuis_depart": "15h49"
+        },
+        "45h": {
+          "iso_local": "2026-08-21T22:33:55.267958+02:00",
+          "label": "ven. 21/08 22h33",
+          "elapsed_depuis_depart": "16h03"
+        }
+      }
+    },
+    {
+      "id": "r5-fond-de-france-base-vie",
+      "nom": "R5 Fond de France Base vie",
+      "nom_court": "FondFrance",
+      "officiel": true,
+      "type": "ravito_chrono_officiel",
+      "categorie_terrain": null,
+      "lat": 45.28329,
+      "lon": 6.07439,
+      "altitude_ign_m": 1059.6,
+      "km_depart": 65.629,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T19:36:59.500000+02:00",
+          "label": "ven. 21/08 19h36",
+          "elapsed_depuis_depart": "13h06"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T19:51:33+02:00",
+          "label": "ven. 21/08 19h51",
+          "elapsed_depuis_depart": "13h21"
+        },
+        "37h": {
+          "iso_local": "2026-08-21T20:23:52+02:00",
+          "label": "ven. 21/08 20h23",
+          "elapsed_depuis_depart": "13h53"
+        },
+        "38h": {
+          "iso_local": "2026-08-21T20:40:57+02:00",
+          "label": "ven. 21/08 20h40",
+          "elapsed_depuis_depart": "14h10"
+        },
+        "39h": {
+          "iso_local": "2026-08-21T21:09:30+02:00",
+          "label": "ven. 21/08 21h09",
+          "elapsed_depuis_depart": "14h39"
+        },
+        "40h": {
+          "iso_local": "2026-08-21T21:22:54+02:00",
+          "label": "ven. 21/08 21h22",
+          "elapsed_depuis_depart": "14h52"
+        },
+        "41h": {
+          "iso_local": "2026-08-21T21:45:51+02:00",
+          "label": "ven. 21/08 21h45",
+          "elapsed_depuis_depart": "15h15"
+        },
+        "42h": {
+          "iso_local": "2026-08-21T21:45:51+02:00",
+          "label": "ven. 21/08 21h45",
+          "elapsed_depuis_depart": "15h15"
+        },
+        "43h": {
+          "iso_local": "2026-08-21T22:19:08.500000+02:00",
+          "label": "ven. 21/08 22h19",
+          "elapsed_depuis_depart": "15h49"
+        },
+        "44h": {
+          "iso_local": "2026-08-21T22:35:51.500000+02:00",
+          "label": "ven. 21/08 22h35",
+          "elapsed_depuis_depart": "16h05"
+        },
+        "45h": {
+          "iso_local": "2026-08-21T22:50:59+02:00",
+          "label": "ven. 21/08 22h50",
+          "elapsed_depuis_depart": "16h20"
+        }
+      }
+    },
+    {
+      "id": "refuge-de-la-valloire-2",
+      "nom": "Refuge de la Valloire",
+      "nom_court": "Ref Valloi",
+      "officiel": false,
+      "type": "point_officiel_autre_edition",
+      "categorie_terrain": null,
+      "lat": 45.29401,
+      "lon": 6.10728,
+      "altitude_ign_m": 1841.7,
+      "km_depart": 73.736,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T22:05:43+02:00",
+          "label": "ven. 21/08 22h05",
+          "elapsed_depuis_depart": "15h35"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T22:32:13.500000+02:00",
+          "label": "ven. 21/08 22h32",
+          "elapsed_depuis_depart": "16h02"
+        },
+        "37h": {
+          "iso_local": "2026-08-21T23:46:41.500000+02:00",
+          "label": "ven. 21/08 23h46",
+          "elapsed_depuis_depart": "17h16"
+        },
+        "38h": {
+          "iso_local": "2026-08-21T23:46:41.500000+02:00",
+          "label": "ven. 21/08 23h46",
+          "elapsed_depuis_depart": "17h16"
+        },
+        "39h": {
+          "iso_local": "2026-08-22T00:10:03+02:00",
+          "label": "sam. 22/08 00h10",
+          "elapsed_depuis_depart": "17h40"
+        },
+        "40h": {
+          "iso_local": "2026-08-22T00:48:52+02:00",
+          "label": "sam. 22/08 00h48",
+          "elapsed_depuis_depart": "18h18"
+        },
+        "41h": {
+          "iso_local": "2026-08-22T01:21:21+02:00",
+          "label": "sam. 22/08 01h21",
+          "elapsed_depuis_depart": "18h51"
+        },
+        "42h": {
+          "iso_local": "2026-08-22T01:21:21+02:00",
+          "label": "sam. 22/08 01h21",
+          "elapsed_depuis_depart": "18h51"
+        },
+        "43h": {
+          "iso_local": "2026-08-22T01:42:25.500000+02:00",
+          "label": "sam. 22/08 01h42",
+          "elapsed_depuis_depart": "19h12"
+        },
+        "44h": {
+          "iso_local": "2026-08-22T02:33:58+02:00",
+          "label": "sam. 22/08 02h33",
+          "elapsed_depuis_depart": "20h03"
+        },
+        "45h": {
+          "iso_local": "2026-08-22T02:33:58+02:00",
+          "label": "sam. 22/08 02h33",
+          "elapsed_depuis_depart": "20h03"
+        }
+      }
+    },
+    {
+      "id": "refuge-leat",
+      "nom": "Refuge Léat",
+      "nom_court": "Refuge Léa",
+      "officiel": false,
+      "type": "point_officiel_autre_edition",
+      "categorie_terrain": null,
+      "lat": 45.31807,
+      "lon": 6.10799,
+      "altitude_ign_m": 1705.0,
+      "km_depart": 77.066,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T22:58:27+02:00",
+          "label": "ven. 21/08 22h58",
+          "elapsed_depuis_depart": "16h28"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T23:21:35.500000+02:00",
+          "label": "ven. 21/08 23h21",
+          "elapsed_depuis_depart": "16h51"
+        },
+        "37h": {
+          "iso_local": "2026-08-22T00:34:58.500000+02:00",
+          "label": "sam. 22/08 00h34",
+          "elapsed_depuis_depart": "18h04"
+        },
+        "38h": {
+          "iso_local": "2026-08-22T00:37:05+02:00",
+          "label": "sam. 22/08 00h37",
+          "elapsed_depuis_depart": "18h07"
+        },
+        "39h": {
+          "iso_local": "2026-08-22T01:11:57+02:00",
+          "label": "sam. 22/08 01h11",
+          "elapsed_depuis_depart": "18h41"
+        },
+        "40h": {
+          "iso_local": "2026-08-22T01:49:09+02:00",
+          "label": "sam. 22/08 01h49",
+          "elapsed_depuis_depart": "19h19"
+        },
+        "41h": {
+          "iso_local": "2026-08-22T02:15:05+02:00",
+          "label": "sam. 22/08 02h15",
+          "elapsed_depuis_depart": "19h45"
+        },
+        "42h": {
+          "iso_local": "2026-08-22T02:15:05+02:00",
+          "label": "sam. 22/08 02h15",
+          "elapsed_depuis_depart": "19h45"
+        },
+        "43h": {
+          "iso_local": "2026-08-22T02:48:44+02:00",
+          "label": "sam. 22/08 02h48",
+          "elapsed_depuis_depart": "20h18"
+        },
+        "44h": {
+          "iso_local": "2026-08-22T03:46:21.500000+02:00",
+          "label": "sam. 22/08 03h46",
+          "elapsed_depuis_depart": "21h16"
+        },
+        "45h": {
+          "iso_local": "2026-08-22T03:46:21.500000+02:00",
+          "label": "sam. 22/08 03h46",
+          "elapsed_depuis_depart": "21h16"
+        }
+      }
+    },
+    {
+      "id": "r6-gleyzin",
+      "nom": "R6 Gleyzin",
+      "nom_court": "Gleyzin",
+      "officiel": true,
+      "type": "ravito_chrono_officiel",
+      "categorie_terrain": null,
+      "lat": 45.33397,
+      "lon": 6.12005,
+      "altitude_ign_m": 1093.7,
+      "km_depart": 78.194,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-21T23:34:06+02:00",
+          "label": "ven. 21/08 23h34",
+          "elapsed_depuis_depart": "17h04"
+        },
+        "36h": {
+          "iso_local": "2026-08-21T23:59:14+02:00",
+          "label": "ven. 21/08 23h59",
+          "elapsed_depuis_depart": "17h29"
+        },
+        "37h": {
+          "iso_local": "2026-08-22T00:50:53.500000+02:00",
+          "label": "sam. 22/08 00h50",
+          "elapsed_depuis_depart": "18h20"
+        },
+        "38h": {
+          "iso_local": "2026-08-22T01:12:16+02:00",
+          "label": "sam. 22/08 01h12",
+          "elapsed_depuis_depart": "18h42"
+        },
+        "39h": {
+          "iso_local": "2026-08-22T01:52:19.500000+02:00",
+          "label": "sam. 22/08 01h52",
+          "elapsed_depuis_depart": "19h22"
+        },
+        "40h": {
+          "iso_local": "2026-08-22T02:33:38+02:00",
+          "label": "sam. 22/08 02h33",
+          "elapsed_depuis_depart": "20h03"
+        },
+        "41h": {
+          "iso_local": "2026-08-22T02:47:52+02:00",
+          "label": "sam. 22/08 02h47",
+          "elapsed_depuis_depart": "20h17"
+        },
+        "42h": {
+          "iso_local": "2026-08-22T02:57:56+02:00",
+          "label": "sam. 22/08 02h57",
+          "elapsed_depuis_depart": "20h27"
+        },
+        "43h": {
+          "iso_local": "2026-08-22T03:43:23+02:00",
+          "label": "sam. 22/08 03h43",
+          "elapsed_depuis_depart": "21h13"
+        },
+        "44h": {
+          "iso_local": "2026-08-22T04:19:13.500000+02:00",
+          "label": "sam. 22/08 04h19",
+          "elapsed_depuis_depart": "21h49"
+        },
+        "45h": {
+          "iso_local": "2026-08-22T04:37:39+02:00",
+          "label": "sam. 22/08 04h37",
+          "elapsed_depuis_depart": "22h07"
+        }
+      }
+    },
+    {
+      "id": "poi-032",
+      "nom": "Refuge de l'Oule",
+      "nom_court": "Refuge de l'O.",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "refuge",
+      "lat": 45.31394,
+      "lon": 6.13388,
+      "altitude_ign_m": 1766.9,
+      "km_depart": 82.018,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-22T01:00:48.897201+02:00",
+          "label": "sam. 22/08 01h00",
+          "elapsed_depuis_depart": "18h30"
+        },
+        "36h": {
+          "iso_local": "2026-08-22T01:24:34.700252+02:00",
+          "label": "sam. 22/08 01h24",
+          "elapsed_depuis_depart": "18h54"
+        },
+        "37h": {
+          "iso_local": "2026-08-22T02:23:49.928294+02:00",
+          "label": "sam. 22/08 02h23",
+          "elapsed_depuis_depart": "19h53"
+        },
+        "38h": {
+          "iso_local": "2026-08-22T02:48:31.510814+02:00",
+          "label": "sam. 22/08 02h48",
+          "elapsed_depuis_depart": "20h18"
+        },
+        "39h": {
+          "iso_local": "2026-08-22T03:34:03.547246+02:00",
+          "label": "sam. 22/08 03h34",
+          "elapsed_depuis_depart": "21h04"
+        },
+        "40h": {
+          "iso_local": "2026-08-22T04:15:01.686534+02:00",
+          "label": "sam. 22/08 04h15",
+          "elapsed_depuis_depart": "21h45"
+        },
+        "41h": {
+          "iso_local": "2026-08-22T04:33:33.588890+02:00",
+          "label": "sam. 22/08 04h33",
+          "elapsed_depuis_depart": "22h03"
+        },
+        "42h": {
+          "iso_local": "2026-08-22T04:56:53.416238+02:00",
+          "label": "sam. 22/08 04h56",
+          "elapsed_depuis_depart": "22h26"
+        },
+        "43h": {
+          "iso_local": "2026-08-22T05:29:04.588890+02:00",
+          "label": "sam. 22/08 05h29",
+          "elapsed_depuis_depart": "22h59"
+        },
+        "44h": {
+          "iso_local": "2026-08-22T06:13:00.729584+02:00",
+          "label": "sam. 22/08 06h13",
+          "elapsed_depuis_depart": "23h43"
+        },
+        "45h": {
+          "iso_local": "2026-08-22T06:31:16.174911+02:00",
+          "label": "sam. 22/08 06h31",
+          "elapsed_depuis_depart": "24h01"
+        }
+      }
+    },
+    {
+      "id": "pm-22-col-du-moretan",
+      "nom": "PM 22 Col du Morétan",
+      "nom_court": "PM22 Morét",
+      "officiel": false,
+      "type": "point_officiel_autre_edition",
+      "categorie_terrain": null,
+      "lat": 45.31408,
+      "lon": 6.15299,
+      "altitude_ign_m": 2458.8,
+      "km_depart": 84.38,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-22T02:11:45+02:00",
+          "label": "sam. 22/08 02h11",
+          "elapsed_depuis_depart": "19h41"
+        },
+        "36h": {
+          "iso_local": "2026-08-22T02:34:09.500000+02:00",
+          "label": "sam. 22/08 02h34",
+          "elapsed_depuis_depart": "20h04"
+        },
+        "37h": {
+          "iso_local": "2026-08-22T03:40:55.500000+02:00",
+          "label": "sam. 22/08 03h40",
+          "elapsed_depuis_depart": "21h10"
+        },
+        "38h": {
+          "iso_local": "2026-08-22T04:08:54+02:00",
+          "label": "sam. 22/08 04h08",
+          "elapsed_depuis_depart": "21h38"
+        },
+        "39h": {
+          "iso_local": "2026-08-22T04:59:51+02:00",
+          "label": "sam. 22/08 04h59",
+          "elapsed_depuis_depart": "22h29"
+        },
+        "40h": {
+          "iso_local": "2026-08-22T05:40:29+02:00",
+          "label": "sam. 22/08 05h40",
+          "elapsed_depuis_depart": "23h10"
+        },
+        "41h": {
+          "iso_local": "2026-08-22T06:03:16+02:00",
+          "label": "sam. 22/08 06h03",
+          "elapsed_depuis_depart": "23h33"
+        },
+        "42h": {
+          "iso_local": "2026-08-22T06:39:43+02:00",
+          "label": "sam. 22/08 06h39",
+          "elapsed_depuis_depart": "24h09"
+        },
+        "43h": {
+          "iso_local": "2026-08-22T06:58:47+02:00",
+          "label": "sam. 22/08 06h58",
+          "elapsed_depuis_depart": "24h28"
+        },
+        "44h": {
+          "iso_local": "2026-08-22T07:50:43.500000+02:00",
+          "label": "sam. 22/08 07h50",
+          "elapsed_depuis_depart": "25h20"
+        },
+        "45h": {
+          "iso_local": "2026-08-22T08:08:49+02:00",
+          "label": "sam. 22/08 08h08",
+          "elapsed_depuis_depart": "25h38"
+        }
+      }
+    },
+    {
+      "id": "poi-034",
+      "nom": "Lac Morétan supérieur",
+      "nom_court": "Lac Morétan s.",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "lac",
+      "lat": 45.323144,
+      "lon": 6.158909,
+      "altitude_ign_m": 2054.2,
+      "km_depart": 85.837,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-22T02:37:46.686884+02:00",
+          "label": "sam. 22/08 02h37",
+          "elapsed_depuis_depart": "20h07"
+        },
+        "36h": {
+          "iso_local": "2026-08-22T03:03:36.518809+02:00",
+          "label": "sam. 22/08 03h03",
+          "elapsed_depuis_depart": "20h33"
+        },
+        "37h": {
+          "iso_local": "2026-08-22T04:10:15.903734+02:00",
+          "label": "sam. 22/08 04h10",
+          "elapsed_depuis_depart": "21h40"
+        },
+        "38h": {
+          "iso_local": "2026-08-22T04:42:28.687213+02:00",
+          "label": "sam. 22/08 04h42",
+          "elapsed_depuis_depart": "22h12"
+        },
+        "39h": {
+          "iso_local": "2026-08-22T05:35:34.284269+02:00",
+          "label": "sam. 22/08 05h35",
+          "elapsed_depuis_depart": "23h05"
+        },
+        "40h": {
+          "iso_local": "2026-08-22T06:15:01.899872+02:00",
+          "label": "sam. 22/08 06h15",
+          "elapsed_depuis_depart": "23h45"
+        },
+        "41h": {
+          "iso_local": "2026-08-22T06:37:13.972277+02:00",
+          "label": "sam. 22/08 06h37",
+          "elapsed_depuis_depart": "24h07"
+        },
+        "42h": {
+          "iso_local": "2026-08-22T07:18:24.891292+02:00",
+          "label": "sam. 22/08 07h18",
+          "elapsed_depuis_depart": "24h48"
+        },
+        "43h": {
+          "iso_local": "2026-08-22T07:41:05.071940+02:00",
+          "label": "sam. 22/08 07h41",
+          "elapsed_depuis_depart": "25h11"
+        },
+        "44h": {
+          "iso_local": "2026-08-22T08:26:14.083326+02:00",
+          "label": "sam. 22/08 08h26",
+          "elapsed_depuis_depart": "25h56"
+        },
+        "45h": {
+          "iso_local": "2026-08-22T08:45:38.964224+02:00",
+          "label": "sam. 22/08 08h45",
+          "elapsed_depuis_depart": "26h15"
+        }
+      }
+    },
+    {
+      "id": "poi-035",
+      "nom": "Lac Morétan inférieur",
+      "nom_court": "Lac Morétan i.",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "lac",
+      "lat": 45.32572,
+      "lon": 6.16551,
+      "altitude_ign_m": 1958.5,
+      "km_depart": 86.546,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-22T02:46:02.357762+02:00",
+          "label": "sam. 22/08 02h46",
+          "elapsed_depuis_depart": "20h16"
+        },
+        "36h": {
+          "iso_local": "2026-08-22T03:12:57.360917+02:00",
+          "label": "sam. 22/08 03h12",
+          "elapsed_depuis_depart": "20h42"
+        },
+        "37h": {
+          "iso_local": "2026-08-22T04:19:34.646253+02:00",
+          "label": "sam. 22/08 04h19",
+          "elapsed_depuis_depart": "21h49"
+        },
+        "38h": {
+          "iso_local": "2026-08-22T04:53:08.137919+02:00",
+          "label": "sam. 22/08 04h53",
+          "elapsed_depuis_depart": "22h23"
+        },
+        "39h": {
+          "iso_local": "2026-08-22T05:46:54.550977+02:00",
+          "label": "sam. 22/08 05h46",
+          "elapsed_depuis_depart": "23h16"
+        },
+        "40h": {
+          "iso_local": "2026-08-22T06:25:59.826958+02:00",
+          "label": "sam. 22/08 06h25",
+          "elapsed_depuis_depart": "23h55"
+        },
+        "41h": {
+          "iso_local": "2026-08-22T06:48:00.813534+02:00",
+          "label": "sam. 22/08 06h48",
+          "elapsed_depuis_depart": "24h18"
+        },
+        "42h": {
+          "iso_local": "2026-08-22T07:30:41.846892+02:00",
+          "label": "sam. 22/08 07h30",
+          "elapsed_depuis_depart": "25h00"
+        },
+        "43h": {
+          "iso_local": "2026-08-22T07:54:30.642096+02:00",
+          "label": "sam. 22/08 07h54",
+          "elapsed_depuis_depart": "25h24"
+        },
+        "44h": {
+          "iso_local": "2026-08-22T08:37:30.318824+02:00",
+          "label": "sam. 22/08 08h37",
+          "elapsed_depuis_depart": "26h07"
+        },
+        "45h": {
+          "iso_local": "2026-08-22T08:57:20.394786+02:00",
+          "label": "sam. 22/08 08h57",
+          "elapsed_depuis_depart": "26h27"
+        }
+      }
+    },
+    {
+      "id": "r7-perioule",
+      "nom": "R7 Périoule",
+      "nom_court": "Périoule",
+      "officiel": true,
+      "type": "ravito_chrono_officiel",
+      "categorie_terrain": null,
+      "lat": 45.33674,
+      "lon": 6.15863,
+      "altitude_ign_m": 1807.9,
+      "km_depart": 88.104,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-22T03:00:56+02:00",
+          "label": "sam. 22/08 03h00",
+          "elapsed_depuis_depart": "20h30"
+        },
+        "36h": {
+          "iso_local": "2026-08-22T03:29:48.500000+02:00",
+          "label": "sam. 22/08 03h29",
+          "elapsed_depuis_depart": "20h59"
+        },
+        "37h": {
+          "iso_local": "2026-08-22T04:36:22+02:00",
+          "label": "sam. 22/08 04h36",
+          "elapsed_depuis_depart": "22h06"
+        },
+        "38h": {
+          "iso_local": "2026-08-22T05:12:21+02:00",
+          "label": "sam. 22/08 05h12",
+          "elapsed_depuis_depart": "22h42"
+        },
+        "39h": {
+          "iso_local": "2026-08-22T06:07:21+02:00",
+          "label": "sam. 22/08 06h07",
+          "elapsed_depuis_depart": "23h37"
+        },
+        "40h": {
+          "iso_local": "2026-08-22T06:45:46+02:00",
+          "label": "sam. 22/08 06h45",
+          "elapsed_depuis_depart": "24h15"
+        },
+        "41h": {
+          "iso_local": "2026-08-22T07:07:27+02:00",
+          "label": "sam. 22/08 07h07",
+          "elapsed_depuis_depart": "24h37"
+        },
+        "42h": {
+          "iso_local": "2026-08-22T07:52:50.500000+02:00",
+          "label": "sam. 22/08 07h52",
+          "elapsed_depuis_depart": "25h22"
+        },
+        "43h": {
+          "iso_local": "2026-08-22T08:18:43+02:00",
+          "label": "sam. 22/08 08h18",
+          "elapsed_depuis_depart": "25h48"
+        },
+        "44h": {
+          "iso_local": "2026-08-22T08:57:49.500000+02:00",
+          "label": "sam. 22/08 08h57",
+          "elapsed_depuis_depart": "26h27"
+        },
+        "45h": {
+          "iso_local": "2026-08-22T09:18:25+02:00",
+          "label": "sam. 22/08 09h18",
+          "elapsed_depuis_depart": "26h48"
+        }
+      }
+    },
+    {
+      "id": "poi-037",
+      "nom": "Plan de l'Ours",
+      "nom_court": "Plan de l'Ours",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "passage",
+      "lat": 45.357716,
+      "lon": 6.146724,
+      "altitude_ign_m": 1287.0,
+      "km_depart": 91.362,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-22T03:53:23.642804+02:00",
+          "label": "sam. 22/08 03h53",
+          "elapsed_depuis_depart": "21h23"
+        },
+        "36h": {
+          "iso_local": "2026-08-22T04:23:29.187569+02:00",
+          "label": "sam. 22/08 04h23",
+          "elapsed_depuis_depart": "21h53"
+        },
+        "37h": {
+          "iso_local": "2026-08-22T05:30:42.901745+02:00",
+          "label": "sam. 22/08 05h30",
+          "elapsed_depuis_depart": "23h00"
+        },
+        "38h": {
+          "iso_local": "2026-08-22T06:11:08.633803+02:00",
+          "label": "sam. 22/08 06h11",
+          "elapsed_depuis_depart": "23h41"
+        },
+        "39h": {
+          "iso_local": "2026-08-22T07:04:19.725904+02:00",
+          "label": "sam. 22/08 07h04",
+          "elapsed_depuis_depart": "24h34"
+        },
+        "40h": {
+          "iso_local": "2026-08-22T07:39:55.430816+02:00",
+          "label": "sam. 22/08 07h39",
+          "elapsed_depuis_depart": "25h09"
+        },
+        "41h": {
+          "iso_local": "2026-08-22T08:05:07.785976+02:00",
+          "label": "sam. 22/08 08h05",
+          "elapsed_depuis_depart": "25h35"
+        },
+        "42h": {
+          "iso_local": "2026-08-22T08:51:22.839231+02:00",
+          "label": "sam. 22/08 08h51",
+          "elapsed_depuis_depart": "26h21"
+        },
+        "43h": {
+          "iso_local": "2026-08-22T09:20:51.704682+02:00",
+          "label": "sam. 22/08 09h20",
+          "elapsed_depuis_depart": "26h50"
+        },
+        "44h": {
+          "iso_local": "2026-08-22T09:54:03.792536+02:00",
+          "label": "sam. 22/08 09h54",
+          "elapsed_depuis_depart": "27h24"
+        },
+        "45h": {
+          "iso_local": "2026-08-22T10:21:04.161976+02:00",
+          "label": "sam. 22/08 10h21",
+          "elapsed_depuis_depart": "27h51"
+        }
+      }
+    },
+    {
+      "id": "r8-super-collet",
+      "nom": "R8 Super Collet",
+      "nom_court": "SuperCollet",
+      "officiel": true,
+      "type": "ravito_chrono_officiel",
+      "categorie_terrain": null,
+      "lat": 45.39316,
+      "lon": 6.12813,
+      "altitude_ign_m": 1641.5,
+      "km_depart": 97.894,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-22T05:37:59.500000+02:00",
+          "label": "sam. 22/08 05h37",
+          "elapsed_depuis_depart": "23h07"
+        },
+        "36h": {
+          "iso_local": "2026-08-22T06:11:29+02:00",
+          "label": "sam. 22/08 06h11",
+          "elapsed_depuis_depart": "23h41"
+        },
+        "37h": {
+          "iso_local": "2026-08-22T07:20:35+02:00",
+          "label": "sam. 22/08 07h20",
+          "elapsed_depuis_depart": "24h50"
+        },
+        "38h": {
+          "iso_local": "2026-08-22T08:13:25.500000+02:00",
+          "label": "sam. 22/08 08h13",
+          "elapsed_depuis_depart": "25h43"
+        },
+        "39h": {
+          "iso_local": "2026-08-22T09:01:32.500000+02:00",
+          "label": "sam. 22/08 09h01",
+          "elapsed_depuis_depart": "26h31"
+        },
+        "40h": {
+          "iso_local": "2026-08-22T09:29:15.500000+02:00",
+          "label": "sam. 22/08 09h29",
+          "elapsed_depuis_depart": "26h59"
+        },
+        "41h": {
+          "iso_local": "2026-08-22T10:04:18+02:00",
+          "label": "sam. 22/08 10h04",
+          "elapsed_depuis_depart": "27h34"
+        },
+        "42h": {
+          "iso_local": "2026-08-22T10:52:57+02:00",
+          "label": "sam. 22/08 10h52",
+          "elapsed_depuis_depart": "28h22"
+        },
+        "43h": {
+          "iso_local": "2026-08-22T11:32:30+02:00",
+          "label": "sam. 22/08 11h32",
+          "elapsed_depuis_depart": "29h02"
+        },
+        "44h": {
+          "iso_local": "2026-08-22T11:49:12.500000+02:00",
+          "label": "sam. 22/08 11h49",
+          "elapsed_depuis_depart": "29h19"
+        },
+        "45h": {
+          "iso_local": "2026-08-22T12:34:07.500000+02:00",
+          "label": "sam. 22/08 12h34",
+          "elapsed_depuis_depart": "30h04"
+        }
+      }
+    },
+    {
+      "id": "poi-039",
+      "nom": "Col de Claran",
+      "nom_court": "Col de Claran",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "col",
+      "lat": 45.376565,
+      "lon": 6.153593,
+      "altitude_ign_m": 1956.3,
+      "km_depart": 101.932,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-22T07:14:47.185109+02:00",
+          "label": "sam. 22/08 07h14",
+          "elapsed_depuis_depart": "24h44"
+        },
+        "36h": {
+          "iso_local": "2026-08-22T07:56:42.378922+02:00",
+          "label": "sam. 22/08 07h56",
+          "elapsed_depuis_depart": "25h26"
+        },
+        "37h": {
+          "iso_local": "2026-08-22T09:02:26.500998+02:00",
+          "label": "sam. 22/08 09h02",
+          "elapsed_depuis_depart": "26h32"
+        },
+        "38h": {
+          "iso_local": "2026-08-22T09:46:36.794178+02:00",
+          "label": "sam. 22/08 09h46",
+          "elapsed_depuis_depart": "27h16"
+        },
+        "39h": {
+          "iso_local": "2026-08-22T10:42:21.878296+02:00",
+          "label": "sam. 22/08 10h42",
+          "elapsed_depuis_depart": "28h12"
+        },
+        "40h": {
+          "iso_local": "2026-08-22T11:24:55.744276+02:00",
+          "label": "sam. 22/08 11h24",
+          "elapsed_depuis_depart": "28h54"
+        },
+        "41h": {
+          "iso_local": "2026-08-22T11:53:01.889997+02:00",
+          "label": "sam. 22/08 11h53",
+          "elapsed_depuis_depart": "29h23"
+        },
+        "42h": {
+          "iso_local": "2026-08-22T12:30:04.889149+02:00",
+          "label": "sam. 22/08 12h30",
+          "elapsed_depuis_depart": "30h00"
+        },
+        "43h": {
+          "iso_local": "2026-08-22T13:12:44.068432+02:00",
+          "label": "sam. 22/08 13h12",
+          "elapsed_depuis_depart": "30h42"
+        },
+        "44h": {
+          "iso_local": "2026-08-22T13:48:34.233423+02:00",
+          "label": "sam. 22/08 13h48",
+          "elapsed_depuis_depart": "31h18"
+        },
+        "45h": {
+          "iso_local": "2026-08-22T14:22:58.187618+02:00",
+          "label": "sam. 22/08 14h22",
+          "elapsed_depuis_depart": "31h52"
+        }
+      }
+    },
+    {
+      "id": "poi-040",
+      "nom": "Refuge de Claran",
+      "nom_court": "Refuge de Cla.",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "refuge",
+      "lat": 45.380683,
+      "lon": 6.161751,
+      "altitude_ign_m": 1790.0,
+      "km_depart": 102.788,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-22T07:23:41.227782+02:00",
+          "label": "sam. 22/08 07h23",
+          "elapsed_depuis_depart": "24h53"
+        },
+        "36h": {
+          "iso_local": "2026-08-22T08:06:55.672484+02:00",
+          "label": "sam. 22/08 08h06",
+          "elapsed_depuis_depart": "25h36"
+        },
+        "37h": {
+          "iso_local": "2026-08-22T09:12:08.156828+02:00",
+          "label": "sam. 22/08 09h12",
+          "elapsed_depuis_depart": "26h42"
+        },
+        "38h": {
+          "iso_local": "2026-08-22T09:54:56.924682+02:00",
+          "label": "sam. 22/08 09h54",
+          "elapsed_depuis_depart": "27h24"
+        },
+        "39h": {
+          "iso_local": "2026-08-22T10:51:53.798434+02:00",
+          "label": "sam. 22/08 10h51",
+          "elapsed_depuis_depart": "28h21"
+        },
+        "40h": {
+          "iso_local": "2026-08-22T11:36:47.278385+02:00",
+          "label": "sam. 22/08 11h36",
+          "elapsed_depuis_depart": "29h06"
+        },
+        "41h": {
+          "iso_local": "2026-08-22T12:03:48.174254+02:00",
+          "label": "sam. 22/08 12h03",
+          "elapsed_depuis_depart": "29h33"
+        },
+        "42h": {
+          "iso_local": "2026-08-22T12:39:02.098141+02:00",
+          "label": "sam. 22/08 12h39",
+          "elapsed_depuis_depart": "30h09"
+        },
+        "43h": {
+          "iso_local": "2026-08-22T13:22:10.454909+02:00",
+          "label": "sam. 22/08 13h22",
+          "elapsed_depuis_depart": "30h52"
+        },
+        "44h": {
+          "iso_local": "2026-08-22T14:01:00.478678+02:00",
+          "label": "sam. 22/08 14h01",
+          "elapsed_depuis_depart": "31h31"
+        },
+        "45h": {
+          "iso_local": "2026-08-22T14:33:45.537178+02:00",
+          "label": "sam. 22/08 14h33",
+          "elapsed_depuis_depart": "32h03"
+        }
+      }
+    },
+    {
+      "id": "poi-041",
+      "nom": "Refuge Férices",
+      "nom_court": "Refuge Férices",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "refuge",
+      "lat": 45.37201,
+      "lon": 6.19414,
+      "altitude_ign_m": 1911.2,
+      "km_depart": 107.702,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-22T08:39:27.903315+02:00",
+          "label": "sam. 22/08 08h39",
+          "elapsed_depuis_depart": "26h09"
+        },
+        "36h": {
+          "iso_local": "2026-08-22T09:33:57.065785+02:00",
+          "label": "sam. 22/08 09h33",
+          "elapsed_depuis_depart": "27h03"
+        },
+        "37h": {
+          "iso_local": "2026-08-22T10:34:40.196185+02:00",
+          "label": "sam. 22/08 10h34",
+          "elapsed_depuis_depart": "28h04"
+        },
+        "38h": {
+          "iso_local": "2026-08-22T11:05:54.882414+02:00",
+          "label": "sam. 22/08 11h05",
+          "elapsed_depuis_depart": "28h35"
+        },
+        "39h": {
+          "iso_local": "2026-08-22T12:13:02.951093+02:00",
+          "label": "sam. 22/08 12h13",
+          "elapsed_depuis_depart": "29h43"
+        },
+        "40h": {
+          "iso_local": "2026-08-22T13:17:45.061573+02:00",
+          "label": "sam. 22/08 13h17",
+          "elapsed_depuis_depart": "30h47"
+        },
+        "41h": {
+          "iso_local": "2026-08-22T13:35:30.440206+02:00",
+          "label": "sam. 22/08 13h35",
+          "elapsed_depuis_depart": "31h05"
+        },
+        "42h": {
+          "iso_local": "2026-08-22T13:55:15.730746+02:00",
+          "label": "sam. 22/08 13h55",
+          "elapsed_depuis_depart": "31h25"
+        },
+        "43h": {
+          "iso_local": "2026-08-22T14:42:32.495675+02:00",
+          "label": "sam. 22/08 14h42",
+          "elapsed_depuis_depart": "32h12"
+        },
+        "44h": {
+          "iso_local": "2026-08-22T15:46:53.781919+02:00",
+          "label": "sam. 22/08 15h46",
+          "elapsed_depuis_depart": "33h16"
+        },
+        "45h": {
+          "iso_local": "2026-08-22T16:05:36.872800+02:00",
+          "label": "sam. 22/08 16h05",
+          "elapsed_depuis_depart": "33h35"
+        }
+      }
+    },
+    {
+      "id": "refuge-des-ferices",
+      "nom": "Refuge des Férices",
+      "nom_court": "Férices",
+      "officiel": false,
+      "type": "point_officiel_autre_edition",
+      "categorie_terrain": null,
+      "lat": 45.3731,
+      "lon": 6.19465,
+      "altitude_ign_m": 1892.1,
+      "km_depart": 108.399,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-22T08:48:23+02:00",
+          "label": "sam. 22/08 08h48",
+          "elapsed_depuis_depart": "26h18"
+        },
+        "36h": {
+          "iso_local": "2026-08-22T09:33:57.065785+02:00",
+          "label": "sam. 22/08 09h33",
+          "elapsed_depuis_depart": "27h03"
+        },
+        "37h": {
+          "iso_local": "2026-08-22T10:44:23+02:00",
+          "label": "sam. 22/08 10h44",
+          "elapsed_depuis_depart": "28h14"
+        },
+        "38h": {
+          "iso_local": "2026-08-22T11:14:16+02:00",
+          "label": "sam. 22/08 11h14",
+          "elapsed_depuis_depart": "28h44"
+        },
+        "39h": {
+          "iso_local": "2026-08-22T12:22:36+02:00",
+          "label": "sam. 22/08 12h22",
+          "elapsed_depuis_depart": "29h52"
+        },
+        "40h": {
+          "iso_local": "2026-08-22T13:29:38+02:00",
+          "label": "sam. 22/08 13h29",
+          "elapsed_depuis_depart": "30h59"
+        },
+        "41h": {
+          "iso_local": "2026-08-22T13:46:18+02:00",
+          "label": "sam. 22/08 13h46",
+          "elapsed_depuis_depart": "31h16"
+        },
+        "42h": {
+          "iso_local": "2026-08-22T14:04:14+02:00",
+          "label": "sam. 22/08 14h04",
+          "elapsed_depuis_depart": "31h34"
+        },
+        "43h": {
+          "iso_local": "2026-08-22T14:52:00+02:00",
+          "label": "sam. 22/08 14h52",
+          "elapsed_depuis_depart": "32h22"
+        },
+        "44h": {
+          "iso_local": "2026-08-22T15:59:21.500000+02:00",
+          "label": "sam. 22/08 15h59",
+          "elapsed_depuis_depart": "33h29"
+        },
+        "45h": {
+          "iso_local": "2026-08-22T16:16:25.500000+02:00",
+          "label": "sam. 22/08 16h16",
+          "elapsed_depuis_depart": "33h46"
+        }
+      }
+    },
+    {
+      "id": "pm29-arpingon",
+      "nom": "PM29 Arpingon",
+      "nom_court": "PM29 Arpin",
+      "officiel": false,
+      "type": "point_officiel_autre_edition",
+      "categorie_terrain": null,
+      "lat": 45.39621,
+      "lon": 6.19929,
+      "altitude_ign_m": 2219.4,
+      "km_depart": 112.099,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-22T09:58:42.500000+02:00",
+          "label": "sam. 22/08 09h58",
+          "elapsed_depuis_depart": "27h28"
+        },
+        "36h": {
+          "iso_local": "2026-08-22T10:58:31+02:00",
+          "label": "sam. 22/08 10h58",
+          "elapsed_depuis_depart": "28h28"
+        },
+        "37h": {
+          "iso_local": "2026-08-22T11:58:56.500000+02:00",
+          "label": "sam. 22/08 11h58",
+          "elapsed_depuis_depart": "29h28"
+        },
+        "38h": {
+          "iso_local": "2026-08-22T12:43:09+02:00",
+          "label": "sam. 22/08 12h43",
+          "elapsed_depuis_depart": "30h13"
+        },
+        "39h": {
+          "iso_local": "2026-08-22T13:23:05+02:00",
+          "label": "sam. 22/08 13h23",
+          "elapsed_depuis_depart": "30h53"
+        },
+        "40h": {
+          "iso_local": "2026-08-22T14:16:00+02:00",
+          "label": "sam. 22/08 14h16",
+          "elapsed_depuis_depart": "31h46"
+        },
+        "41h": {
+          "iso_local": "2026-08-22T14:49:42.500000+02:00",
+          "label": "sam. 22/08 14h49",
+          "elapsed_depuis_depart": "32h19"
+        },
+        "42h": {
+          "iso_local": "2026-08-22T15:45:20+02:00",
+          "label": "sam. 22/08 15h45",
+          "elapsed_depuis_depart": "33h15"
+        },
+        "43h": {
+          "iso_local": "2026-08-22T16:30:47+02:00",
+          "label": "sam. 22/08 16h30",
+          "elapsed_depuis_depart": "34h00"
+        },
+        "44h": {
+          "iso_local": "2026-08-22T17:07:53+02:00",
+          "label": "sam. 22/08 17h07",
+          "elapsed_depuis_depart": "34h37"
+        },
+        "45h": {
+          "iso_local": "2026-08-22T17:33:41+02:00",
+          "label": "sam. 22/08 17h33",
+          "elapsed_depuis_depart": "35h03"
+        }
+      }
+    },
+    {
+      "id": "poi-044",
+      "nom": "Refuge de la Perrière",
+      "nom_court": "Refuge de la.",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "refuge",
+      "lat": 45.407563,
+      "lon": 6.185398,
+      "altitude_ign_m": 1844.2,
+      "km_depart": 113.249,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-22T10:21:20.173835+02:00",
+          "label": "sam. 22/08 10h21",
+          "elapsed_depuis_depart": "27h51"
+        },
+        "36h": {
+          "iso_local": "2026-08-22T11:19:54.628655+02:00",
+          "label": "sam. 22/08 11h19",
+          "elapsed_depuis_depart": "28h49"
+        },
+        "37h": {
+          "iso_local": "2026-08-22T12:22:28.902882+02:00",
+          "label": "sam. 22/08 12h22",
+          "elapsed_depuis_depart": "29h52"
+        },
+        "38h": {
+          "iso_local": "2026-08-22T13:08:28.178179+02:00",
+          "label": "sam. 22/08 13h08",
+          "elapsed_depuis_depart": "30h38"
+        },
+        "39h": {
+          "iso_local": "2026-08-22T13:52:31.710861+02:00",
+          "label": "sam. 22/08 13h52",
+          "elapsed_depuis_depart": "31h22"
+        },
+        "40h": {
+          "iso_local": "2026-08-22T14:42:37.158128+02:00",
+          "label": "sam. 22/08 14h42",
+          "elapsed_depuis_depart": "32h12"
+        },
+        "41h": {
+          "iso_local": "2026-08-22T15:19:02.951003+02:00",
+          "label": "sam. 22/08 15h19",
+          "elapsed_depuis_depart": "32h49"
+        },
+        "42h": {
+          "iso_local": "2026-08-22T16:11:59.125512+02:00",
+          "label": "sam. 22/08 16h11",
+          "elapsed_depuis_depart": "33h41"
+        },
+        "43h": {
+          "iso_local": "2026-08-22T16:57:08.061350+02:00",
+          "label": "sam. 22/08 16h57",
+          "elapsed_depuis_depart": "34h27"
+        },
+        "44h": {
+          "iso_local": "2026-08-22T17:38:20.163207+02:00",
+          "label": "sam. 22/08 17h38",
+          "elapsed_depuis_depart": "35h08"
+        },
+        "45h": {
+          "iso_local": "2026-08-22T17:59:45.428012+02:00",
+          "label": "sam. 22/08 17h59",
+          "elapsed_depuis_depart": "35h29"
+        }
+      }
+    },
+    {
+      "id": "r9-val-pelouse",
+      "nom": "R9 Val Pelouse",
+      "nom_court": "ValPelouse",
+      "officiel": true,
+      "type": "ravito_chrono_officiel",
+      "categorie_terrain": null,
+      "lat": 45.419334,
+      "lon": 6.168916,
+      "altitude_ign_m": 1720.4,
+      "km_depart": 115.584,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-22T11:01:58+02:00",
+          "label": "sam. 22/08 11h01",
+          "elapsed_depuis_depart": "28h31"
+        },
+        "36h": {
+          "iso_local": "2026-08-22T11:58:19.500000+02:00",
+          "label": "sam. 22/08 11h58",
+          "elapsed_depuis_depart": "29h28"
+        },
+        "37h": {
+          "iso_local": "2026-08-22T13:04:45+02:00",
+          "label": "sam. 22/08 13h04",
+          "elapsed_depuis_depart": "30h34"
+        },
+        "38h": {
+          "iso_local": "2026-08-22T13:53:56+02:00",
+          "label": "sam. 22/08 13h53",
+          "elapsed_depuis_depart": "31h23"
+        },
+        "39h": {
+          "iso_local": "2026-08-22T14:45:24+02:00",
+          "label": "sam. 22/08 14h45",
+          "elapsed_depuis_depart": "32h15"
+        },
+        "40h": {
+          "iso_local": "2026-08-22T15:30:25+02:00",
+          "label": "sam. 22/08 15h30",
+          "elapsed_depuis_depart": "33h00"
+        },
+        "41h": {
+          "iso_local": "2026-08-22T16:11:44+02:00",
+          "label": "sam. 22/08 16h11",
+          "elapsed_depuis_depart": "33h41"
+        },
+        "42h": {
+          "iso_local": "2026-08-22T16:59:50.500000+02:00",
+          "label": "sam. 22/08 16h59",
+          "elapsed_depuis_depart": "34h29"
+        },
+        "43h": {
+          "iso_local": "2026-08-22T17:44:27+02:00",
+          "label": "sam. 22/08 17h44",
+          "elapsed_depuis_depart": "35h14"
+        },
+        "44h": {
+          "iso_local": "2026-08-22T18:33:01+02:00",
+          "label": "sam. 22/08 18h33",
+          "elapsed_depuis_depart": "36h03"
+        },
+        "45h": {
+          "iso_local": "2026-08-22T18:46:34.500000+02:00",
+          "label": "sam. 22/08 18h46",
+          "elapsed_depuis_depart": "36h16"
+        }
+      }
+    },
+    {
+      "id": "poi-046",
+      "nom": "Sources du Gargotton",
+      "nom_court": "Sources du Ga.",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "source",
+      "lat": 45.423724,
+      "lon": 6.198721,
+      "altitude_ign_m": 1626.6,
+      "km_depart": 119.863,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-22T12:17:10.019432+02:00",
+          "label": "sam. 22/08 12h17",
+          "elapsed_depuis_depart": "29h47"
+        },
+        "36h": {
+          "iso_local": "2026-08-22T13:14:22.537521+02:00",
+          "label": "sam. 22/08 13h14",
+          "elapsed_depuis_depart": "30h44"
+        },
+        "37h": {
+          "iso_local": "2026-08-22T14:20:22.145457+02:00",
+          "label": "sam. 22/08 14h20",
+          "elapsed_depuis_depart": "31h50"
+        },
+        "38h": {
+          "iso_local": "2026-08-22T15:11:00.320511+02:00",
+          "label": "sam. 22/08 15h11",
+          "elapsed_depuis_depart": "32h41"
+        },
+        "39h": {
+          "iso_local": "2026-08-22T16:06:59.344534+02:00",
+          "label": "sam. 22/08 16h06",
+          "elapsed_depuis_depart": "33h36"
+        },
+        "40h": {
+          "iso_local": "2026-08-22T16:50:59.980789+02:00",
+          "label": "sam. 22/08 16h50",
+          "elapsed_depuis_depart": "34h20"
+        },
+        "41h": {
+          "iso_local": "2026-08-22T17:39:27.655304+02:00",
+          "label": "sam. 22/08 17h39",
+          "elapsed_depuis_depart": "35h09"
+        },
+        "42h": {
+          "iso_local": "2026-08-22T18:26:24.905525+02:00",
+          "label": "sam. 22/08 18h26",
+          "elapsed_depuis_depart": "35h56"
+        },
+        "43h": {
+          "iso_local": "2026-08-22T19:16:23.600845+02:00",
+          "label": "sam. 22/08 19h16",
+          "elapsed_depuis_depart": "36h46"
+        },
+        "44h": {
+          "iso_local": "2026-08-22T20:06:06.697417+02:00",
+          "label": "sam. 22/08 20h06",
+          "elapsed_depuis_depart": "37h36"
+        },
+        "45h": {
+          "iso_local": "2026-08-22T20:26:52.855326+02:00",
+          "label": "sam. 22/08 20h26",
+          "elapsed_depuis_depart": "37h56"
+        }
+      }
+    },
+    {
+      "id": "poi-047",
+      "nom": "Col de la Perche",
+      "nom_court": "Col de la Per.",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "col",
+      "lat": 45.427999,
+      "lon": 6.21139,
+      "altitude_ign_m": 1985.8,
+      "km_depart": 121.312,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-22T12:51:46.617515+02:00",
+          "label": "sam. 22/08 12h51",
+          "elapsed_depuis_depart": "30h21"
+        },
+        "36h": {
+          "iso_local": "2026-08-22T13:49:28.466583+02:00",
+          "label": "sam. 22/08 13h49",
+          "elapsed_depuis_depart": "31h19"
+        },
+        "37h": {
+          "iso_local": "2026-08-22T14:55:13.188828+02:00",
+          "label": "sam. 22/08 14h55",
+          "elapsed_depuis_depart": "32h25"
+        },
+        "38h": {
+          "iso_local": "2026-08-22T15:46:41.481981+02:00",
+          "label": "sam. 22/08 15h46",
+          "elapsed_depuis_depart": "33h16"
+        },
+        "39h": {
+          "iso_local": "2026-08-22T16:45:16.321325+02:00",
+          "label": "sam. 22/08 16h45",
+          "elapsed_depuis_depart": "34h15"
+        },
+        "40h": {
+          "iso_local": "2026-08-22T17:28:42.253659+02:00",
+          "label": "sam. 22/08 17h28",
+          "elapsed_depuis_depart": "34h58"
+        },
+        "41h": {
+          "iso_local": "2026-08-22T18:21:16.378863+02:00",
+          "label": "sam. 22/08 18h21",
+          "elapsed_depuis_depart": "35h51"
+        },
+        "42h": {
+          "iso_local": "2026-08-22T19:07:33.816464+02:00",
+          "label": "sam. 22/08 19h07",
+          "elapsed_depuis_depart": "36h37"
+        },
+        "43h": {
+          "iso_local": "2026-08-22T20:00:37.746165+02:00",
+          "label": "sam. 22/08 20h00",
+          "elapsed_depuis_depart": "37h30"
+        },
+        "44h": {
+          "iso_local": "2026-08-22T20:51:00.567275+02:00",
+          "label": "sam. 22/08 20h51",
+          "elapsed_depuis_depart": "38h21"
+        },
+        "45h": {
+          "iso_local": "2026-08-22T21:15:55.465980+02:00",
+          "label": "sam. 22/08 21h15",
+          "elapsed_depuis_depart": "38h45"
+        }
+      }
+    },
+    {
+      "id": "poi-048",
+      "nom": "Col d'Arbaretan",
+      "nom_court": "Col d'Arbaret.",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "col",
+      "lat": 45.43827,
+      "lon": 6.217191,
+      "altitude_ign_m": 1862.3,
+      "km_depart": 122.663,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-22T13:05:34.092838+02:00",
+          "label": "sam. 22/08 13h05",
+          "elapsed_depuis_depart": "30h35"
+        },
+        "36h": {
+          "iso_local": "2026-08-22T14:03:27.629609+02:00",
+          "label": "sam. 22/08 14h03",
+          "elapsed_depuis_depart": "31h33"
+        },
+        "37h": {
+          "iso_local": "2026-08-22T15:09:06.420256+02:00",
+          "label": "sam. 22/08 15h09",
+          "elapsed_depuis_depart": "32h39"
+        },
+        "38h": {
+          "iso_local": "2026-08-22T16:00:54.684289+02:00",
+          "label": "sam. 22/08 16h00",
+          "elapsed_depuis_depart": "33h30"
+        },
+        "39h": {
+          "iso_local": "2026-08-22T17:00:31.612361+02:00",
+          "label": "sam. 22/08 17h00",
+          "elapsed_depuis_depart": "34h30"
+        },
+        "40h": {
+          "iso_local": "2026-08-22T17:43:43.716001+02:00",
+          "label": "sam. 22/08 17h43",
+          "elapsed_depuis_depart": "35h13"
+        },
+        "41h": {
+          "iso_local": "2026-08-22T18:37:56.045987+02:00",
+          "label": "sam. 22/08 18h37",
+          "elapsed_depuis_depart": "36h07"
+        },
+        "42h": {
+          "iso_local": "2026-08-22T19:23:57.619199+02:00",
+          "label": "sam. 22/08 19h23",
+          "elapsed_depuis_depart": "36h53"
+        },
+        "43h": {
+          "iso_local": "2026-08-22T20:18:15.360429+02:00",
+          "label": "sam. 22/08 20h18",
+          "elapsed_depuis_depart": "37h48"
+        },
+        "44h": {
+          "iso_local": "2026-08-22T21:08:54.010831+02:00",
+          "label": "sam. 22/08 21h08",
+          "elapsed_depuis_depart": "38h38"
+        },
+        "45h": {
+          "iso_local": "2026-08-22T21:35:28.026871+02:00",
+          "label": "sam. 22/08 21h35",
+          "elapsed_depuis_depart": "39h05"
+        }
+      }
+    },
+    {
+      "id": "poi-049",
+      "nom": "Sommet du Grand Chat",
+      "nom_court": "Sommet du Gra.",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "sommet",
+      "lat": 45.44705,
+      "lon": 6.2146,
+      "altitude_ign_m": 1983.3,
+      "km_depart": 123.75,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-22T13:22:16.754661+02:00",
+          "label": "sam. 22/08 13h22",
+          "elapsed_depuis_depart": "30h52"
+        },
+        "36h": {
+          "iso_local": "2026-08-22T14:20:24.453562+02:00",
+          "label": "sam. 22/08 14h20",
+          "elapsed_depuis_depart": "31h50"
+        },
+        "37h": {
+          "iso_local": "2026-08-22T15:25:56.056823+02:00",
+          "label": "sam. 22/08 15h25",
+          "elapsed_depuis_depart": "32h55"
+        },
+        "38h": {
+          "iso_local": "2026-08-22T16:18:08.519810+02:00",
+          "label": "sam. 22/08 16h18",
+          "elapsed_depuis_depart": "33h48"
+        },
+        "39h": {
+          "iso_local": "2026-08-22T17:19:00.681543+02:00",
+          "label": "sam. 22/08 17h19",
+          "elapsed_depuis_depart": "34h49"
+        },
+        "40h": {
+          "iso_local": "2026-08-22T18:01:56.028788+02:00",
+          "label": "sam. 22/08 18h01",
+          "elapsed_depuis_depart": "35h31"
+        },
+        "41h": {
+          "iso_local": "2026-08-22T18:58:07.354693+02:00",
+          "label": "sam. 22/08 18h58",
+          "elapsed_depuis_depart": "36h28"
+        },
+        "42h": {
+          "iso_local": "2026-08-22T19:43:49.704833+02:00",
+          "label": "sam. 22/08 19h43",
+          "elapsed_depuis_depart": "37h13"
+        },
+        "43h": {
+          "iso_local": "2026-08-22T20:39:36.884382+02:00",
+          "label": "sam. 22/08 20h39",
+          "elapsed_depuis_depart": "38h09"
+        },
+        "44h": {
+          "iso_local": "2026-08-22T21:30:34.715327+02:00",
+          "label": "sam. 22/08 21h30",
+          "elapsed_depuis_depart": "39h00"
+        },
+        "45h": {
+          "iso_local": "2026-08-22T21:59:08.833038+02:00",
+          "label": "sam. 22/08 21h59",
+          "elapsed_depuis_depart": "39h29"
+        }
+      }
+    },
+    {
+      "id": "poi-050",
+      "nom": "Col du Champet",
+      "nom_court": "Col du Champet",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "col",
+      "lat": 45.461351,
+      "lon": 6.220405,
+      "altitude_ign_m": 1722.1,
+      "km_depart": 125.663,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-22T13:42:27.824571+02:00",
+          "label": "sam. 22/08 13h42",
+          "elapsed_depuis_depart": "31h12"
+        },
+        "36h": {
+          "iso_local": "2026-08-22T14:40:52.629270+02:00",
+          "label": "sam. 22/08 14h40",
+          "elapsed_depuis_depart": "32h10"
+        },
+        "37h": {
+          "iso_local": "2026-08-22T15:46:15.551210+02:00",
+          "label": "sam. 22/08 15h46",
+          "elapsed_depuis_depart": "33h16"
+        },
+        "38h": {
+          "iso_local": "2026-08-22T16:38:57.243022+02:00",
+          "label": "sam. 22/08 16h38",
+          "elapsed_depuis_depart": "34h08"
+        },
+        "39h": {
+          "iso_local": "2026-08-22T17:41:20.276093+02:00",
+          "label": "sam. 22/08 17h41",
+          "elapsed_depuis_depart": "35h11"
+        },
+        "40h": {
+          "iso_local": "2026-08-22T18:23:55.384047+02:00",
+          "label": "sam. 22/08 18h23",
+          "elapsed_depuis_depart": "35h53"
+        },
+        "41h": {
+          "iso_local": "2026-08-22T19:22:30.439745+02:00",
+          "label": "sam. 22/08 19h22",
+          "elapsed_depuis_depart": "36h52"
+        },
+        "42h": {
+          "iso_local": "2026-08-22T20:07:49.571205+02:00",
+          "label": "sam. 22/08 20h07",
+          "elapsed_depuis_depart": "37h37"
+        },
+        "43h": {
+          "iso_local": "2026-08-22T21:05:24.779258+02:00",
+          "label": "sam. 22/08 21h05",
+          "elapsed_depuis_depart": "38h35"
+        },
+        "44h": {
+          "iso_local": "2026-08-22T21:56:45.777514+02:00",
+          "label": "sam. 22/08 21h56",
+          "elapsed_depuis_depart": "39h26"
+        },
+        "45h": {
+          "iso_local": "2026-08-22T22:27:44.960607+02:00",
+          "label": "sam. 22/08 22h27",
+          "elapsed_depuis_depart": "39h57"
+        }
+      }
+    },
+    {
+      "id": "poi-051",
+      "nom": "Baraque à Michel",
+      "nom_court": "Baraque à Mic.",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "abri",
+      "lat": 45.475976,
+      "lon": 6.218265,
+      "altitude_ign_m": 1271.6,
+      "km_depart": 128.014,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-22T14:06:57.838513+02:00",
+          "label": "sam. 22/08 14h06",
+          "elapsed_depuis_depart": "31h36"
+        },
+        "36h": {
+          "iso_local": "2026-08-22T15:05:43.406473+02:00",
+          "label": "sam. 22/08 15h05",
+          "elapsed_depuis_depart": "32h35"
+        },
+        "37h": {
+          "iso_local": "2026-08-22T16:10:55.790902+02:00",
+          "label": "sam. 22/08 16h10",
+          "elapsed_depuis_depart": "33h40"
+        },
+        "38h": {
+          "iso_local": "2026-08-22T17:04:12.961080+02:00",
+          "label": "sam. 22/08 17h04",
+          "elapsed_depuis_depart": "34h34"
+        },
+        "39h": {
+          "iso_local": "2026-08-22T18:08:26.295078+02:00",
+          "label": "sam. 22/08 18h08",
+          "elapsed_depuis_depart": "35h38"
+        },
+        "40h": {
+          "iso_local": "2026-08-22T18:50:36.836290+02:00",
+          "label": "sam. 22/08 18h50",
+          "elapsed_depuis_depart": "36h20"
+        },
+        "41h": {
+          "iso_local": "2026-08-22T19:52:06.353264+02:00",
+          "label": "sam. 22/08 19h52",
+          "elapsed_depuis_depart": "37h22"
+        },
+        "42h": {
+          "iso_local": "2026-08-22T20:36:57.301558+02:00",
+          "label": "sam. 22/08 20h36",
+          "elapsed_depuis_depart": "38h06"
+        },
+        "43h": {
+          "iso_local": "2026-08-22T21:36:43.636152+02:00",
+          "label": "sam. 22/08 21h36",
+          "elapsed_depuis_depart": "39h06"
+        },
+        "44h": {
+          "iso_local": "2026-08-22T22:28:32.755221+02:00",
+          "label": "sam. 22/08 22h28",
+          "elapsed_depuis_depart": "39h58"
+        },
+        "45h": {
+          "iso_local": "2026-08-22T23:02:28.020744+02:00",
+          "label": "sam. 22/08 23h02",
+          "elapsed_depuis_depart": "40h32"
+        }
+      }
+    },
+    {
+      "id": "r10-le-bourget-en-huile",
+      "nom": "R10 Le Bourget-en-Huile",
+      "nom_court": "Le Bourget",
+      "officiel": true,
+      "type": "ravito_chrono_officiel",
+      "categorie_terrain": null,
+      "lat": 45.48571,
+      "lon": 6.20605,
+      "altitude_ign_m": 822.4,
+      "km_depart": 130.592,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-22T14:33:26+02:00",
+          "label": "sam. 22/08 14h33",
+          "elapsed_depuis_depart": "32h03"
+        },
+        "36h": {
+          "iso_local": "2026-08-22T15:32:34+02:00",
+          "label": "sam. 22/08 15h32",
+          "elapsed_depuis_depart": "33h02"
+        },
+        "37h": {
+          "iso_local": "2026-08-22T16:37:35+02:00",
+          "label": "sam. 22/08 16h37",
+          "elapsed_depuis_depart": "34h07"
+        },
+        "38h": {
+          "iso_local": "2026-08-22T17:31:30.500000+02:00",
+          "label": "sam. 22/08 17h31",
+          "elapsed_depuis_depart": "35h01"
+        },
+        "39h": {
+          "iso_local": "2026-08-22T18:37:43+02:00",
+          "label": "sam. 22/08 18h37",
+          "elapsed_depuis_depart": "36h07"
+        },
+        "40h": {
+          "iso_local": "2026-08-22T19:19:27+02:00",
+          "label": "sam. 22/08 19h19",
+          "elapsed_depuis_depart": "36h49"
+        },
+        "41h": {
+          "iso_local": "2026-08-22T20:24:05+02:00",
+          "label": "sam. 22/08 20h24",
+          "elapsed_depuis_depart": "37h54"
+        },
+        "42h": {
+          "iso_local": "2026-08-22T21:08:25.500000+02:00",
+          "label": "sam. 22/08 21h08",
+          "elapsed_depuis_depart": "38h38"
+        },
+        "43h": {
+          "iso_local": "2026-08-22T22:10:33.500000+02:00",
+          "label": "sam. 22/08 22h10",
+          "elapsed_depuis_depart": "39h40"
+        },
+        "44h": {
+          "iso_local": "2026-08-22T23:02:53+02:00",
+          "label": "sam. 22/08 23h02",
+          "elapsed_depuis_depart": "40h32"
+        },
+        "45h": {
+          "iso_local": "2026-08-22T23:39:58.500000+02:00",
+          "label": "sam. 22/08 23h39",
+          "elapsed_depuis_depart": "41h09"
+        }
+      }
+    },
+    {
+      "id": "poi-053",
+      "nom": "Fort de Montgilbert",
+      "nom_court": "Fort de Montg.",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "heritage",
+      "lat": 45.520405,
+      "lon": 6.262018,
+      "altitude_ign_m": 1341.3,
+      "km_depart": 138.318,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-22T16:18:03.639092+02:00",
+          "label": "sam. 22/08 16h18",
+          "elapsed_depuis_depart": "33h48"
+        },
+        "36h": {
+          "iso_local": "2026-08-22T17:11:59.539025+02:00",
+          "label": "sam. 22/08 17h11",
+          "elapsed_depuis_depart": "34h41"
+        },
+        "37h": {
+          "iso_local": "2026-08-22T18:19:22.754836+02:00",
+          "label": "sam. 22/08 18h19",
+          "elapsed_depuis_depart": "35h49"
+        },
+        "38h": {
+          "iso_local": "2026-08-22T19:20:35.692961+02:00",
+          "label": "sam. 22/08 19h20",
+          "elapsed_depuis_depart": "36h50"
+        },
+        "39h": {
+          "iso_local": "2026-08-22T20:21:41.903268+02:00",
+          "label": "sam. 22/08 20h21",
+          "elapsed_depuis_depart": "37h51"
+        },
+        "40h": {
+          "iso_local": "2026-08-22T21:07:48.753501+02:00",
+          "label": "sam. 22/08 21h07",
+          "elapsed_depuis_depart": "38h37"
+        },
+        "41h": {
+          "iso_local": "2026-08-22T22:10:23.905603+02:00",
+          "label": "sam. 22/08 22h10",
+          "elapsed_depuis_depart": "39h40"
+        },
+        "42h": {
+          "iso_local": "2026-08-22T23:10:06.594896+02:00",
+          "label": "sam. 22/08 23h10",
+          "elapsed_depuis_depart": "40h40"
+        },
+        "43h": {
+          "iso_local": "2026-08-23T00:14:05.822047+02:00",
+          "label": "dim. 23/08 00h14",
+          "elapsed_depuis_depart": "41h44"
+        },
+        "44h": {
+          "iso_local": "2026-08-23T01:07:56.904602+02:00",
+          "label": "dim. 23/08 01h07",
+          "elapsed_depuis_depart": "42h37"
+        },
+        "45h": {
+          "iso_local": "2026-08-23T01:53:05.772347+02:00",
+          "label": "dim. 23/08 01h53",
+          "elapsed_depuis_depart": "43h23"
+        }
+      }
+    },
+    {
+      "id": "poi-054",
+      "nom": "Les Bugnons",
+      "nom_court": "Les Bugnons",
+      "officiel": false,
+      "type": "poi_parcours",
+      "categorie_terrain": "passage",
+      "lat": 45.53395,
+      "lon": 6.264825,
+      "altitude_ign_m": 1084.9,
+      "km_depart": 140.526,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-22T16:38:43.760615+02:00",
+          "label": "sam. 22/08 16h38",
+          "elapsed_depuis_depart": "34h08"
+        },
+        "36h": {
+          "iso_local": "2026-08-22T17:31:27.688071+02:00",
+          "label": "sam. 22/08 17h31",
+          "elapsed_depuis_depart": "35h01"
+        },
+        "37h": {
+          "iso_local": "2026-08-22T18:39:23.699851+02:00",
+          "label": "sam. 22/08 18h39",
+          "elapsed_depuis_depart": "36h09"
+        },
+        "38h": {
+          "iso_local": "2026-08-22T19:42:17.514295+02:00",
+          "label": "sam. 22/08 19h42",
+          "elapsed_depuis_depart": "37h12"
+        },
+        "39h": {
+          "iso_local": "2026-08-22T20:42:13.092037+02:00",
+          "label": "sam. 22/08 20h42",
+          "elapsed_depuis_depart": "38h12"
+        },
+        "40h": {
+          "iso_local": "2026-08-22T21:29:20.557389+02:00",
+          "label": "sam. 22/08 21h29",
+          "elapsed_depuis_depart": "38h59"
+        },
+        "41h": {
+          "iso_local": "2026-08-22T22:31:27.379898+02:00",
+          "label": "sam. 22/08 22h31",
+          "elapsed_depuis_depart": "40h01"
+        },
+        "42h": {
+          "iso_local": "2026-08-22T23:34:42.732549+02:00",
+          "label": "sam. 22/08 23h34",
+          "elapsed_depuis_depart": "41h04"
+        },
+        "43h": {
+          "iso_local": "2026-08-23T00:39:07.609467+02:00",
+          "label": "dim. 23/08 00h39",
+          "elapsed_depuis_depart": "42h09"
+        },
+        "44h": {
+          "iso_local": "2026-08-23T01:33:19.811605+02:00",
+          "label": "dim. 23/08 01h33",
+          "elapsed_depuis_depart": "43h03"
+        },
+        "45h": {
+          "iso_local": "2026-08-23T02:20:20.147363+02:00",
+          "label": "dim. 23/08 02h20",
+          "elapsed_depuis_depart": "43h50"
+        }
+      }
+    },
+    {
+      "id": "pre-finish",
+      "nom": "Pré-finish",
+      "nom_court": "Pré-finish",
+      "officiel": false,
+      "type": "point_officiel_autre_edition",
+      "categorie_terrain": null,
+      "lat": 45.54463,
+      "lon": 6.30273,
+      "altitude_ign_m": 320.2,
+      "km_depart": 146.575,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-22T17:30:24+02:00",
+          "label": "sam. 22/08 17h30",
+          "elapsed_depuis_depart": "35h00"
+        },
+        "36h": {
+          "iso_local": "2026-08-22T18:20:08+02:00",
+          "label": "sam. 22/08 18h20",
+          "elapsed_depuis_depart": "35h50"
+        },
+        "37h": {
+          "iso_local": "2026-08-22T19:29:26+02:00",
+          "label": "sam. 22/08 19h29",
+          "elapsed_depuis_depart": "36h59"
+        },
+        "38h": {
+          "iso_local": "2026-08-22T20:36:32+02:00",
+          "label": "sam. 22/08 20h36",
+          "elapsed_depuis_depart": "38h06"
+        },
+        "39h": {
+          "iso_local": "2026-08-22T21:33:31+02:00",
+          "label": "sam. 22/08 21h33",
+          "elapsed_depuis_depart": "39h03"
+        },
+        "40h": {
+          "iso_local": "2026-08-22T22:23:10+02:00",
+          "label": "sam. 22/08 22h23",
+          "elapsed_depuis_depart": "39h53"
+        },
+        "41h": {
+          "iso_local": "2026-08-22T23:24:06+02:00",
+          "label": "sam. 22/08 23h24",
+          "elapsed_depuis_depart": "40h54"
+        },
+        "42h": {
+          "iso_local": "2026-08-23T00:36:13+02:00",
+          "label": "dim. 23/08 00h36",
+          "elapsed_depuis_depart": "42h06"
+        },
+        "43h": {
+          "iso_local": "2026-08-23T01:41:42+02:00",
+          "label": "dim. 23/08 01h41",
+          "elapsed_depuis_depart": "43h11"
+        },
+        "44h": {
+          "iso_local": "2026-08-23T02:36:47+02:00",
+          "label": "dim. 23/08 02h36",
+          "elapsed_depuis_depart": "44h06"
+        },
+        "45h": {
+          "iso_local": "2026-08-23T03:28:26+02:00",
+          "label": "dim. 23/08 03h28",
+          "elapsed_depuis_depart": "44h58"
+        }
+      }
+    },
+    {
+      "id": "arrivee-aiguebelle",
+      "nom": "Arrivée Aiguebelle",
+      "nom_court": "Arrivée",
+      "officiel": true,
+      "type": "ravito_chrono_officiel",
+      "categorie_terrain": null,
+      "lat": 45.54546,
+      "lon": 6.30239,
+      "altitude_ign_m": 318.9,
+      "km_depart": 146.67,
+      "passages_estimes": {
+        "35h": {
+          "iso_local": "2026-08-22T17:31:55+02:00",
+          "label": "sam. 22/08 17h31",
+          "elapsed_depuis_depart": "35h01"
+        },
+        "36h": {
+          "iso_local": "2026-08-22T18:30:50.500000+02:00",
+          "label": "sam. 22/08 18h30",
+          "elapsed_depuis_depart": "36h00"
+        },
+        "37h": {
+          "iso_local": "2026-08-22T19:29:26+02:00",
+          "label": "sam. 22/08 19h29",
+          "elapsed_depuis_depart": "36h59"
+        },
+        "38h": {
+          "iso_local": "2026-08-22T20:36:32+02:00",
+          "label": "sam. 22/08 20h36",
+          "elapsed_depuis_depart": "38h06"
+        },
+        "39h": {
+          "iso_local": "2026-08-22T21:36:39+02:00",
+          "label": "sam. 22/08 21h36",
+          "elapsed_depuis_depart": "39h06"
+        },
+        "40h": {
+          "iso_local": "2026-08-22T22:25:44+02:00",
+          "label": "sam. 22/08 22h25",
+          "elapsed_depuis_depart": "39h55"
+        },
+        "41h": {
+          "iso_local": "2026-08-22T23:34:32+02:00",
+          "label": "sam. 22/08 23h34",
+          "elapsed_depuis_depart": "41h04"
+        },
+        "42h": {
+          "iso_local": "2026-08-23T00:36:13+02:00",
+          "label": "dim. 23/08 00h36",
+          "elapsed_depuis_depart": "42h06"
+        },
+        "43h": {
+          "iso_local": "2026-08-23T01:41:42+02:00",
+          "label": "dim. 23/08 01h41",
+          "elapsed_depuis_depart": "43h11"
+        },
+        "44h": {
+          "iso_local": "2026-08-23T02:44:19+02:00",
+          "label": "dim. 23/08 02h44",
+          "elapsed_depuis_depart": "44h14"
+        },
+        "45h": {
+          "iso_local": "2026-08-23T03:28:26+02:00",
+          "label": "dim. 23/08 03h28",
+          "elapsed_depuis_depart": "44h58"
+        }
+      }
+    }
+  ]
+}
