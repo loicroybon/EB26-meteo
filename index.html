@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v60 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v61 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -2611,22 +2611,35 @@ function dessine(){
       const brouillard = (code===45 || code===48 || (vis!==null && vis < 900));
       if(brouillard) base = sol;                      /* colle au relief */
       base = Math.max(0, Math.min(base, ALT_MAX-120));
-      /* epaisseur : plus le ciel est couvert, plus la couche monte */
-      const haut = Math.min(ALT_MAX, base + 250 + (ALT_MAX-base)*(nu/100)*0.9);
       const convectif = (code!==null && code>=95) || (cape!==null && cape>800);
+      /* Epaisseur bornee par la physique du regime. L'ancienne formule montait
+         jusqu'a ALT_MAX des que nu depassait 80 % : plus de ciel visible, donc
+         plus de contraste et plus rien de lisible. Un stratus fait quelques
+         centaines de metres, un cumulonimbus plusieurs milliers. */
+      const ep = convectif  ? 700 + 1900*(nu/100)
+               : brouillard ? 120 +  480*(nu/100)
+                            : 200 +  700*(nu/100);
+      const haut = Math.min(ALT_MAX, base + ep);
       col.push({x:x(hh), base:base, haut:haut, nu:nu,
                 regime: brouillard? 'brouillard' : (convectif? 'convectif' : 'normal')});
     }
     if(!col.some(Boolean)) return;
-    /* on trace une silhouette par regime, pour que les teintes ne se melangent pas */
-    const TEINTES = {
-      normal:     [PAL.nuage,  0.38],
-      brouillard: [PAL.nuage,  0.55],   /* dense et bas, on n'y voit rien */
-      convectif:  [PAL.alerte, 0.30]    /* colore : c'est la que ca cogne */
-    };
-    Object.keys(TEINTES).forEach(function(reg){
+    /* Un nuage se voit CLAIR dans les deux themes : c'est un objet eclaire par
+       le haut, pas une teinte d'interface. D'ou un degrade vertical du sommet
+       ensoleille vers la base ombree, qui suffit a le faire lire comme un
+       volume la ou un aplat donnait un lavis. En theme clair il faut une base
+       franchement grise, sinon le blanc ne se detache pas du fond. */
+    const REG = PAL.jour==='clair'
+      ? { normal:     ['#FFFFFF','#A8B7CB', .82],
+          brouillard: ['#E4EAF2','#8797AC', .90],
+          convectif:  ['#FFF6F2','#8C6E74', .86] }
+      : { normal:     ['#F4F8FD','#7E90AC', .46],
+          brouillard: ['#E2E9F3','#677994', .62],
+          convectif:  ['#FDF2ED','#A2685A', .54] };
+    Object.keys(REG).forEach(function(reg){
       const pres = col.map(c => (c && c.regime===reg)? c : null);
-      if(!pres.some(Boolean)) return;
+      const vus = pres.filter(Boolean);
+      if(!vus.length) return;
       let d = '', ouvert = false, dernier = null;
       pres.forEach(function(c, k){
         if(!c){ if(ouvert){ d += ' L '+dernier.x.toFixed(1)+' '+yAlt(dernier.base).toFixed(1)+' Z'; ouvert=false; } return; }
@@ -2636,19 +2649,28 @@ function dessine(){
       });
       if(ouvert) d += ' L '+dernier.x.toFixed(1)+' '+yAlt(dernier.base).toFixed(1)+' Z';
       if(!d) return;
-      const [teinte, op] = TEINTES[reg];
-      S.push('<path d="'+d.trim()+'" fill="'+teinte+'" opacity="'+op+'" filter="url(#flouNu)"/>');
-      /* La base est la limite qui decide : au-dessus on est dans la puree. On la
-         souligne d'un trait net, non floute, pour qu'elle soit lisible a cote de
-         la trace du relief. */
+      const t = REG[reg], gid = 'gNu'+reg;
+      /* le degrade est cale en coordonnees SVG sur l'etendue verticale reelle
+         de cette silhouette : le sommet est clair ou qu'il soit dans l'echelle */
+      const yH = Math.min.apply(null, vus.map(c=>yAlt(c.haut)));
+      const yB = Math.max.apply(null, vus.map(c=>yAlt(c.base)));
+      S.push('<defs><linearGradient id="'+gid+'" gradientUnits="userSpaceOnUse"'
+        +' x1="0" y1="'+yH.toFixed(1)+'" x2="0" y2="'+(yB+2).toFixed(1)+'">'
+        +'<stop offset="0%" stop-color="'+t[0]+'"/>'
+        +'<stop offset="62%" stop-color="'+t[0]+'" stop-opacity=".92"/>'
+        +'<stop offset="100%" stop-color="'+t[1]+'"/></linearGradient></defs>');
+      S.push('<path d="'+d.trim()+'" fill="url(#'+gid+')" opacity="'+t[2]
+        +'" filter="url(#flouNu)"/>');
+      /* La base reste soulignee, mais discretement : elle sera etiquetee a
+         l'iteration suivante, un trait nu ne disant rien au lecteur. */
       let db = '', ouv = false;
       pres.forEach(function(c){
         if(!c){ ouv = false; return; }
         db += (ouv? ' L ' : ' M ')+c.x.toFixed(1)+' '+yAlt(c.base).toFixed(1);
         ouv = true;
       });
-      if(db) S.push('<path d="'+db.trim()+'" fill="none" stroke="'+teinte
-        +'" stroke-width="1.4" opacity=".72" stroke-linecap="round"/>');
+      if(db) S.push('<path d="'+db.trim()+'" fill="none" stroke="'+t[1]
+        +'" stroke-width="1.1" opacity=".5" stroke-linecap="round"/>');
     });
   })();
 
