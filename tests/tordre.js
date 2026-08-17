@@ -18,6 +18,12 @@ function corps(nom) {
 const a = html.indexOf('const POI_DECISIFS');
 const b = html.indexOf(';', html.indexOf("'Lac du Cos'"));
 const POI_DECISIFS = eval(html.slice(html.indexOf('[', a), b));
+/* v48 : la fonction a ete scindee, et l'ordre depend desormais de l'etat des
+   donnees. On fournit un DATA vide : on teste alors l'ordre d'importance pur. */
+var DATA = {}, MAJ_MODELE = {};
+var extraitPoi = function(){ return null; };
+eval(corps('rangImportance'));
+eval(corps('etatPoint'));
 eval(corps('ordreServiceParImportance'));
 
 const i = html.indexOf('const POIS = ['), j = html.indexOf('];', i);

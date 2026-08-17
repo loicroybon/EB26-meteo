@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v47 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v50 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -682,16 +682,57 @@ const MEM = (window.storage) ? window.storage : {
    d'origine, seul l'ordre de passage change. */
 const POI_DECISIFS = ['Croix de Belledonne','Col de la Mine de Fer',
   'Col de la Vache','Col de Mor\u00e9tan','Sommet du Grand Chat','Lac du Cos'];
+function rangImportance(p){
+  if(p.type==='Ravito') return 0;
+  if(POI_DECISIFS.indexOf(p.nom)>=0) return 1;
+  if(p.type==='Point ctrl') return 2;
+  if(p.type==='Col'||p.type==='Sommet') return 3;
+  return 4;
+}
+/* Etat des donnees deja disponibles a un point, tous modeles confondus, en
+   tenant compte du cache local ET du releve partage puisqu'ils sont fusionnes
+   dans DATA au demarrage. Rend le nombre de modeles qui ont une valeur et la
+   date du plus recemment rafraichi d'entre eux. */
+function etatPoint(i){
+  let n = 0, recent = 0;
+  for(const id in DATA){
+    let e = null;
+    try{ e = extraitPoi(DATA[id], i); }catch(err){ e = null; }
+    if(e && e.t!==null && e.t!==undefined){
+      n++;
+      const q = MAJ_MODELE[id] || 0;
+      if(q > recent) recent = q;
+    }
+  }
+  return {n:n, recent:recent};
+}
+/* Ordre de service : on veut les reponses les plus utiles AVANT de se faire
+   limiter par un fournisseur. Trois cles, dans cet ordre.
+   1. l'importance du point : les ravitos d'abord, pour tous les modeles, puis
+      les points decisifs, les points de controle, les cols et sommets ;
+   2. a importance egale, les points qui n'ont AUCUNE donnee passent devant :
+      un trou coute plus cher qu'une valeur un peu vieille ;
+   3. ensuite les plus anciennes d'abord, pour que ce qui a le plus vieilli
+      soit rafraichi en priorite.
+   A defaut d'etat connu, on retombe sur l'ordre du parcours. */
 function ordreServiceParImportance(points){
-  const rang = p => {
-    if(p.type==='Ravito') return 0;
-    if(POI_DECISIFS.indexOf(p.nom)>=0) return 1;
-    if(p.type==='Point ctrl') return 2;
-    if(p.type==='Col'||p.type==='Sommet') return 3;
-    return 4;
-  };
-  return points.map((p,i)=>i)
-               .sort((a,b)=> (rang(points[a])-rang(points[b])) || (a-b));
+  let etats = null;
+  try{
+    if(typeof DATA==='object' && DATA && Object.keys(DATA).length){
+      etats = points.map((p,i)=>etatPoint(i));
+    }
+  }catch(e){ etats = null; }
+  return points.map((p,i)=>i).sort(function(a,b){
+    const dr = rangImportance(points[a]) - rangImportance(points[b]);
+    if(dr) return dr;
+    if(etats){
+      const ea = etats[a], eb = etats[b];
+      const trouA = ea.n===0? 0 : 1, trouB = eb.n===0? 0 : 1;
+      if(trouA !== trouB) return trouA - trouB;      /* les trous d'abord */
+      if(ea.recent !== eb.recent) return ea.recent - eb.recent;  /* plus vieux d'abord */
+    }
+    return a - b;                                    /* sinon, sens de la course */
+  });
 }
 
 /* ---------- interrogation Open-Meteo ---------- */
@@ -1213,7 +1254,9 @@ function agrege(out){
   });
   const ids=out.filter(o=>!o.doublon||o.doublon.length).map(o=>o.id);
   const wFam=poidsFamille(out.map(o=>o.id));
-  out.forEach(o=>{ o.poids=wFam[o.id]!==undefined? wFam[o.id] : 0.5; o.divergent=false; });
+  out.forEach(o=>{ const base=wFam[o.id]!==undefined? wFam[o.id] : 0.5;
+    o.couverture=facteurCouverture(o.id);
+    o.poids=base*o.couverture; o.divergent=false; });
 
   const CLES=['t','res','ressT','ros','hum','tw','pr','pr_moy','pr_conv','pp','neige','nu','nub','num','nuh',
     'sol','ray','uv','vis','cbase','v','vterrain','raf','dir','iso0','cape','pres',
@@ -1772,29 +1815,29 @@ function ressTerrain(e, p, nuit){
    2. IFS, AIFS et MET Norway partagent l'analyse d'ECMWF — les compter
       séparément revient à faire voter trois fois la même famille. */
 const POIDS = {
-  windy_arome:                    [1.10,'MF',   'AROME par Windy, avec pluie convective'],
-  windy_iconD2:                   [1.05,'DWD',  'ICON-D2 par Windy'],
-  windy_iconEu:                   [0.85,'DWD',  'ICON-EU par Windy'],
-  windy_aladin:                   [1.00,'ALADIN','maille 2,3 km, m\u00eame famille qu\u2019AROME'],
-  windy_gfs:                      [0.55,'NOAA', 'GFS par Windy'],
-  meteoblue:                      [0.95,'MB',   'MOS calé sur le relief, mais source unique et sans ensemble'],
-  meteofrance_arome_france_hd:    [1.15,'MF',   'maille 1,3 km sur le relief'],
-  meteofrance_arome_france:       [1.00,'MF',   'maille 2,5 km'],
-  meteofrance_arpege_europe:      [0.80,'MF',   'maille 11 km'],
-  dwd_icon_d2:                    [1.10,'DWD',  'maille 2,2 km, Alpes du Nord'],
-  dwd_icon_eu:                    [0.85,'DWD',  'maille 7 km'],
-  dwd_icon_global:                [0.60,'DWD',  'maille 11 km globale'],
-  meteoswiss_icon_ch1:            [1.15,'CH',   'maille 1 km, arc alpin'],
-  meteoswiss_icon_ch2:            [1.00,'CH',   'maille 2 km, arc alpin'],
-  italia_meteo_arpae_icon_2i:     [0.95,'IT',   'maille 2,2 km, versant alpin'],
-  knmi_harmonie_arome_europe:     [0.75,'KNMI', 'domaine centré plus au nord'],
-  ecmwf_ifs025:                   [1.00,'ECMWF','meilleur global'],
-  ecmwf_aifs025_single:           [0.70,'ECMWF','IA, même analyse qu\'IFS'],
-  metno_seamless:                 [0.55,'ECMWF','post-traitement d\'ECMWF'],
-  metno_direct:                   [0.55,'ECMWF','post-traitement d\'ECMWF, source libre sans quota'],
-  ukmo_global_deterministic_10km: [0.70,'UKMO', 'global solide'],
-  gfs_seamless:                   [0.60,'NOAA', 'faible sur le relief alpin'],
-  gfs_graphcast025:               [0.50,'NOAA', 'IA, même analyse que GFS'],
+  windy_arome:                    [0.45,'MF','AROME par Windy, avec pluie convective'],
+  windy_iconD2:                   [0.40,'DWD','ICON-D2 par Windy'],
+  windy_iconEu:                   [0.30,'DWD','ICON-EU par Windy'],
+  windy_aladin:                   [0.90,'ALADIN','maille 2,3 km, cousin d’AROME'],
+  windy_gfs:                      [0.20,'NOAA','GFS par Windy'],
+  meteoblue:                      [2.20,'MB','MOS calé sur le relief — poids le plus élevé à ce stade'],
+  meteofrance_arome_france_hd:    [2.20,'MF','maille 1,3 km — à l’équivalent de meteoblue sur le court terme'],
+  meteofrance_arome_france:       [1.50,'MF','maille 2,5 km'],
+  meteofrance_arpege_europe:      [0.45,'MF','maille 11 km — biais mesuré +3,4 °C et couverture 4 points sur 52'],
+  dwd_icon_d2:                    [0.85,'DWD','maille 2,2 km, Alpes du Nord'],
+  dwd_icon_eu:                    [0.45,'DWD','maille 7 km'],
+  dwd_icon_global:                [0.25,'DWD','maille 11 km globale'],
+  meteoswiss_icon_ch1:            [0.70,'CH','maille 1 km, arc alpin'],
+  meteoswiss_icon_ch2:            [0.40,'CH','maille 2 km, arc alpin'],
+  italia_meteo_arpae_icon_2i:     [0.45,'IT','maille 2,2 km, versant alpin'],
+  knmi_harmonie_arome_europe:     [0.35,'KNMI','domaine centré plus au nord'],
+  ecmwf_ifs025:                   [0.40,'ECMWF','meilleur global, mais maille 9 km sur Belledonne'],
+  ecmwf_aifs025_single:           [0.25,'ECMWF','IA, même analyse qu’IFS'],
+  metno_seamless:                 [0.20,'ECMWF','post-traitement d’ECMWF'],
+  metno_direct:                   [0.20,'ECMWF','post-traitement d’ECMWF, source libre sans quota'],
+  ukmo_global_deterministic_10km: [0.25,'UKMO','global solide, maille trop large ici'],
+  gfs_seamless:                   [0.25,'NOAA','faible sur le relief alpin'],
+  gfs_graphcast025:               [0.20,'NOAA','IA, même analyse que GFS'],
   jma_seamless:                   [0.35,'JMA',  'peu adapté aux Alpes'],
   cma_grapes_global:              [0.25,'CMA',  'peu adapté aux Alpes'],
   bom_access_global:              [0.25,'BOM',  'peu adapté aux Alpes']
@@ -1813,6 +1856,43 @@ const DOUBLON = {
 };
 const poidsBase = id => (POIDS[id]||[0.5,'?',''])[0];
 const famille   = id => (POIDS[id]||[0.5,'?',''])[1];
+
+/* ---- Ponderation par la couverture ----
+   Principe, et il est important : une valeur livree est valide, qu'elle vienne
+   d'une livraison complete ou partielle. Une couverture partielle est le cas
+   NORMAL - un modele hors domaine, hors portee, ou dont quelques requetes ont
+   echoue. Le multimodele ne doit donc PAS etre degrade parce qu'un fournisseur
+   n'a repondu que sur une partie des points : la ou il a repondu, sa valeur
+   vaut celle des autres. ICON-EU et ICON-CH2 a 29 points sur 52 gardent ainsi
+   tout leur poids.
+   Le seul cas attenue est la couverture si faible que la valeur ne peut plus
+   etre recoupee : mesure du 17/08, ARPEGE Europe repondait sur 4 points sur 52
+   avec un biais de +3,4 C et +2,9 mm/h, en portant un poids de 0,80. Sur si
+   peu de points son biais ne peut pas etre estime, et il tire le consensus
+   precisement la ou il est seul a parler. En dessous de 15 % de couverture le
+   modele s'efface donc progressivement, sans jamais etre exclu : il reste
+   visible, comparable et exportable. */
+const COUV_PLEINE = 0.15;
+let COUV = {};
+function majCouverture(){
+  const n = POIS.length || 1;
+  const c = {};
+  for(const id in DATA){
+    let k = 0;
+    for(let i=0;i<n;i++){
+      let e = null;
+      try{ e = extraitPoi(DATA[id], i); }catch(err){ e = null; }
+      if(e && e.t!==null && e.t!==undefined) k++;
+    }
+    c[id] = k / n;
+  }
+  COUV = c;
+}
+function facteurCouverture(id){
+  const part = COUV[id];
+  if(part===undefined || part===null) return 1;     /* couverture inconnue : on ne penalise pas */
+  return Math.max(0.05, Math.min(1, part / COUV_PLEINE));
+}
 
 /* une famille ne peut pas peser plus que 1,4 fois son meilleur membre */
 function poidsFamille(ids){
@@ -3117,6 +3197,7 @@ function alertesSimples(s, p){
 
 /* chaque bloc se rend isolément : si l'un échoue, les autres s'affichent quand même */
 function rendreTout(){
+  try{ majCouverture(); }catch(e){}
   try{ estimerGradient(); }catch(e){}
   const etapes=[['selecteur',majSelecteurModele],['etat',majEtat],['meteogramme',dessine],
     ['resume',resumeSegment],['hero',heroRender],['heures',heuresRender],
