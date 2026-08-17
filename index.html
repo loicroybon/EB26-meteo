@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v68 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v69 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -2599,6 +2599,8 @@ function dessine(){
   /* les colonnes servent deux fois : au dessin du nuage, puis au surlignage de
      la trace. On les expose donc au lieu de les enfermer. */
   let COL = null;
+  /* les bancs sont rejoues apres le relief, decoupes par sa silhouette */
+  const NUES = [];
   (function(){
     const col = [];
     for(let hh=h0; hh<=h1; hh++){
@@ -2737,6 +2739,7 @@ function dessine(){
         +'<stop offset="100%" stop-color="'+t[1]+'"/></linearGradient></defs>');
       S.push('<path d="'+d.trim()+'" fill="url(#'+gid+')" opacity="'+t[2]
         +'" filter="url(#flouNu)"/>');
+      NUES.push({d: d.trim(), gid: gid, op: t[2]});
       /* La base reste soulignee, mais discretement : elle sera etiquetee a
          l'iteration suivante, un trait nu ne disant rien au lecteur. */
       /* seules les colonnes a plafond etabli portent le trait */
@@ -2801,6 +2804,20 @@ function dessine(){
     d+=' L '+cx(pts[pts.length-1][0])+' '+yAlt(0)+' Z';
     S.push('<path d="'+d+'" fill="url(#gTemp)"/>');
     S.push('<path d="'+d.replace(/ Z$/,'')+'" fill="none" stroke="'+PAL.contour+'" stroke-width="1.2" opacity=".45"/>');
+
+    /* ---- Le versant se voile la ou il est dans la nuee ----
+       On rejoue les memes bancs, decoupes par la silhouette du relief, a opacite
+       reduite. La limite du voile EST la base des nuages : on lit l'entree dans
+       la nuee sans suivre aucun trait. Aucune donnee nouvelle, aucun cout. */
+    if(NUES.length){
+      S.push('<defs><clipPath id="clipRelief"><path d="'+d+'"/></clipPath></defs>');
+      S.push('<g clip-path="url(#clipRelief)">');
+      NUES.forEach(function(n){
+        S.push('<path d="'+n.d+'" fill="url(#'+n.gid+')" opacity="'
+          +(n.op*0.62).toFixed(2)+'" filter="url(#flouNu)"/>');
+      });
+      S.push('</g>');
+    }
 
     /* ---- Ou suis-je DANS la nuee ? ----
        On surligne la crete la ou elle depasse la base du nuage. La couleur est
@@ -2895,7 +2912,9 @@ function dessine(){
       +'<rect x="'+(xx-17)+'" y="'+(hy-24)+'" width="34" height="32" fill="transparent"/>'
       +'<text x="'+xx+'" y="'+(hy-dec)+'" fill="'+(i===SEL?PAL.pointActif:PAL.texte)
       +'" font-size="9" font-weight="'+(PAL.fond==='#FFFFFF'?'600':'400')
-      +'" text-anchor="middle" transform="rotate(-30 '+xx+' '+(hy-dec)+')">'
+      +'" text-anchor="middle" transform="rotate(-30 '+xx+' '+(hy-dec)+')"'
+      +' paint-order="stroke" stroke="'+PAL.fond+'" stroke-width="2.8"'
+      +' stroke-linejoin="round">'
       +abrege(p.nom)+'</text></g>');
   });
 
