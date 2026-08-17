@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v53 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v54 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -1044,6 +1044,7 @@ async function interroger(force){
      courant sur un telephone qui revient sur la page. */
   if(!EN_COURS){
     const p = await partageLire();
+    if(p && p.ts) TS_PARTAGE = p.ts;
     if(p && (p.ts||0) > (TS_DONNEES||0)){
       const avant = Object.keys(DATA).length;
       const f = fusionneCaches({ts:TS_DONNEES, scenario:SCENARIO, jalons:JALONS,
@@ -2158,6 +2159,11 @@ let TS_DONNEES=null, EN_COURS=false, HORS_LIGNE=false;
    mais ses modeles peuvent venir de moments differents, puisque livrer()
    fusionne au fur et a mesure et qu'un modele en echec reste en place. */
 let MAJ_MODELE = {};
+/* Horodatage du releve partage, distinct de TS_DONNEES qui melange local et
+   partage. Sert a detecter une panne de la chaine automatique : si le cron
+   meurt, TS_DONNEES peut rester frais grace au cache local alors que plus
+   personne n'alimente les autres appareils. Rien ne le dirait sans ca. */
+let TS_PARTAGE = null;
 
 /* on ne stocke pas les réponses brutes (trop volumineuses) mais les valeurs extraites,
    arrondies et débarrassées des champs vides */
@@ -2291,6 +2297,22 @@ function majEtat(){
     txt='<b>'+nS+'</b> source'+(nS>1?'s':'')+' · '+n+' modèles · '+ageTexte();
     if(HORS_LIGNE){ el.classList.add('horsligne'); txt+=' · <b>hors ligne</b>'; }
     else if(ageHeures()>PERIME_H) el.classList.add('vieux');
+    /* Etat de la chaine automatique. Le cron tente chaque heure et les runs
+       changent toutes les 3 h : au-dela de 5 h sans relevé partagé, quelque
+       chose est casse et il vaut mieux le voir maintenant qu'en course. */
+    const SEUIL_PARTAGE_H = 5;
+    if(TS_PARTAGE===null){
+      txt+=' · <b title="Aucun relèvement partagé n’a été lu : '
+        +'données de cet appareil uniquement">serveur muet</b>';
+      el.classList.add('vieux');
+    } else {
+      const hp=(Date.now()-TS_PARTAGE)/36e5;
+      if(hp>SEUIL_PARTAGE_H){
+        txt+=' · <b title="La chaîne automatique ne publie plus">serveur '
+          +Math.round(hp)+' h</b>';
+        el.classList.add('vieux');
+      }
+    }
   }
   el.innerHTML='<span class="pastille"></span><span>'+txt+'</span>'
     + '';
@@ -3651,6 +3673,7 @@ async function convergence(){
       const [local, partage] = await Promise.all([cacheLire(), partageLire()]);
       /* fusion : le partage apporte ce que l'appareil n'a pas, sans jamais
          retirer ce qu'il avait deja */
+      if(partage && partage.ts) TS_PARTAGE = partage.ts;
       const c = fusionneCaches(local, partage);
       const dOu = (partage && c && c.ts === partage.ts)? 'partagé' : 'local';
       if(c){
