@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v57 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v59 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -2587,46 +2587,80 @@ function dessine(){
     }
   });
 
-  /* ---- Couverture nuageuse a l'altitude reelle, derriere le relief ----
-     Repond a la question qui compte en montagne : serai-je dessous, dedans ou
-     au-dessus ? Les etages nuageux sont peints la ou ils sont vraiment, dans le
-     meme repere d'altitude que le profil.
-     Aucune donnee nouvelle, aucun cout de quota : nub, num et nuh sont deja
-     agreges. Bornes de l'OMM : bas sous 2000 m, moyens de 2000 a 6000 m. Le
-     profil s'arretant a ALT_MAX, on voit les bas et le pied des moyens, soit
-     exactement la tranche traversee.
-     Rendu : des bandes rectangulaires se lisaient comme un lavis gris uniforme.
-     On dessine donc une silhouette continue par etage, dont l'epaisseur suit la
-     nebulosite heure par heure, puis on la floute. Le resultat ondule et se
-     delave sur les bords, comme un nuage, au lieu de trancher a angle droit.
-     Dessine AVANT le relief : le terrain repeint par-dessus, la teinte ne
-     subsiste que dans l'air. */
+  /* ---- Couverture nuageuse, base calculee et intensite ----
+     Deux choses que des etages fixes ne disaient pas.
+
+     1. L'ALTITUDE DE LA BASE. Formule d'Espy, connue depuis 1841 et toujours
+        utilisee en aviation : la base d'un nuage de convection est a environ
+        125 m par degre d'ecart entre temperature et point de rosee, au-dessus du
+        sol. On dispose deja de t et ros agreges, donc on obtient une base
+        physique a ~100 m pres, la ou des paliers de 1000 m ne donnaient rien.
+        C'est la limite qui compte : au-dessus, on est dans la purée.
+
+     2. L'INTENSITE. Un brouillard et un cumulus d'orage ne se ressemblent pas.
+        L'opacite suit la nebulosite totale, et la teinte distingue trois
+        regimes : brouillard colle au sol (code OMM 45/48 ou visibilite basse),
+        convection (CAPE elevee ou code >= 95), et nuage ordinaire.
+
+     Toujours aucune donnee nouvelle et aucun cout de quota. Dessine avant le
+     relief : le terrain repeint par-dessus, la teinte ne subsiste que dans l'air. */
   S.push('<defs><filter id="flouNu" x="-12%" y="-40%" width="124%" height="180%">'
-    +'<feGaussianBlur stdDeviation="7"/></filter></defs>');
-  const ETAGES = [[0, 2000, 'nub'], [2000, ALT_MAX, 'num']];
-  ETAGES.forEach(function(et){
-    const bas = yAlt(et[0]), haut = yAlt(Math.min(et[1], ALT_MAX));
-    const epais = bas - haut;
-    /* pour chaque heure : 0 si ciel clair, toute la tranche si couvert */
+    +'<feGaussianBlur stdDeviation="4.5"/></filter></defs>');
+  (function(){
     const col = [];
     for(let hh=h0; hh<=h1; hh++){
-      const s0 = j(hh), v = s0 && s0[et[2]];
-      const part = (v && v.m!==null && v.m!==undefined)? Math.max(0, Math.min(100, v.m))/100 : 0;
-      col.push([x(hh), part]);
+      const s0 = j(hh), J0 = JALONS[hh];
+      if(!s0 || !J0){ col.push(null); continue; }
+      const g = k => (s0[k] && s0[k].m!==null && s0[k].m!==undefined)? s0[k].m : null;
+      const nu = g('nu'), t = g('t'), ros = g('ros'), code = g('code');
+      const cape = g('cape'), vis = g('vis');
+      if(nu===null || nu < 12){ col.push(null); continue; }
+      const sol = J0.alt || 0;
+      /* base d'Espy, bornee : jamais sous le sol, jamais au-dela de l'echelle */
+      let base = (t!==null && ros!==null)? sol + 125*Math.max(0, t-ros) : sol + 300;
+      const brouillard = (code===45 || code===48 || (vis!==null && vis < 900));
+      if(brouillard) base = sol;                      /* colle au relief */
+      base = Math.max(0, Math.min(base, ALT_MAX-120));
+      /* epaisseur : plus le ciel est couvert, plus la couche monte */
+      const haut = Math.min(ALT_MAX, base + 250 + (ALT_MAX-base)*(nu/100)*0.9);
+      const convectif = (code!==null && code>=95) || (cape!==null && cape>800);
+      col.push({x:x(hh), base:base, haut:haut, nu:nu,
+                regime: brouillard? 'brouillard' : (convectif? 'convectif' : 'normal')});
     }
-    if(!col.some(c=>c[1] > 0.10)) return;      /* etage vide : on ne grisaille pas */
-    /* silhouette : le bas de la tranche, puis un dessus qui monte avec la
-       nebulosite. Le trace repasse en sens inverse pour fermer la forme. */
-    let d = 'M '+col[0][0].toFixed(1)+' '+bas.toFixed(1);
-    col.forEach(c=>{ d += ' L '+c[0].toFixed(1)+' '+(bas - epais*c[1]).toFixed(1); });
-    d += ' L '+col[col.length-1][0].toFixed(1)+' '+bas.toFixed(1)+' Z';
-    S.push('<path d="'+d+'" fill="'+PAL.nuage+'" opacity=".30" filter="url(#flouNu)"/>');
-    /* un second passage plus dense et plus mince donne du relief au nuage */
-    let d2 = 'M '+col[0][0].toFixed(1)+' '+bas.toFixed(1);
-    col.forEach(c=>{ d2 += ' L '+c[0].toFixed(1)+' '+(bas - epais*c[1]*0.55).toFixed(1); });
-    d2 += ' L '+col[col.length-1][0].toFixed(1)+' '+bas.toFixed(1)+' Z';
-    S.push('<path d="'+d2+'" fill="'+PAL.nuage+'" opacity=".22" filter="url(#flouNu)"/>');
-  });
+    if(!col.some(Boolean)) return;
+    /* on trace une silhouette par regime, pour que les teintes ne se melangent pas */
+    const TEINTES = {
+      normal:     [PAL.nuage,  0.38],
+      brouillard: [PAL.nuage,  0.55],   /* dense et bas, on n'y voit rien */
+      convectif:  [PAL.alerte, 0.30]    /* colore : c'est la que ca cogne */
+    };
+    Object.keys(TEINTES).forEach(function(reg){
+      const pres = col.map(c => (c && c.regime===reg)? c : null);
+      if(!pres.some(Boolean)) return;
+      let d = '', ouvert = false, dernier = null;
+      pres.forEach(function(c, k){
+        if(!c){ if(ouvert){ d += ' L '+dernier.x.toFixed(1)+' '+yAlt(dernier.base).toFixed(1)+' Z'; ouvert=false; } return; }
+        if(!ouvert){ d += ' M '+c.x.toFixed(1)+' '+yAlt(c.base).toFixed(1); ouvert=true; }
+        d += ' L '+c.x.toFixed(1)+' '+yAlt(c.haut).toFixed(1);
+        dernier = c;
+      });
+      if(ouvert) d += ' L '+dernier.x.toFixed(1)+' '+yAlt(dernier.base).toFixed(1)+' Z';
+      if(!d) return;
+      const [teinte, op] = TEINTES[reg];
+      S.push('<path d="'+d.trim()+'" fill="'+teinte+'" opacity="'+op+'" filter="url(#flouNu)"/>');
+      /* La base est la limite qui decide : au-dessus on est dans la puree. On la
+         souligne d'un trait net, non floute, pour qu'elle soit lisible a cote de
+         la trace du relief. */
+      let db = '', ouv = false;
+      pres.forEach(function(c){
+        if(!c){ ouv = false; return; }
+        db += (ouv? ' L ' : ' M ')+c.x.toFixed(1)+' '+yAlt(c.base).toFixed(1);
+        ouv = true;
+      });
+      if(db) S.push('<path d="'+db.trim()+'" fill="none" stroke="'+teinte
+        +'" stroke-width="1.4" opacity=".72" stroke-linecap="round"/>');
+    });
+  })();
 
   [1000,2000,3000].forEach(a=>S.push('<line x1="'+GUT+'" y1="'+yAlt(a)+'" x2="'+(W-8)+'" y2="'+yAlt(a)
     +'" stroke="'+PAL.grille+'" stroke-width="1" opacity=".55"/>'));
