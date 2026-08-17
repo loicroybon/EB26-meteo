@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v44 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v45 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -950,6 +950,26 @@ function prochainRun(maintenant){
 }
 async function interroger(force){
   if(EN_COURS) return;
+  /* Avant de depenser le moindre quota : le releve partage est-il plus frais
+     que ce qu'on affiche ? Si oui on l'applique gratuitement. C'est le cas
+     courant sur un telephone qui revient sur la page. */
+  if(!EN_COURS){
+    const p = await partageLire();
+    if(p && (p.ts||0) > (TS_DONNEES||0)){
+      const avant = Object.keys(DATA).length;
+      const f = fusionneCaches({ts:TS_DONNEES, scenario:SCENARIO, jalons:JALONS,
+                                modeles:(await cacheLire()||{}).modeles || {}, ens:ENS}, p);
+      if(f && f.modeles && Object.keys(f.modeles).length){
+        appliqueCache(f); TS_DONNEES=f.ts; HORS_LIGNE=false;
+        try{ await cacheEcrire(); }catch(e){}
+        majSelecteurModele(); rendreTout();
+        log('Relev\u00e9 partag\u00e9 plus frais appliqu\u00e9 : '
+            +Object.keys(DATA).length+' mod\u00e8les (avant '+avant+') \u2014 '
+            +'aucun quota consomm\u00e9.');
+        if(!force) return;
+      }
+    }
+  }
   if(!force && TS_DONNEES && !HORS_LIGNE){
     const age=Date.now()-TS_DONNEES;
     const dejaAJour = TS_DONNEES >= runPublie(Date.now());
@@ -985,7 +1005,8 @@ async function interroger(force){
      les suivants. */
   const rendre=()=>{ try{ afficheDispo(dispo); }catch(e){} rendreTout(); };
   const livrer=(etiquette, ids)=>{
-    (ids||[]).forEach(id=>rafraichis[id]=1);
+    const maintenant=Date.now();
+    (ids||[]).forEach(id=>{ rafraichis[id]=1; MAJ_MODELE[id]=maintenant; });
     if(!Object.keys(nD).length) return;
     DATA=Object.assign({}, nD); DATA_J=Object.assign({}, nJ);
     if(Object.keys(rafraichis).length){ TS_DONNEES=Date.now(); HORS_LIGNE=false; rendus++; }
@@ -1969,6 +1990,10 @@ async function ensembles(points, cible){
 const CLE_CACHE='cache:v3';
 const PERIME_H=3;              // au-delà, on rafraîchit tout seul
 let TS_DONNEES=null, EN_COURS=false, HORS_LIGNE=false;
+/* date de rafraichissement par modele : un paquet porte un seul horodatage
+   mais ses modeles peuvent venir de moments differents, puisque livrer()
+   fusionne au fur et a mesure et qu'un modele en echec reste en place. */
+let MAJ_MODELE = {};
 
 /* on ne stocke pas les réponses brutes (trop volumineuses) mais les valeurs extraites,
    arrondies et débarrassées des champs vides */
@@ -1986,6 +2011,7 @@ async function cacheEcrire(){
   const m={};
   for(const id in DATA){
     m[id]={nom:DATA[id].nom,
+           maj:MAJ_MODELE[id]||null,
            pts:POIS.map((p,i)=>compacte(extraitPoi(DATA[id], i))),
            jal:JALONS.map((j,k)=>compacte(extraitJalonD(DATA_J[id], k)))};
   }
@@ -2035,7 +2061,18 @@ function fusionneCaches(a, b){
     return recent;                 /* pas comparables : on ne bricole pas */
   }
   const c = Object.assign({}, autre, recent);
-  c.modeles = Object.assign({}, autre.modeles||{}, recent.modeles||{});
+  /* modele par modele : on garde la version la plus fraiche de CHACUN, et non
+     celle du paquet globalement le plus recent. `maj` est la date propre du
+     modele ; a defaut on retombe sur l'horodatage de son paquet. */
+  c.modeles = {};
+  const quand = (paquet, id) => (paquet.modeles[id] && paquet.modeles[id].maj) || paquet.ts || 0;
+  const tous = new Set(Object.keys(autre.modeles||{}).concat(Object.keys(recent.modeles||{})));
+  tous.forEach(function(id){
+    const dansR = recent.modeles && recent.modeles[id];
+    const dansA = autre.modeles && autre.modeles[id];
+    if(dansR && dansA) c.modeles[id] = (quand(recent,id) >= quand(autre,id))? dansR : dansA;
+    else c.modeles[id] = dansR || dansA;
+  });
   /* les ensembles ne se fusionnent pas point par point : on garde le jeu le
      plus fourni des deux */
   const eR = recent.ens && Object.keys(recent.ens).length;
@@ -2048,6 +2085,8 @@ function fusionneCaches(a, b){
 }
 function appliqueCache(c){
   DATA={}; DATA_J={}; JALONS=c.jalons||[];
+  MAJ_MODELE={};
+  for(const id in (c.modeles||{})) MAJ_MODELE[id]=c.modeles[id].maj || c.ts || null;
   for(const id in c.modeles){
     DATA[id]  ={nom:c.modeles[id].nom, pts:{[c.scenario]:c.modeles[id].pts}};
     DATA_J[id]={nom:c.modeles[id].nom, jal:c.modeles[id].jal};
