@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v63 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v68 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -2631,13 +2631,55 @@ function dessine(){
          jusqu'a ALT_MAX des que nu depassait 80 % : plus de ciel visible, donc
          plus de contraste et plus rien de lisible. Un stratus fait quelques
          centaines de metres, un cumulonimbus plusieurs milliers. */
-      const ep = convectif  ? 700 + 1900*(nuE/100)
-               : brouillard ? 120 +  480*(nuE/100)
-                            : 200 +  700*(nuE/100);
+      /* La couche peut monter plus haut qu'avant sans mentir, puisque son sommet
+         se dissout au lieu de s'arreter net : c'est la densite qui porte
+         l'information, plus une frontiere inventee. */
+      const ep = convectif  ? 900 + 2300*(nuE/100)
+               : brouillard ? 140 +  520*(nuE/100)
+                            : 320 + 1000*(nuE/100);
       const haut = Math.min(ALT_MAX, base + ep);
       col.push({x:x(hh), base:base, haut:haut, nu:nuE,
                 regime: brouillard? 'brouillard' : (convectif? 'convectif' : 'normal')});
     }
+    /* ---- Plafond regional ----
+       La base locale herite de l'altitude du coureur : elle est toujours
+       au-dessus de lui par construction, donc infranchissable, et elle ondule
+       avec le relief. Or un niveau de condensation est une propriete de la masse
+       d'air. On lisse par mediane glissante sur cinq heures : le plafond se
+       decouple du profil et redevient franchissable. Mediane et non moyenne,
+       pour qu'une heure saturee isolee ne tire pas tout le plafond vers le bas.
+       Le brouillard est exclu du lissage : il colle au sol par definition. */
+    (function(){
+      const FEN = 2;                       /* +/- 2 h, soit cinq heures */
+      const brut = col.map(c => c? c.base : null);
+      col.forEach(function(c, k){
+        if(!c || c.regime==='brouillard') return;
+        const v = [];
+        for(let i=k-FEN;i<=k+FEN;i++) if(brut[i]!==null && brut[i]!==undefined
+            && col[i] && col[i].regime!=='brouillard') v.push(brut[i]);
+        if(v.length < 2) return;
+        v.sort((a,b)=>a-b);
+        const med = v.length%2? v[(v.length-1)/2] : (v[v.length/2-1]+v[v.length/2])/2;
+        /* l'epaisseur suit le plafond, sinon le sommet de couche se decale */
+        c.haut += med - c.base;
+        c.base = med;
+        c.haut = Math.min(ALT_MAX, c.haut);
+      });
+    })();
+    /* ---- Y a-t-il vraiment un plafond ? ----
+       Un plafond, au sens aeronautique, commence a 5/8 de couverture. En dessous
+       on voit entre les nuages et l'affirmer serait faux. Hysteresis 60/45 :
+       un seuil sec ferait clignoter le trait a chaque oscillation. */
+    (function(){
+      let ouvert = false;
+      col.forEach(function(c){
+        if(!c){ ouvert = false; return; }
+        if(c.regime==='brouillard'){ c.deck = true; ouvert = true; return; }
+        if(!ouvert && c.nu >= 60) ouvert = true;
+        else if(ouvert && c.nu < 45) ouvert = false;
+        c.deck = ouvert;
+      });
+    })();
     COL = col;
     if(!col.some(Boolean)) return;
     /* Un nuage se voit CLAIR dans les deux themes : c'est un objet eclaire par
@@ -2649,21 +2691,37 @@ function dessine(){
       ? { normal:     ['#FFFFFF','#A8B7CB', .82],
           brouillard: ['#E4EAF2','#8797AC', .90],
           convectif:  ['#FFF6F2','#8C6E74', .86] }
-      : { normal:     ['#F4F8FD','#7E90AC', .46],
-          brouillard: ['#E2E9F3','#677994', .62],
-          convectif:  ['#FDF2ED','#A2685A', .54] };
+      /* En theme sombre un blanc translucide sur bleu nuit perd beaucoup : il
+         faut monter plus haut qu'en theme clair pour un rendu equivalent. */
+      : { normal:     ['#F4F8FD','#7E90AC', .62],
+          brouillard: ['#E2E9F3','#677994', .78],
+          convectif:  ['#FDF2ED','#A2685A', .70] };
     Object.keys(REG).forEach(function(reg){
       const pres = col.map(c => (c && c.regime===reg)? c : null);
       const vus = pres.filter(Boolean);
       if(!vus.length) return;
-      let d = '', ouvert = false, dernier = null;
-      pres.forEach(function(c, k){
-        if(!c){ if(ouvert){ d += ' L '+dernier.x.toFixed(1)+' '+yAlt(dernier.base).toFixed(1)+' Z'; ouvert=false; } return; }
-        if(!ouvert){ d += ' M '+c.x.toFixed(1)+' '+yAlt(c.base).toFixed(1); ouvert=true; }
-        d += ' L '+c.x.toFixed(1)+' '+yAlt(c.haut).toFixed(1);
-        dernier = c;
+      /* On decoupe en bancs continus, puis on effile chaque extremite : le sommet
+         redescend vers la base au premier et au dernier pas. Sans cela le chemin
+         montait a la verticale d'un bord a l'autre, ce qui donnait un mur que le
+         flou ne suffisait pas a effacer. */
+      const bancs = []; let cur = [];
+      pres.forEach(function(c){
+        if(c) cur.push(c);
+        else if(cur.length){ bancs.push(cur); cur = []; }
       });
-      if(ouvert) d += ' L '+dernier.x.toFixed(1)+' '+yAlt(dernier.base).toFixed(1)+' Z';
+      if(cur.length) bancs.push(cur);
+      let d = '';
+      bancs.forEach(function(b){
+        /* un banc d'une seule heure ne fait qu'un triangle sans sens */
+        if(b.length < 2) return;
+        const sommet = function(c, i){
+          const bord = (i===0 || i===b.length-1);
+          return bord? c.base + (c.haut-c.base)*0.22 : c.haut;
+        };
+        d += ' M '+b[0].x.toFixed(1)+' '+yAlt(b[0].base).toFixed(1);
+        b.forEach(function(c, i){ d += ' L '+c.x.toFixed(1)+' '+yAlt(sommet(c,i)).toFixed(1); });
+        d += ' L '+b[b.length-1].x.toFixed(1)+' '+yAlt(b[b.length-1].base).toFixed(1)+' Z';
+      });
       if(!d) return;
       const t = REG[reg], gid = 'gNu'+reg;
       /* le degrade est cale en coordonnees SVG sur l'etendue verticale reelle
@@ -2672,21 +2730,62 @@ function dessine(){
       const yB = Math.max.apply(null, vus.map(c=>yAlt(c.base)));
       S.push('<defs><linearGradient id="'+gid+'" gradientUnits="userSpaceOnUse"'
         +' x1="0" y1="'+yH.toFixed(1)+'" x2="0" y2="'+(yB+2).toFixed(1)+'">'
-        +'<stop offset="0%" stop-color="'+t[0]+'"/>'
-        +'<stop offset="62%" stop-color="'+t[0]+'" stop-opacity=".92"/>'
+        +'<stop offset="0%" stop-color="'+t[0]+'" stop-opacity="0"/>'
+        +'<stop offset="22%" stop-color="'+t[0]+'" stop-opacity=".38"/>'
+        +'<stop offset="48%" stop-color="'+t[0]+'" stop-opacity=".82"/>'
+        +'<stop offset="80%" stop-color="'+t[0]+'" stop-opacity="1"/>'
         +'<stop offset="100%" stop-color="'+t[1]+'"/></linearGradient></defs>');
       S.push('<path d="'+d.trim()+'" fill="url(#'+gid+')" opacity="'+t[2]
         +'" filter="url(#flouNu)"/>');
       /* La base reste soulignee, mais discretement : elle sera etiquetee a
          l'iteration suivante, un trait nu ne disant rien au lecteur. */
+      /* seules les colonnes a plafond etabli portent le trait */
+      const dk = pres.map(c => (c && c.deck)? c : null);
       let db = '', ouv = false;
-      pres.forEach(function(c){
+      dk.forEach(function(c){
         if(!c){ ouv = false; return; }
         db += (ouv? ' L ' : ' M ')+c.x.toFixed(1)+' '+yAlt(c.base).toFixed(1);
         ouv = true;
       });
+      /* Tirete et net : un trait plein se lit comme une courbe de donnee, un
+         tirete comme une limite. Non floute, c'est la seule grandeur precise
+         du dessin, celle qui decide si on est dedans ou dessous. */
       if(db) S.push('<path d="'+db.trim()+'" fill="none" stroke="'+t[1]
-        +'" stroke-width="1.1" opacity=".5" stroke-linecap="round"/>');
+        +'" stroke-width="1.6" opacity=".85" stroke-dasharray="7 4"'
+        +' stroke-linecap="round"/>');
+
+      /* Etiquette sur le plus long palier continu de ce regime : un plafond
+         qu'on n'ecrit pas ne se lit pas. */
+      if(reg!=='brouillard'){
+        let deb=-1, meilleur=null;
+        for(let k=0;k<=dk.length;k++){
+          if(dk[k]){ if(deb<0) deb=k; }
+          else if(deb>=0){
+            if(!meilleur || k-deb > meilleur[1]-meilleur[0]) meilleur=[deb,k];
+            deb=-1;
+          }
+        }
+        if(meilleur && meilleur[1]-meilleur[0] >= 3){
+          const tr = dk.slice(meilleur[0], meilleur[1]).filter(Boolean);
+          const alts = tr.map(c=>c.base).sort((a,b)=>a-b);
+          const mid = alts.length%2? alts[(alts.length-1)/2]
+                                   : (alts[alts.length/2-1]+alts[alts.length/2])/2;
+          /* On se pose a l'heure ou le RELIEF est le plus bas du palier, et SOUS
+             le trait : les noms de sommets occupent l'air au-dessus des cretes,
+             l'air libre au-dessus d'un fond de vallee est le seul endroit sur. */
+          let creux = tr[0], creuxAlt = Infinity;
+          for(let k=meilleur[0]; k<meilleur[1]; k++){
+            const J = JALONS[h0+k];
+            if(dk[k] && J && (J.alt||0) < creuxAlt){ creuxAlt = J.alt||0; creux = dk[k]; }
+          }
+          const ty = yAlt(mid) + 13;
+          S.push('<text x="'+creux.x.toFixed(1)+'" y="'+ty.toFixed(1)+'" fill="'+PAL.libelleFort
+            +'" font-size="10" font-weight="600" text-anchor="middle"'
+            +' font-family="sans-serif" paint-order="stroke" stroke="'+PAL.fond
+            +'" stroke-width="3.6" stroke-linejoin="round">plafond ~'
+            +(Math.round(mid/50)*50)+' m</text>');
+        }
+      }
     });
   })();
 
@@ -2708,20 +2807,30 @@ function dessine(){
        celle du nuage lui-meme : le lecteur associe sans apprendre de convention.
        Un liseré sombre dessous donne la lisibilite sur le vert du relief. */
     if(COL){
+      /* On n'annonce pas au coureur qu'il est dans la nuee sur un ciel a 3/8 :
+         seules les colonnes a plafond etabli comptent. */
       const plafond = function(th){
         const k = th - h0;
         if(k < 0 || k > COL.length-1) return null;
         const a = COL[Math.floor(k)], b = COL[Math.min(COL.length-1, Math.ceil(k))];
-        if(!a || !b) return null;
+        if(!a || !b || !a.deck || !b.deck) return null;
         return a.base + (b.base - a.base) * (k - Math.floor(k));
       };
+      /* Marge de 40 m : sans elle, la trace effleurant le plafond produisait un
+         peigne de segments d'un point, artefact et non information. Et on jette
+         les passages de moins de 400 m de developpe, trop courts pour valoir
+         une alerte au coureur. */
       const segs = []; let seg = [];
       pts.forEach(function(p){
         const pl = plafond(heureAuKm(p[0]));
-        if(pl !== null && p[1] >= pl) seg.push(p);
+        if(pl !== null && p[1] >= pl + 40) seg.push(p);
         else if(seg.length){ segs.push(seg); seg = []; }
       });
       if(seg.length) segs.push(seg);
+      const retenus = segs.filter(function(sg){
+        return sg.length >= 2 && (sg[sg.length-1][0] - sg[0][0]) >= 0.4;
+      });
+      segs.length = 0; retenus.forEach(s2 => segs.push(s2));
       const casing = PAL.jour==='clair'? '#66788E' : '#1A2434';
       segs.forEach(function(sg){
         if(sg.length < 2) return;
@@ -2734,16 +2843,35 @@ function dessine(){
       });
       /* Legende : l'utilisateur dit ne pas comprendre la lecture, un dessin muet
          ne suffit donc pas. Deux mots suffisent, cales en haut a droite. */
-      if(segs.length){
-        const lx = W-14, ly = yAlt(ALT_MAX)+11;
-        S.push('<line x1="'+(lx-116)+'" y1="'+(ly-3.5)+'" x2="'+(lx-100)+'" y2="'+(ly-3.5)
-          +'" stroke="'+casing+'" stroke-width="5.2" opacity=".55" stroke-linecap="round"/>');
-        S.push('<line x1="'+(lx-116)+'" y1="'+(ly-3.5)+'" x2="'+(lx-100)+'" y2="'+(ly-3.5)
-          +'" stroke="#FFFFFF" stroke-width="3" opacity=".96" stroke-linecap="round"/>');
-        S.push('<text x="'+(lx-94)+'" y="'+ly+'" fill="'+PAL.libelleFort
-          +'" font-size="9.5" text-anchor="start" font-family="sans-serif">'
-          +'trace dans les nuages</text>');
-      }
+      /* Legende a deux entrees, sur une ligne, avec les mots du coureur. Elle
+         est posee en haut a gauche : la ou l'oeil arrive, et ou le relief est
+         toujours bas au depart de Vizille. */
+      /* En haut a DROITE et empilee : a gauche se trouvent les etiquettes de
+         sommets, et la legende masquait "Belledonne". Une plaque au ton du fond
+         garantit le contraste quelle que soit la masse nuageuse derriere. */
+      const ent = [];
+      if(segs.length) ent.push(['nuee', 'je suis dans la nu\u00e9e']);
+      ent.push(['base', 'base des nuages']);
+      const lw = 128, lh = 13*ent.length + 8;
+      const lx0 = W - lw - 14, ly0 = yAlt(ALT_MAX) + 4;
+      S.push('<rect x="'+lx0+'" y="'+ly0+'" width="'+lw+'" height="'+lh
+        +'" rx="3" fill="'+PAL.fond+'" opacity="'+(PAL.jour==='clair'? '.78':'.62')
+        +'" stroke="'+PAL.bord+'" stroke-width=".8"/>');
+      ent.forEach(function(e, i){
+        const yy = ly0 + 12 + i*13, px = lx0 + 8;
+        if(e[0]==='nuee'){
+          S.push('<line x1="'+px+'" y1="'+(yy-3)+'" x2="'+(px+16)+'" y2="'+(yy-3)
+            +'" stroke="'+casing+'" stroke-width="5.2" opacity=".55" stroke-linecap="round"/>');
+          S.push('<line x1="'+px+'" y1="'+(yy-3)+'" x2="'+(px+16)+'" y2="'+(yy-3)
+            +'" stroke="#FFFFFF" stroke-width="3" opacity=".96" stroke-linecap="round"/>');
+        } else {
+          S.push('<line x1="'+px+'" y1="'+(yy-3)+'" x2="'+(px+16)+'" y2="'+(yy-3)
+            +'" stroke="'+(PAL.jour==='clair'? '#8797AC':'#9FB0C8')+'" stroke-width="1.6"'
+            +' stroke-dasharray="7 4" stroke-linecap="round"/>');
+        }
+        S.push('<text x="'+(px+22)+'" y="'+yy+'" fill="'+PAL.libelleFort
+          +'" font-size="9.5" text-anchor="start" font-family="sans-serif">'+e[1]+'</text>');
+      });
     }
   }
 
