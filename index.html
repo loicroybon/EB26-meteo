@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v46 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v47 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -2314,7 +2314,13 @@ function dessine(){
   gouttiere();
   const bornes=fenetre(), h0=bornes[0], h1=bornes[1], NH=Math.max(1,h1-h0);
   const large = (typeof window!=='undefined' && window.innerWidth)? window.innerWidth : 900;
-  const utile = Math.max(320, large - GUT - 44);
+  /* On MESURE le conteneur qui defile (#scroller) au lieu d'estimer depuis
+     window.innerWidth : les marges de .wrap et du cadre faisaient surestimer
+     la place disponible, d'ou une barre de defilement residuelle. */
+  const scr = q('#scroller');
+  const dispo = (scr && scr.clientWidth > 200)? scr.clientWidth
+                                             : Math.max(320, large - 40);
+  const utile = Math.max(320, dispo - GUT - 8);
   /* on essaie de faire tenir la fenêtre entière à l'écran ; en dessous d'un
      seuil de lisibilité on laisse défiler */
   const px = SEG? Math.max(46, Math.min(110, utile/NH))
@@ -2326,7 +2332,9 @@ function dessine(){
   /* sur grand ecran on ne depasse pas l'espace disponible : pas de barre
      de defilement pour le parcours complet */
   const Wvoulu = NH*px+GUT+16;
-  const W = (!SEG && large>=1100)? Math.min(Wvoulu, Math.max(880, large-24))
+  /* parcours complet sur grand ecran : on ne depasse jamais le conteneur
+     mesure, donc aucune barre de defilement */
+  const W = (!SEG && large>=1100)? Math.min(Wvoulu, dispo)
                                  : Math.max(880, Wvoulu);
   const x=hh=>GUT+8+(hh-h0)*(W-GUT-24)/NH;
   const t0=new Date(POIS[0].t[SCENARIO]).getTime();
@@ -3063,10 +3071,30 @@ const VENT_MOTS = [[3,'air calme'],[12,'vent faible'],[25,'vent modéré'],
 function motVent(v){ if(v===null||v===undefined) return ''; 
   for(const [s,m] of VENT_MOTS) if(v<s) return m; return ''; }
 
+/* Le libelle doit decrire les chiffres affiches, sinon il les contredit.
+   "Ciel clair" a ete affiche avec 85 % de nuages : s.code est une mediane de
+   CODES de modeles, tandis que s.nu est une mediane de COUVERTURES, et rien ne
+   les lie. Avec beaucoup de modeles la mediane des codes reste plausible ; avec
+   deux elle tombe sur l un ou l autre arbitrairement.
+   On derive donc le ciel des valeurs consensuelles elles-memes, via mbCode()
+   qui fait deja exactement cette traduction. La contradiction devient
+   impossible par construction. Repli sur s.code si les nuages manquent. */
+function cielCoherent(s){
+  if(!s) return null;
+  const nu = (s.nu && s.nu.m!==null && s.nu.m!==undefined)? s.nu.m : null;
+  if(nu===null) return (s.code!==null&&s.code!==undefined)? s.code : null;
+  const pr = (s.pr && s.pr.m!==null)? s.pr.m
+           : ((s.pr_moy && s.pr_moy.m!==null)? s.pr_moy.m : 0);
+  const neige = (s.neige && s.neige.m!==null)? s.neige.m : 0;
+  const orage = (s.code!==null && s.code>=95)
+             || (s.cape && s.cape.m!==null && s.cape.m>900);
+  return mbCode(pr||0, nu, neige, !!orage);
+}
 function phraseMeteo(s, p){
   if(!s||!s.t) return '';
   const bouts=[];
-  const ciel = (s.code!==null&&s.code!==undefined)? (WMO[s.code]||'') : '';
+  const cc = cielCoherent(s);
+  const ciel = (cc!==null&&cc!==undefined)? (WMO[cc]||'') : '';
   if(ciel) bouts.push(ciel.charAt(0).toUpperCase()+ciel.slice(1));
   const v = s.v&&s.v.m!==null? s.v.m : null;
   const mv = motVent(v);
@@ -3175,7 +3203,8 @@ function fiche(){
   const V=(o,d=1,su='')=> (o&&o.m!==null&&o.m!==undefined)? o.m.toFixed(d)+su : '—';
   const E=(o,d=0,su='')=> (o&&o.lo!==null&&o.lo!==undefined)? o.lo.toFixed(d)+' à '+o.hi.toFixed(d)+su : '';
 
-  if(s.code!==null) h+='<div style="margin:10px 0 2px;font-size:15px">'+(WMO[s.code]||'—')+'</div>';
+  const ccF=cielCoherent(s);
+  if(ccF!==null) h+='<div style="margin:10px 0 2px;font-size:15px">'+(WMO[ccF]||'—')+'</div>';
   if(!MODELE_ACTIF && s.lignes.length<nDispo)
     h+='<div class="note alerte" style="margin:4px 0 0">'+s.lignes.length+'/'+nDispo
       +' mod\u00e8les couvrent ce point</div>';
