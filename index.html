@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v34 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v35 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -290,8 +290,7 @@ const VARS = ["temperature_2m","apparent_temperature","dew_point_2m","relative_h
               "sunshine_duration","shortwave_radiation","uv_index","visibility",
               "wind_speed_10m","wind_gusts_10m","wind_direction_10m",
               "freezing_level_height","cape","lifted_index","surface_pressure",
-              "temperature_850hPa","temperature_750hPa","temperature_700hPa",
-              "geopotential_height_850hPa","geopotential_height_750hPa","geopotential_height_700hPa",
+              "geopotential_height_750hPa","geopotential_height_700hPa",
               "wind_speed_750hPa","wind_speed_700hPa"];
 
 const WMO={0:"ciel clair",1:"peu nuageux",2:"passages nuageux",3:"couvert",45:"brouillard",
@@ -430,13 +429,14 @@ const ORD_OM = ordonnanceur('open-meteo', 4);
 const ORD_MB = ordonnanceur('meteoblue', 6);
 const ORD_WY = ordonnanceur('windy', 5);
 
+let N429 = 0;   /* refus pour depassement de quota sur le releve en cours */
 async function appel(ord, url, options){
   for(let essai=0; essai<3; essai++){
     await ord.prendre();
     let r=null;
     try{ r = await fetch(url, options); }
     catch(e){ ord.rendre(false); continue; }
-    if(r.status===429 || r.status===503){ ord.rendre(false); continue; }
+    if(r.status===429 || r.status===503){ if(r.status===429) N429++; ord.rendre(false); continue; }
     ord.rendre(true);
     return r;
   }
@@ -796,7 +796,7 @@ async function interroger(){
      propres modèles au fur et à mesure, rien ne disparaît entre-temps */
   const nD=Object.assign({}, DATA), nJ=Object.assign({}, DATA_J);
   const rafraichis={};
-  ECHECS=[]; REPORTES=[]; WY_APPELS=0;
+  ECHECS=[]; REPORTES=[]; WY_APPELS=0; N429=0; WY_TEST=null;
   JALONS = construireJalons();
   const jours = (new Date(POIS[0].t[SCENARIO]) - Date.now())/864e5;
   const dispo=[];
@@ -916,9 +916,13 @@ async function interroger(){
     TS_DONNEES=anciens.ts; HORS_LIGNE=true;
     majSelecteurModele(); majEtat(); rendre();
     log('Aucun mod\u00e8le joignable. Les donn\u00e9es pr\u00e9c\u00e9dentes restent affich\u00e9es.'
+        + (N429? ' Quota des fournisseurs \u00e9puis\u00e9 ('+N429+' refus) \u2014 '
+                 +'r\u00e9essaie dans une heure, ce n\u00b4est pas une absence de pr\u00e9vision.' : '')
+        + (WY_TEST? ' Windy r\u00e9pond en mode test, ses donn\u00e9es sont \u00e9cart\u00e9es.' : '')
         + (ECHECS.length? ' D\u00e9tail : '+ECHECS.join(' | ') : ''));
     afficheDispo(dispo); return;
   }
+  if(WY_TEST) ECHECS.push('Windy \u00e9cart\u00e9 \u2014 cl\u00e9 de test, donn\u00e9es m\u00e9lang\u00e9es par le fournisseur');
   const n=Object.keys(DATA).length, nEns=Object.keys(ENS).length;
   log(n+' mod\u00e8le'+(n>1?'s':'')+' en '+((Date.now()-debut)/1000).toFixed(0)+' s le '
       + new Date().toLocaleString('fr-FR')
@@ -1192,6 +1196,7 @@ async function meteoblueBrut(points, avance){
      (le signal orageux propre) et base des nuages (serai-je dans la purée ?).
    Le regroupement par famille évite qu'AROME compte deux fois. */
 const WY_CLE = 'LMtKS6ka4dr1ta1qijmvXBFLUorC6aar';
+let WY_TEST = null;   /* renseigne si l'API repond en mode test (donnees melangees) */
 const WY_URL = 'https://api.windy.com/api/point-forecast/v2';
 const WY_MODELES = [
   ['arome',   'Windy AROME 1,3 km', 2.1, 'MF'],
@@ -1230,6 +1235,9 @@ async function windyPoint(p, iso, modele){
     if(r.status===204) return null;          /* modèle sans les paramètres demandés */
     if(!r.ok) throw new Error('HTTP '+r.status);
     o=await r.json();
+    /* La cle publique est une cle de test : Windy annonce lui-meme que les
+       donnees sont melangees. On ne les verse pas dans le consensus. */
+    if(o && o.warning && /test|shuffl/i.test(o.warning)){ WY_TEST = o.warning; return null; }
   }catch(e){ return null; }
   if(!o||!o.ts||!o.ts.length) return null;
 
@@ -2057,7 +2065,8 @@ function dessine(){
     g.addEventListener('click',go);
     g.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}});
   });
-  q('#hmg').textContent = SEG? 'M\u00e9t\u00e9ogramme \u2014 segment '+String(SEG).padStart(2,'0')
+  const hmg=q('#hmg');
+  if(hmg) hmg.textContent = SEG? 'M\u00e9t\u00e9ogramme \u2014 segment '+String(SEG).padStart(2,'0')
     : 'M\u00e9t\u00e9ogramme de course';
   const nMod=Object.keys(DATA).length;
   q('#mgnote').textContent = nMod? '' : 'en attente des mod\u00e8les\u2026';
