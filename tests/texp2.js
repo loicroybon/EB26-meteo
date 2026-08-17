@@ -38,7 +38,7 @@ function serie(pt,biaisT,biaisPr,biaisRaf){
   return {hourly:hy,elevation:pt.alt};
 }
 const o={};
-new Function('out','S', s.replace(/\(function\(\)\{[\s\S]*\}\)\(\);\s*$/,'')
+new Function('out','S', s.replace(/\n\(function\(\)\{[\s\S]*$/,'')
 +`;JALONS=construireJalons();
   const CFG=[['ecmwf_ifs025','ECMWF IFS 9 km',0,0,0],
              ['metno_seamless','MET Norway',0.1,0,0],

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v39 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v40 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -2568,6 +2568,11 @@ async function exportMD(){
     await interroger();
   }
   b.disabled=true; b.textContent='Génération…';
+  /* v32 : l'export porte toujours sur le consensus complet. Un export fait
+     alors qu'un modèle est isolé ne contiendrait que ce modèle, sans mesure
+     d'écart. On élargit le temps de la génération, puis on rend la vue. */
+  const _vue = MODELE_ACTIF;
+  MODELE_ACTIF = '';
   const maintenant=new Date();
   const horod=maintenant.getFullYear()+String(maintenant.getMonth()+1).padStart(2,'0')
     +String(maintenant.getDate()).padStart(2,'0')+'-'+String(maintenant.getHours()).padStart(2,'0')
@@ -2585,9 +2590,10 @@ async function exportMD(){
     +'149,5 km, ~11 000 m D+, dossard 348.');
   M.push('- **Scénario horaire retenu** : '+SCENARIO+' h (issu du road book officiel, '
     +'une colonne d\'horaires par temps total visé).');
-  M.push('- **Mode d\'affichage** : '+(MODELE_ACTIF? 'modèle isolé — '+(DATA[MODELE_ACTIF]?
-      DATA[MODELE_ACTIF].nom : MODELE_ACTIF)+'. Les sections A et B ne contiennent que ce modèle, '
-    +'sans consensus ni mesure d\'écart.' : 'consensus pondéré multimodèle'));
+  M.push('- **Mode d\'affichage** : consensus pondéré multimodèle'
+    +(_vue? ' (l\'écran était sur le modèle isolé '+((DATA[_vue]&&DATA[_vue].nom)||_vue)
+            +' ; l\'export élargit volontairement au consensus, sinon il n\'y aurait '
+            +'ni écart entre modèles ni mesure d\'incertitude)' : ''));
   M.push('- **Jours avant le départ** : '
     +((new Date(POIS[0].t[SCENARIO])-maintenant)/864e5).toFixed(1));
   M.push('');
@@ -2881,7 +2887,7 @@ async function exportMD(){
     log('Téléchargement impossible ('+e.message+'). Le texte est dans la zone SMS, à copier.');
     q('#smstexte').value=txt;
   }
-  MODELE_ACTIF=_vue;
+  MODELE_ACTIF=_vue;   /* on rend la vue que l'utilisateur avait choisie */
   b.disabled=false; b.textContent='Export Markdown';
 }
 

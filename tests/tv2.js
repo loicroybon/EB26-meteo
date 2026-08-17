@@ -53,7 +53,7 @@ global.fetch=async(url,opt)=>{
 const h=fs.readFileSync('../index.html','utf8');
 const s=h.match(/<script>([\s\S]*)<\/script>/)[1];
 const o={};
-new Function('out', s.replace(/\(function\(\)\{[\s\S]*\}\)\(\);\s*$/,'')
+new Function('out', s.replace(/\n\(function\(\)\{[\s\S]*$/,'')
 +';out.api={interroger,get DATA(){return DATA},sondeJalon,sonde,POIS,ORD_OM};')(o);
 (async()=>{
   const t0=Date.now();
