@@ -25,6 +25,11 @@ from selenium.webdriver.common.by import By
 URL = sys.argv[1] if len(sys.argv) > 1 else "https://loicroybon.github.io/EB26-meteo/"
 SORTIE = sys.argv[2] if len(sys.argv) > 2 else "data/dernier.json"
 
+# Provenance : le meme script sert le runner et le poste. On la deduit de
+# l'environnement plutot que de la passer a la main, pour qu'un relevé local
+# soit toujours etiquete comme tel dans le journal de la page.
+ORIGINE = os.environ.get("EB26_ORIGINE") or ("github-actions" if os.environ.get("CI") else "poste-local")
+
 CLE_CACHE = "cache:v3"          # doit suivre index.html
 ATTENTE_MAX_S = 300
 STABLE_REQUIS = 4               # nombre de sondages identiques avant de conclure
@@ -103,7 +108,7 @@ def main():
 
         # métadonnées propres au relevé partagé, pour que la page sache d'où ça vient
         paquet["partage"] = {
-            "genere_par": "github-actions",
+            "genere_par": ORIGINE,
             "version_page": version,
             "url": URL,
             "modeles": modeles,
