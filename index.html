@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v73 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v75 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -350,7 +350,7 @@ const PALETTES = {
            nuage:'#DCE6F4', nuageChiffre:'#28334C', nuageChiffreFaible:'#8FA0B8',
            tige:'#E9EEF6', point:'#DCE6F4', pointActif:'#FFD98A', bord:'#26344E',
            pluie:'#8E7CF0', pluieTexte:'#A99BF5', chaud:'#F0A24B', alerte:'#F0553D',
-           tempTexte:'#F2F6FC', jour:'sombre', socle:'#4E5C74',
+           tempTexte:'#F2F6FC', jour:'sombre', socle:'#4E5C74', ombre:'#0B1220',
            pNuage:'#C9D3E2', pNuageF:'#9FAEC4', pNuageS:'#7C8CA5', pGoutte:'#7FB2E8',
            pSoleil:'#F2C14E', pLune:'#D8DEEA', pFlocon:'#DCE7F5' },
   /* contour : sombre en theme clair. Blanc sur un ciel clair ne separait rien,
@@ -360,7 +360,7 @@ const PALETTES = {
            nuage:'#46586F', nuageChiffre:'#FFFFFF', nuageChiffreFaible:'#1E2A3E',
            tige:'#3E4C64', point:'#31405C', pointActif:'#B5670F', bord:'#C6D0DD',
            pluie:'#5A46C8', pluieTexte:'#4B3AA8', chaud:'#A85C0A', alerte:'#B32E1B',
-           tempTexte:'#FFFFFF', jour:'clair', socle:'#FFFFFF',
+           tempTexte:'#FFFFFF', jour:'clair', socle:'#FFFFFF', ombre:'#2B3A52',
            pNuage:'#5E7090', pNuageF:'#4A5C76', pNuageS:'#36455C',
            pGoutte:'#12518F', pSoleil:'#C88A08', pLune:'#36455C', pFlocon:'#36455C' }
 };
@@ -2572,13 +2572,29 @@ function dessine(){
 
   S.push('<defs><linearGradient id="gCiel" x1="0" x2="1">');
   for(let hh=h0;hh<=h1;hh++) S.push('<stop offset="'+((hh-h0)/NH*100).toFixed(2)+'%" stop-color="'+couleurCiel(hLoc(hh))+'"/>');
+  /* Le plancher d'opacite doit dependre du socle. Sur le socle blanc du theme
+     clair, 66 % donne un pastel ou 11 et 15 degres se confondent ; sur le socle
+     gris-bleu du theme sombre, 66 % garde du corps. Meme intention, deux
+     reglages, parce que les fonds sont opposes. */
+  const OPMIN = (PAL.jour==='clair')? .86 : .66;
   S.push('</linearGradient><linearGradient id="gTemp" x1="0" x2="1">');
   for(let hh=h0;hh<=h1;hh++){ const s=j(hh);
     /* Plancher a 66 % et non 42 % : l'ecart entre modeles reste lisible comme un
        delavage, mais ne peut plus rendre la temperature indechiffrable la nuit. */
     S.push('<stop offset="'+((hh-h0)/NH*100).toFixed(2)+'%" stop-color="'+couleurT(s&&s.t?s.t.m:null)
-      +'" stop-opacity="'+(s&&s.t? Math.max(.66,1-(s.t.hi-s.t.lo)/14).toFixed(2) : .7)+'"/>'); }
-  S.push('</linearGradient></defs>');
+      +'" stop-opacity="'+(s&&s.t? Math.max(OPMIN,1-(s.t.hi-s.t.lo)/14).toFixed(2)
+                                 : (OPMIN+.04).toFixed(2))+'"/>'); }
+  /* Ombre de relief : nulle sur la crete, forte au fond de vallee. La lumiere
+     vient du ciel, donc c'est le sens physique, et c'est ce qui rend a la
+     montagne sa masse apres l'ajout du socle opaque. Nulle en haut : la couleur
+     de temperature reste fidele exactement la ou passe le coureur. */
+  S.push('</linearGradient><linearGradient id="gProf" gradientUnits="userSpaceOnUse"'
+    +' x1="0" y1="'+yAlt(ALT_MAX).toFixed(1)+'" x2="0" y2="'+yAlt(0).toFixed(1)+'">'
+    +'<stop offset="0%" stop-color="'+PAL.ombre+'" stop-opacity="0"/>'
+    +'<stop offset="45%" stop-color="'+PAL.ombre+'" stop-opacity="'
+    +(PAL.jour==='clair'? '.05' : '.10')+'"/>'
+    +'<stop offset="100%" stop-color="'+PAL.ombre+'" stop-opacity="'
+    +(PAL.jour==='clair'? '.20' : '.46')+'"/></linearGradient></defs>');
   S.push('<rect x="'+GUT+'" y="0" width="'+(W-GUT)+'" height="'+yPl+'" fill="url(#gCiel)"/>');
 
   for(let hh=h0;hh<=h1;hh+=pas){
@@ -2808,8 +2824,11 @@ function dessine(){
 
   /* les milliers restent marques, les demi-milliers sont plus discrets :
      on lit une altitude sans que la grille concurrence le relief. */
+  /* 28 % d'un gris clair sur du blanc ne se voit pas : le reglage avait ete fait
+     en regardant le theme sombre uniquement. */
+  const OPG = (PAL.jour==='clair')? ['.42','.72'] : ['.30','.58'];
   ALTS.forEach(a=>S.push('<line x1="'+GUT+'" y1="'+yAlt(a)+'" x2="'+(W-8)+'" y2="'+yAlt(a)
-    +'" stroke="'+PAL.grille+'" stroke-width="1" opacity="'+(a%1000? '.28' : '.55')+'"/>'));
+    +'" stroke="'+PAL.grille+'" stroke-width="1" opacity="'+(a%1000? OPG[0] : OPG[1])+'"/>'));
   const pts=TRACE.filter(p=>{const t=heureAuKm(p[0]); return t>=h0-.25&&t<=h1+.25;});
   if(pts.length){
     const cx=km=>x(Math.min(h1,Math.max(h0,heureAuKm(km))));
@@ -2821,6 +2840,7 @@ function dessine(){
        chose a 3 h du matin qu'a midi. */
     S.push('<path d="'+d+'" fill="'+PAL.socle+'"/>');
     S.push('<path d="'+d+'" fill="url(#gTemp)"/>');
+    S.push('<path d="'+d+'" fill="url(#gProf)"/>');
     /* La nuit, le contour est le SEUL separateur entre un relief sombre et un
        ciel sombre : on le renforce. Le jour, le contraste de teinte suffit et il
        doit rester discret. On prend l'heure locale au milieu de la fenetre. */
