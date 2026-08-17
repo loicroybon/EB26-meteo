@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v69 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v73 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -342,20 +342,25 @@ function hhmm(iso){ const d=new Date(iso); const j=['dim','lun','mar','mer','jeu
 /* Le météogramme est dessiné en SVG : ses couleurs ne peuvent pas venir du CSS,
    il lui faut sa propre palette, mise à jour en même temps que le thème. */
 const PALETTES = {
-  sombre:{ fond:'#131C2C', nuagesFond:'#0C1424', grille:'#3A4A66', contour:'#0A101C',
+  /* contour : gris-bleu CLAIR et non sombre. L'ancienne valeur #0A101C etait
+     plus sombre que le ciel de minuit, donc la crete disparaissait les deux
+     nuits de la course, le relief devenant sombre lui aussi. */
+  sombre:{ fond:'#131C2C', nuagesFond:'#0C1424', grille:'#3A4A66', contour:'#A9BAD2',
            texte:'#C6D2E4', texteFaible:'#6A7A93', libelle:'#7A8AA5', libelleFort:'#9FB2CC',
            nuage:'#DCE6F4', nuageChiffre:'#28334C', nuageChiffreFaible:'#8FA0B8',
            tige:'#E9EEF6', point:'#DCE6F4', pointActif:'#FFD98A', bord:'#26344E',
            pluie:'#8E7CF0', pluieTexte:'#A99BF5', chaud:'#F0A24B', alerte:'#F0553D',
-           tempTexte:'#F2F6FC', jour:'sombre',
+           tempTexte:'#F2F6FC', jour:'sombre', socle:'#4E5C74',
            pNuage:'#C9D3E2', pNuageF:'#9FAEC4', pNuageS:'#7C8CA5', pGoutte:'#7FB2E8',
            pSoleil:'#F2C14E', pLune:'#D8DEEA', pFlocon:'#DCE7F5' },
-  clair:{  fond:'#FFFFFF', nuagesFond:'#E8EDF4', grille:'#B4C0D0', contour:'#FFFFFF',
+  /* contour : sombre en theme clair. Blanc sur un ciel clair ne separait rien,
+     symetrique du defaut inverse corrige en theme sombre. */
+  clair:{  fond:'#FFFFFF', nuagesFond:'#E8EDF4', grille:'#B4C0D0', contour:'#46586F',
            texte:'#25324A', texteFaible:'#67758C', libelle:'#5A6A85', libelleFort:'#31405C',
            nuage:'#46586F', nuageChiffre:'#FFFFFF', nuageChiffreFaible:'#1E2A3E',
            tige:'#3E4C64', point:'#31405C', pointActif:'#B5670F', bord:'#C6D0DD',
            pluie:'#5A46C8', pluieTexte:'#4B3AA8', chaud:'#A85C0A', alerte:'#B32E1B',
-           tempTexte:'#FFFFFF', jour:'clair',
+           tempTexte:'#FFFFFF', jour:'clair', socle:'#FFFFFF',
            pNuage:'#5E7090', pNuageF:'#4A5C76', pNuageS:'#36455C',
            pGoutte:'#12518F', pSoleil:'#C88A08', pLune:'#36455C', pFlocon:'#36455C' }
 };
@@ -2416,8 +2421,13 @@ function contraste(hex){ return luminance(hex)>0.42? '#0A1018' : '#FFFFFF'; }
 
 function couleurCiel(hLoc){
   const s = (PAL.jour==='clair')
-    ? [[0,'#22314C'],[4.5,'#35496B'],[6.2,'#C89A80'],[7.2,'#E4C6B0'],[8.5,'#BCDBF0'],
-       [13,'#A9D4F3'],[17,'#B5D9F0'],[19.5,'#E1B18A'],[20.8,'#8D7A8C'],[21.8,'#3C4A67'],[24,'#22314C']]
+    /* Nuit en ardoise moyenne et non en bleu marine : un theme clair doit rester
+       clair, la nuit comprise. Deux pavés quasi noirs au milieu d'une page
+       blanche se lisaient comme une panne de rendu et ecrasaient le reste. */
+    /* Le jour gagne en SATURATION, pas en obscurite : la luminance bouge a peine,
+       mais le bleu devient franc, donc le blanc du nuage s'y detache enfin. */
+    ? [[0,'#66779A'],[4.5,'#7488A8'],[6.2,'#C89A80'],[7.2,'#E4C6B0'],[8.5,'#93C6EA'],
+       [13,'#7FBDEE'],[17,'#8DC3E9'],[19.5,'#E1B18A'],[20.8,'#9F8DA2'],[21.8,'#77879F'],[24,'#66779A']]
     : [[0,'#0A1020'],[4.5,'#101B33'],[6.2,'#4A3B55'],[7.2,'#6E5A66'],[8.5,'#2F5F87'],
        [13,'#3C7CA8'],[17,'#3A6E94'],[19.5,'#7A5147'],[20.8,'#3A2E43'],[21.8,'#111B31'],[24,'#0A1020']];
   const x=Math.max(0,Math.min(23.999,hLoc));
@@ -2564,8 +2574,10 @@ function dessine(){
   for(let hh=h0;hh<=h1;hh++) S.push('<stop offset="'+((hh-h0)/NH*100).toFixed(2)+'%" stop-color="'+couleurCiel(hLoc(hh))+'"/>');
   S.push('</linearGradient><linearGradient id="gTemp" x1="0" x2="1">');
   for(let hh=h0;hh<=h1;hh++){ const s=j(hh);
+    /* Plancher a 66 % et non 42 % : l'ecart entre modeles reste lisible comme un
+       delavage, mais ne peut plus rendre la temperature indechiffrable la nuit. */
     S.push('<stop offset="'+((hh-h0)/NH*100).toFixed(2)+'%" stop-color="'+couleurT(s&&s.t?s.t.m:null)
-      +'" stop-opacity="'+(s&&s.t? Math.max(.42,1-(s.t.hi-s.t.lo)/14).toFixed(2) : .5)+'"/>'); }
+      +'" stop-opacity="'+(s&&s.t? Math.max(.66,1-(s.t.hi-s.t.lo)/14).toFixed(2) : .7)+'"/>'); }
   S.push('</linearGradient></defs>');
   S.push('<rect x="'+GUT+'" y="0" width="'+(W-GUT)+'" height="'+yPl+'" fill="url(#gCiel)"/>');
 
@@ -2690,9 +2702,11 @@ function dessine(){
        volume la ou un aplat donnait un lavis. En theme clair il faut une base
        franchement grise, sinon le blanc ne se detache pas du fond. */
     const REG = PAL.jour==='clair'
-      ? { normal:     ['#FFFFFF','#A8B7CB', .82],
-          brouillard: ['#E4EAF2','#8797AC', .90],
-          convectif:  ['#FFF6F2','#8C6E74', .86] }
+      /* base assombrie : c'est la partie ombree qui donne le volume, et c'est elle
+         qui porte l'altitude du plafond. Le sommet reste franchement blanc. */
+      ? { normal:     ['#FFFFFF','#8494AC', .92],
+          brouillard: ['#EDF1F7','#6F8098', .95],
+          convectif:  ['#FFF7F3','#7A5D66', .93] }
       /* En theme sombre un blanc translucide sur bleu nuit perd beaucoup : il
          faut monter plus haut qu'en theme clair pour un rendu equivalent. */
       : { normal:     ['#F4F8FD','#7E90AC', .62],
@@ -2802,8 +2816,22 @@ function dessine(){
     let d='M '+cx(pts[0][0])+' '+yAlt(0);
     pts.forEach(p=>{ d+=' L '+cx(p[0])+' '+yAlt(p[1]); });
     d+=' L '+cx(pts[pts.length-1][0])+' '+yAlt(0)+' Z';
+    /* Socle opaque : sans lui, un degrade a 66 % laissait passer le ciel, presque
+       noir la nuit, et la couleur de temperature ne voulait plus dire la meme
+       chose a 3 h du matin qu'a midi. */
+    S.push('<path d="'+d+'" fill="'+PAL.socle+'"/>');
     S.push('<path d="'+d+'" fill="url(#gTemp)"/>');
-    S.push('<path d="'+d.replace(/ Z$/,'')+'" fill="none" stroke="'+PAL.contour+'" stroke-width="1.2" opacity=".45"/>');
+    /* La nuit, le contour est le SEUL separateur entre un relief sombre et un
+       ciel sombre : on le renforce. Le jour, le contraste de teinte suffit et il
+       doit rester discret. On prend l'heure locale au milieu de la fenetre. */
+    const nuitDom = (function(){
+      let n = 0, tot = 0;
+      for(let hh=h0; hh<=h1; hh++){ tot++; const l = hLoc(hh); if(l>=20.5||l<6.3) n++; }
+      return tot? n/tot : 0;
+    })();
+    S.push('<path d="'+d.replace(/ Z$/,'')+'" fill="none" stroke="'+PAL.contour
+      +'" stroke-width="'+(PAL.jour==='clair'? '1.2' : '1.4')+'" opacity="'
+      +(PAL.jour==='clair'? '.45' : (0.42+0.28*nuitDom).toFixed(2))+'"/>');
 
     /* ---- Le versant se voile la ou il est dans la nuee ----
        On rejoue les memes bancs, decoupes par la silhouette du relief, a opacite
