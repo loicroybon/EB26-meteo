@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v45 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v46 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -28,8 +28,8 @@ html[data-theme="clair"]{color-scheme:light}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--nuit);color:var(--neige);font-family:var(--mono)}
 body{padding:0 0 2.2rem;font-size:14px;line-height:1.4}
-.wrap{max-width:min(1500px,100%);margin:0 auto;padding:0 clamp(12px,2vw,28px)}
-@media (min-width:1100px){ body{font-size:15px} .wrap{padding:0 28px} }
+.wrap{max-width:100%;margin:0 auto;padding:0 clamp(8px,1vw,16px)}
+@media (min-width:1100px){ body{font-size:15px} .wrap{padding:0 16px} }
 
 header{padding:8px 0 6px;border-bottom:1px solid var(--trace)}
 .titre{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--brume)}
@@ -981,7 +981,7 @@ async function interroger(force){
       log('Donn\u00e9es d\u2019il y a '+min+' min, conserv\u00e9es : elles contiennent d\u00e9j\u00e0 '
         + 'le dernier run publi\u00e9. Prochain run vers '
         + hh.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})
-        + '. Double-clic sur le bouton pour forcer.');
+        + '. Le bouton force un relevé immédiat.');
       rendreTout(); return;
     }
   }
@@ -2318,8 +2318,16 @@ function dessine(){
   /* on essaie de faire tenir la fenêtre entière à l'écran ; en dessous d'un
      seuil de lisibilité on laisse défiler */
   const px = SEG? Math.max(46, Math.min(110, utile/NH))
-                : Math.max(large>=1100? 26 : 34, Math.min(52, utile/NH));
-  const W=Math.max(880, NH*px+GUT+16);
+                /* parcours complet sur grand ecran : on laisse la largeur
+                   par heure descendre jusqu'a ce que tout tienne, plutot que
+                   d'imposer un plancher qui force un defilement horizontal */
+                : (large>=1100? Math.min(52, utile/NH)
+                              : Math.max(34, Math.min(52, utile/NH)));
+  /* sur grand ecran on ne depasse pas l'espace disponible : pas de barre
+     de defilement pour le parcours complet */
+  const Wvoulu = NH*px+GUT+16;
+  const W = (!SEG && large>=1100)? Math.min(Wvoulu, Math.max(880, large-24))
+                                 : Math.max(880, Wvoulu);
   const x=hh=>GUT+8+(hh-h0)*(W-GUT-24)/NH;
   const t0=new Date(POIS[0].t[SCENARIO]).getTime();
   const hLoc=hh=>{ const d=new Date(t0+hh*3.6e6); return d.getHours()+d.getMinutes()/60; };
@@ -3390,8 +3398,12 @@ async function convergence(){
       interroger();
     }
   };
-  q('#go').onclick=function(){ interroger(false); };
-  q('#go').ondblclick=function(){ log('Actualisation forc\u00e9e.'); interroger(true); };
+  /* Un simple clic force le relev\u00e9 : quand on appuie sur le bouton, on veut
+     des donn\u00e9es. Le garde-fou align\u00e9 sur le run ne s'applique donc plus qu'aux
+     rafra\u00eechissements automatiques, o\u00f9 il \u00e9vite de d\u00e9penser du quota pour
+     ret\u00e9l\u00e9charger une donn\u00e9e identique. Le relev\u00e9 partag\u00e9 reste consult\u00e9
+     d'abord, gratuitement, pour un affichage imm\u00e9diat. */
+  q('#go').onclick=function(){ interroger(true); };
   q('#raz').onclick=async()=>{
     if(!confirm('Effacer l\'historique des relevés ? C\'est lui qui permet de suivre la '
       +'convergence des modèles jour après jour, et il ne peut pas être reconstitué.')) return;

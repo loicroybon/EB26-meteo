@@ -53,9 +53,14 @@ def main():
         version = d.execute_script("return document.title") or "?"
         journal(f"  page chargée : {version}")
 
-        # `true` force le relevé : sans lui, le garde-fou aligné sur le run le
-        # refuserait puisque la page vient d'appliquer data/dernier.json.
-        d.execute_script("interroger(true)")
+        # On ne force PAS. Le cron tourne chaque heure mais les mailles fines ne
+        # changent de run que toutes les 3 h : on laisse le garde-fou de la page
+        # décider. Tant qu'aucun run nouveau n'est publié, il refuse et aucun
+        # quota n'est dépensé. `force` n'est utilisé que si FORCER=1, pour un
+        # déclenchement manuel qui veut vraiment un relevé.
+        forcer = os.environ.get("FORCER", "") == "1"
+        avant = d.execute_script("return TS_DONNEES")
+        d.execute_script("interroger(arguments[0])", forcer)
 
         precedent, stable = None, 0
         debut = time.time()
@@ -73,6 +78,13 @@ def main():
                 stable = 0
             precedent = courant
         journal(f"  relevé terminé en {time.time()-debut:.0f} s")
+
+        # Rien n'a bougé : le garde-fou a refusé parce qu'aucun run nouveau
+        # n'est publié. On sort proprement sans rien écrire, donc sans commit.
+        apres = d.execute_script("return TS_DONNEES")
+        if not forcer and avant and apres == avant:
+            journal("  aucun run nouveau publié : rien à faire, aucun quota dépensé")
+            return 3
 
         # on demande explicitement l'écriture du cache, puis on le relit
         d.execute_script("try{cacheEcrire()}catch(e){console.error(e.message)}")

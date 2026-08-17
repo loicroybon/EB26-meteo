@@ -6,9 +6,13 @@ name: Relevé partagé
 # appel fait depuis un téléphone.
 on:
   schedule:
-    # Les mailles fines changent de run toutes les 3 h et sont publiées avec
-    # environ 3 h 30 de retard. On se place juste après chaque publication.
-    - cron: '35 2,5,8,11,14,17,20,23 * * *'
+    # Tentative chaque heure, pour que le cache partagé soit frais peu après la
+    # publication d'un run. Mais les mailles fines ne changent de run que toutes
+    # les 3 h : le relevé est donc auto-régulé. Le runner n'impose rien, il
+    # laisse le garde-fou de la page décider, et celle-ci refuse tant qu'aucun
+    # run nouveau n'est publié. Deux tentatives sur trois ne coûtent donc rien
+    # aux fournisseurs, et la troisième ramène la donnée fraîche sans délai.
+    - cron: '35 * * * *'
   workflow_dispatch:            # déclenchement manuel depuis l'onglet Actions
 
 permissions:
@@ -43,9 +47,26 @@ jobs:
         run: google-chrome --version
 
       - name: Relevé sur la page déployée
-        run: python scripts/releve.py "https://loicroybon.github.io/EB26-meteo/" data/dernier.json
+        id: releve
+        # Le script rend 3 quand aucun run nouveau n'est publié : ce n'est pas
+        # une erreur, c'est le cas normal deux fois sur trois. On enchaîne alors
+        # sans contrôler ni publier.
+        run: |
+          set +e
+          python scripts/releve.py "https://loicroybon.github.io/EB26-meteo/" data/dernier.json
+          code=$?
+          set -e
+          if [ "$code" = "3" ]; then
+            echo "rien_de_neuf=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "rien_de_neuf=false" >> "$GITHUB_OUTPUT"
+          exit $code
+        env:
+          FORCER: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
 
       - name: Contrôler le paquet produit
+        if: steps.releve.outputs.rien_de_neuf != 'true'
         run: |
           python - <<'PY'
           import json, sys
@@ -58,6 +79,7 @@ jobs:
           PY
 
       - name: Publier si le relevé a abouti
+        if: steps.releve.outputs.rien_de_neuf != 'true'
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
