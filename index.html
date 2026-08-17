@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v59 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v60 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -2488,12 +2488,16 @@ function flecheVent(dir, force, cx, cy, L){
 }
 
 /* ---------- rendu du météogramme ---------- */
-const L = {ciel:52, nuages:40, profil:170, pluie:48, vent:46, axe:30};
+/* nuages:0 - la bande a trois etages est retiree (v60). Elle doublait
+   l'overlay du profil sans donner d'altitude reelle. Ses 40 px vont au
+   profil, dont l'echelle verticale gagne d'autant. */
+const L = {ciel:52, nuages:0, profil:210, pluie:48, vent:46, axe:30};
 const HAUT = L.ciel+L.nuages+L.profil+L.pluie+L.vent+L.axe;
 const GUT = 52;
 const yNu=L.ciel, yPro=yNu+L.nuages, yPl=yPro+L.profil, yVe=yPl+L.pluie, yAx=yVe+L.vent;
 const ALT_MAX = 3200;
 const yAlt = a => yPro+8+(1-a/ALT_MAX)*(L.profil-20);
+const ALTS = [500,1000,1500,2000,2500,3000];
 
 function fenetre(){
   if(!SEG) return [0, Math.ceil(dureeCourse())];
@@ -2514,8 +2518,9 @@ function gouttiere(){
   const lib=(y,t,c)=>T.push('<text x="'+(GUT-9)+'" y="'+y+'" fill="'+(c||PAL.libelle)
     +'" font-size="8.5" text-anchor="end" font-family="sans-serif">'+t+'</text>');
   lib(L.ciel/2+4,'ciel',PAL.libelleFort);
-  ['hautes','moyennes','basses'].forEach((n,e)=>lib(yNu+e*(L.nuages/3)+9.5, n));
-  [1000,2000,3000].forEach(a=>lib(yAlt(a)+3, a));
+  /* six graduations la ou il y en avait trois : l'altitude se lit
+     maintenant a 500 m pres sans compter les intervalles. */
+  ALTS.forEach(a=>lib(yAlt(a)+3, a, a%1000? PAL.libelle : PAL.libelleFort));
   lib(yPl+12,'mm/h',PAL.libelleFort);
   lib(yVe+18,'vent',PAL.libelleFort); lib(yVe+38,'rafales');
   T.push('<line x1="'+(GUT-.5)+'" y1="0" x2="'+(GUT-.5)+'" y2="'+HAUT+'" stroke="'+PAL.bord+'"/>');
@@ -2571,21 +2576,6 @@ function dessine(){
     if(s.t&&s.t.m!==null) S.push('<text x="'+x(hh)+'" y="45" fill="'+contraste(couleurCiel(hLoc(hh)))
       +'" font-size="12.5" font-weight="700" text-anchor="middle">'+s.t.m.toFixed(0)+'\u00b0</text>');
   }
-
-  S.push('<rect x="'+GUT+'" y="'+yNu+'" width="'+(W-GUT)+'" height="'+L.nuages+'" fill="'+PAL.nuagesFond+'"/>');
-  [['nuh',0],['num',1],['nub',2]].forEach(function(e){
-    const cle=e[0], yy=yNu+e[1]*(L.nuages/3);
-    for(let hh=h0;hh<h1;hh++){
-      const s=j(hh); if(!s||!s[cle]||s[cle].m===null) continue;
-      S.push('<rect x="'+x(hh)+'" y="'+yy+'" width="'+(x(hh+1)-x(hh))+'" height="'+(L.nuages/3-1)
-        +'" fill="'+PAL.nuage+'" opacity="'+(Math.min(1,s[cle].m/100)*(PAL.jour==='clair'?.72:.8)).toFixed(2)+'"/>');
-      if((hh-h0)%(pas*3)===0&&s[cle].m>=15) S.push('<text x="'+((x(hh)+x(hh+1))/2)+'" y="'+(yy+L.nuages/3-3.5)
-        +'" fill="'+(PAL.jour==='clair'? (s[cle].m>45?PAL.nuageChiffre:PAL.nuageChiffreFaible)
-                     : (s[cle].m>55?PAL.nuageChiffre:PAL.nuageChiffreFaible))
-        +'" font-size="8" font-weight="600" text-anchor="middle">'
-        +s[cle].m.toFixed(0)+'</text>');
-    }
-  });
 
   /* ---- Couverture nuageuse, base calculee et intensite ----
      Deux choses que des etages fixes ne disaient pas.
@@ -2662,8 +2652,10 @@ function dessine(){
     });
   })();
 
-  [1000,2000,3000].forEach(a=>S.push('<line x1="'+GUT+'" y1="'+yAlt(a)+'" x2="'+(W-8)+'" y2="'+yAlt(a)
-    +'" stroke="'+PAL.grille+'" stroke-width="1" opacity=".55"/>'));
+  /* les milliers restent marques, les demi-milliers sont plus discrets :
+     on lit une altitude sans que la grille concurrence le relief. */
+  ALTS.forEach(a=>S.push('<line x1="'+GUT+'" y1="'+yAlt(a)+'" x2="'+(W-8)+'" y2="'+yAlt(a)
+    +'" stroke="'+PAL.grille+'" stroke-width="1" opacity="'+(a%1000? '.28' : '.55')+'"/>'));
   const pts=TRACE.filter(p=>{const t=heureAuKm(p[0]); return t>=h0-.25&&t<=h1+.25;});
   if(pts.length){
     const cx=km=>x(Math.min(h1,Math.max(h0,heureAuKm(km))));
