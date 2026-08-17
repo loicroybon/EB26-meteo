@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v31 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v32 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -970,8 +970,9 @@ function agrege(out){
   const wFam=poidsFamille(out.map(o=>o.id));
   out.forEach(o=>{ o.poids=wFam[o.id]!==undefined? wFam[o.id] : 0.5; o.divergent=false; });
 
-  const CLES=['t','res','ros','hum','pr','pr_conv','pp','neige','nu','nub','num','nuh','sol','ray',
-    'uv','vis','cbase','v','raf','dir','iso0','cape','pres','tlibre','vcrete','iso0calc','li'];
+  const CLES=['t','res','ressT','ros','hum','tw','pr','pr_conv','pp','neige','nu','nub','num','nuh',
+    'sol','ray','uv','vis','cbase','v','vterrain','raf','dir','iso0','cape','pres',
+    'tlibre','vcrete','iso0calc','li','tpi','speedup'];
 
   const S={};
   CLES.forEach(function(k){
@@ -2574,7 +2575,8 @@ async function exportMD(){
     log('Téléchargement impossible ('+e.message+'). Le texte est dans la zone SMS, à copier.');
     q('#smstexte').value=txt;
   }
-  b.disabled=false; b.textContent='Fichier Markdown pour analyse';
+  MODELE_ACTIF=_vue;
+  b.disabled=false; b.textContent='Export Markdown';
 }
 
 /* ================= LECTURE GRAND PUBLIC ================= */
