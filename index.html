@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v40 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v41 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -498,9 +498,8 @@ function extraitSuffixe(rep, isoCible, suffixe){
     sol:g('sunshine_duration'), ray:g('shortwave_radiation'), uv:g('uv_index'), vis:g('visibility'),
     v:g('wind_speed_10m'), raf:g('wind_gusts_10m'), dir:g('wind_direction_10m'),
     iso0:g('freezing_level_height'), cape:g('cape'), li:g('lifted_index'), pres:g('surface_pressure'),
-    t850:g('temperature_850hPa'), t750:g('temperature_750hPa'), t700:g('temperature_700hPa'),
-    z850:g('geopotential_height_850hPa'), z750:g('geopotential_height_750hPa'),
-    z700:g('geopotential_height_700hPa'),
+    /* seuls z750/z700/v750/v700 sont lus, par ventCrete() */
+    z750:g('geopotential_height_750hPa'), z700:g('geopotential_height_700hPa'),
     v750:g('wind_speed_750hPa'), v700:g('wind_speed_700hPa'),
     alt_demandee: rep.elevation};
   return (e.t===null&&e.nu===null&&e.pr===null)? null : e;
@@ -693,45 +692,6 @@ function ordreServiceParImportance(points){
 }
 
 /* ---------- interrogation Open-Meteo ---------- */
-/* le météogramme n'a pas besoin des 30 variables : les jalons en demandent 13,
-   ce qui allège le poids facturé par Open-Meteo d'environ 40 % */
-const VARS_JALONS = ["temperature_2m","apparent_temperature","precipitation",
-  "precipitation_probability","weather_code","cloud_cover","cloud_cover_low",
-  "cloud_cover_mid","cloud_cover_high","wind_speed_10m","wind_gusts_10m",
-  "wind_direction_10m","cape"];
-
-async function unModele(id, pois, vars){
-  const LOT=50;
-  const lots=[]; for(let i=0;i<pois.length;i+=LOT) lots.push(pois.slice(i,i+LOT));
-  const res = pois.map(()=>null);
-  for(const [n,lot] of lots.entries()){
-    const qp = new URLSearchParams();
-    qp.set('latitude', lot.map(x=>x.lat).join(','));
-    qp.set('longitude', lot.map(x=>x.lon).join(','));
-    qp.set('elevation', lot.map(x=>x.alt).join(','));
-    qp.set('hourly', (vars||VARS).join(','));
-    qp.set('models', id);
-    qp.set('timezone','Europe/Paris');
-    qp.set('start_date','2026-08-21');
-    qp.set('end_date','2026-08-23');
-    const u = 'https://api.open-meteo.com/v1/forecast?' + qp.toString();
-    let r=null;
-    const attentes=[5,12,25,40];
-    for(let essai=0; essai<=attentes.length; essai++){
-      await attendreQuota();
-      r = await fetch(u);
-      if(r.status!==429) break;
-      if(essai===attentes.length) break;
-      signalerQuota(attentes[essai]);
-    }
-    if(!r.ok) throw new Error(id+' HTTP '+r.status);
-    let j = await r.json();
-    if(!Array.isArray(j)) j=[j];
-    j.forEach((o,k)=>{ res[n*LOT+k]=o; });
-    await new Promise(z=>setTimeout(z,3500));   /* la limite est par minute, on étale */
-  }
-  return res;
-}
 
 function extrait(rep, isoCible){
   if(!rep||!rep.hourly) return null;
@@ -748,8 +708,8 @@ function extrait(rep, isoCible){
           sol:g('sunshine_duration'), ray:g('shortwave_radiation'), uv:g('uv_index'), vis:g('visibility'),
           v:g('wind_speed_10m'), raf:g('wind_gusts_10m'), dir:g('wind_direction_10m'),
           iso0:g('freezing_level_height'), cape:g('cape'), pres:g('surface_pressure'),
-          li:g('lifted_index'), t850:g('temperature_850hPa'), t750:g('temperature_750hPa'),
-          t700:g('temperature_700hPa'), z850:g('geopotential_height_850hPa'), z750:g('geopotential_height_750hPa'), z700:g('geopotential_height_700hPa'),
+          li:g('lifted_index'),
+          z750:g('geopotential_height_750hPa'), z700:g('geopotential_height_700hPa'),
           v750:g('wind_speed_750hPa'), v700:g('wind_speed_700hPa'),
           alt_demandee:rep.elevation};
 }
@@ -969,17 +929,38 @@ function signalerQuota(){}
 /* Les modeles ne changent de run que toutes les 3 a 6 h. Deux releves
    rapproches coutent deux fois le quota pour la meme donnee, et le quota
    gratuit Open-Meteo se compte en quelques releves par jour. */
-const DELAI_MIN_MS = 20*60*1000;
+/* Les mailles fines tournent aux heures UTC multiples de 3 et sont publi\u00e9es
+   avec environ 3 h 30 de retard. Tant que le dernier relev\u00e9 contient d\u00e9j\u00e0 le
+   dernier run publi\u00e9, un nouveau relev\u00e9 ret\u00e9l\u00e9chargerait la m\u00eame donn\u00e9e : il
+   ne peut rien apporter, et le quota gratuit se compte en quelques relev\u00e9s
+   par jour. On refuse alors, en annon\u00e7ant l'heure du prochain run. */
+const RUN_H = 3;
+const RUN_LAG_MS = 3.5*3600*1000;
+const PLANCHER_MS = 5*60*1000;      /* contre le double appui accidentel */
+function runPublie(maintenant){
+  const d=new Date(maintenant-RUN_LAG_MS);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(),
+                  Math.floor(d.getUTCHours()/RUN_H)*RUN_H);
+}
+function prochainRun(maintenant){
+  return runPublie(maintenant)+RUN_H*3600000+RUN_LAG_MS;
+}
 async function interroger(force){
   if(EN_COURS) return;
-  if(!force && TS_DONNEES && !HORS_LIGNE && (Date.now()-TS_DONNEES) < DELAI_MIN_MS){
-    const min=Math.round((Date.now()-TS_DONNEES)/60000);
-    const reste=Math.ceil((DELAI_MIN_MS-(Date.now()-TS_DONNEES))/60000);
-    log('Donn\u00e9es d\u2019il y a '+min+' min, conserv\u00e9es. Les mod\u00e8les ne changent '
-      + 'de run que toutes les 3 h et le quota gratuit est limit\u00e9 : '
-      + 'nouvelle interrogation possible dans '+reste+' min. '
-      + 'Double-clic sur le bouton pour forcer.');
-    rendreTout(); return;
+  if(!force && TS_DONNEES && !HORS_LIGNE){
+    const age=Date.now()-TS_DONNEES;
+    const dejaAJour = TS_DONNEES >= runPublie(Date.now());
+    /* au-del\u00e0 de PERIME_H on autorise toujours : le rafra\u00eechissement
+       automatique ne doit jamais \u00eatre bloqu\u00e9 */
+    if((dejaAJour && age < PERIME_H*3600000) || age < PLANCHER_MS){
+      const min=Math.round(age/60000);
+      const hh=new Date(prochainRun(Date.now()));
+      log('Donn\u00e9es d\u2019il y a '+min+' min, conserv\u00e9es : elles contiennent d\u00e9j\u00e0 '
+        + 'le dernier run publi\u00e9. Prochain run vers '
+        + hh.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})
+        + '. Double-clic sur le bouton pour forcer.');
+      rendreTout(); return;
+    }
   }
   const debut=Date.now();
   EN_COURS=true; majEtat(); q('#go').disabled=true;
@@ -1434,8 +1415,11 @@ const WY_MODELES = [
   ['iconEu',  'Windy ICON-EU',      5.0, 'DWD'],
   ['aladin',  'Windy ALADIN 2,3 km', 2.5, 'MF']
 ];
-const WY_PARAMS = ['temp','dewpoint','rh','precip','convPrecip','snowPrecip',
-                   'wind','windGust','cape','ptype','lclouds','mclouds','hclouds',
+/* On ne demande que ce qui est relu. `snowPrecip` et `ptype` ne l'etaient
+   jamais : la cle pluie exclut explicitement `snow`, et aucun
+   wyVal(o,'ptype-...') n'existe dans le fichier. */
+const WY_PARAMS = ['temp','dewpoint','rh','precip','convPrecip',
+                   'wind','windGust','cape','lclouds','mclouds','hclouds',
                    'pressure','cbase','gh'];
 const WY_NIVEAUX = ['surface','850h','800h','700h'];
 let WY_APPELS = 0;
@@ -1884,13 +1868,27 @@ async function ensembles(points, cible){
     if(!r.t.length) return;
     const s=r.t.slice().sort((a,b)=>a-b);
     const pct=q2=>s[Math.min(s.length-1, Math.max(0, Math.floor(q2*s.length)))];
+    /* Quantile sur une s\u00e9rie de membres quelconque. La pluie est asym\u00e9trique
+       et pleine de z\u00e9ros : une fourchette p25-p75 dit ce qu'un chiffre unique
+       cache, \u00e0 savoir qu'un quart des membres peut annoncer z\u00e9ro pendant
+       qu'un autre quart annonce beaucoup. Aucun appel r\u00e9seau : les membres
+       sont d\u00e9j\u00e0 t\u00e9l\u00e9charg\u00e9s. */
+    const quant=(arr,q2)=>{
+      if(!arr.length) return null;
+      const z=arr.slice().sort((a,b)=>a-b);
+      return z[Math.min(z.length-1, Math.max(0, Math.floor(q2*z.length)))];
+    };
+    const q1=v=>v===null? null : Math.round(v*10)/10;
+    const q0=v=>v===null? null : Math.round(v);
     out[nom]={
       membres:r.t.length, sources:r.src,
       t10:+pct(.1).toFixed(1), t50:+pct(.5).toFixed(1), t90:+pct(.9).toFixed(1),
       pluie02: r.pr.length? Math.round(100*r.pr.filter(v=>v>0.2).length/r.pr.length) : null,
       pluie1:  r.pr.length? Math.round(100*r.pr.filter(v=>v>1.0).length/r.pr.length) : null,
       pluie5:  r.pr.length? Math.round(100*r.pr.filter(v=>v>5.0).length/r.pr.length) : null,
-      raf50:   r.raf.length? Math.round(100*r.raf.filter(v=>v>50).length/r.raf.length) : null
+      raf50:   r.raf.length? Math.round(100*r.raf.filter(v=>v>50).length/r.raf.length) : null,
+      pr25:q1(quant(r.pr,.25)), pr50:q1(quant(r.pr,.50)), pr75:q1(quant(r.pr,.75)),
+      rafP50:q0(quant(r.raf,.50)), rafP90:q0(quant(r.raf,.90))
     };
   });
   return out;
@@ -1978,7 +1976,6 @@ function majEtat(){
   }
   el.innerHTML='<span class="pastille"></span><span>'+txt+'</span>'
     + '';
-  const b=q('#maj'); if(b) b.onclick=()=>interroger();
 }
 
 /* ================= MÉTÉOGRAMME ================= */
@@ -2765,13 +2762,17 @@ async function exportMD(){
     M.push('Membres perturbés d\'ECMWF ENS, GEFS, ICON-EU EPS et ARPEGE EPS, à l\'heure de '
       +'passage. À cette échéance, une probabilité vaut mieux qu\'une valeur déterministe.');
     M.push('');
-    M.push('| Point | Membres | Sources | T p10 | T p50 | T p90 | P(pluie>0,2mm) | P(>1mm) | P(>5mm) | P(rafales>50) |');
-    M.push('|---|--:|---|--:|--:|--:|--:|--:|--:|--:|');
+    M.push('| Point | Membres | Sources | T p10 | T p50 | T p90 | Pluie p25 | p50 | p75 '
+      +'| P(pluie>0,2mm) | P(>1mm) | P(>5mm) | Raf p50 | Raf p90 | P(rafales>50) |');
+    M.push('|---|--:|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|');
     POIS.forEach(function(p){
       const e=ENS[p.nom]; if(!e) return;
       const u=v=>(v===null||v===undefined)?'':v+' %';
+      const n=v=>(v===null||v===undefined)?'':String(v);
       M.push('| '+p.nom+' | '+e.membres+' | '+e.sources.join(', ')+' | '+e.t10+' | '+e.t50+' | '
-        +e.t90+' | '+u(e.pluie02)+' | '+u(e.pluie1)+' | '+u(e.pluie5)+' | '+u(e.raf50)+' |');
+        +e.t90+' | '+n(e.pr25)+' | '+n(e.pr50)+' | '+n(e.pr75)+' | '
+        +u(e.pluie02)+' | '+u(e.pluie1)+' | '+u(e.pluie5)+' | '
+        +n(e.rafP50)+' | '+n(e.rafP90)+' | '+u(e.raf50)+' |');
     });
     M.push('');
   }
@@ -3028,8 +3029,11 @@ function fiche(){
   const en=ENS[p.nom];
   if(en) h+='<div class="note" style="margin:4px 0 0;color:var(--froid)">ens. '+en.membres+'m \u00b7 '
     +'pluie '+(en.pluie02!==null?en.pluie02+'%':'?')
+    /* fourchette interquartile : ce qu'un chiffre unique cache */
+    +(en.pr75!==null? ' \u00b7 '+en.pr25+'\u2013'+en.pr75+' mm/h':'')
     +(en.pluie1!==null? ' (>1mm '+en.pluie1+'%)':'')
-    +(en.raf50!==null? ' \u00b7 raf>50 '+en.raf50+'%':'')
+    +(en.rafP90!==null? ' \u00b7 raf '+en.rafP50+'/'+en.rafP90:'')
+    +(en.raf50!==null? ' (>50 '+en.raf50+'%)':'')
     +' \u00b7 T '+en.t10+'\u2013'+en.t90+'\u00b0</div>';
 
   h+='<div class="gros">'

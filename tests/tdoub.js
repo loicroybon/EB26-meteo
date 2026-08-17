@@ -13,7 +13,10 @@ global.setInterval=()=>0;global.confirm=()=>true;global.navigator={};
 const h=fs.readFileSync('../index.html','utf8');
 const s=h.match(/<script>([\s\S]*)<\/script>/)[1];
 const o={};
-new Function('out', s+'\n;out.api={agrege,MODELES,DOUBLON,POIDS,famille,majSelecteurModele,'
+/* on retire le bloc d'amorçage en colonne 0 : sinon le relevé automatique
+   démarre et laisse des minuteries pendantes, et node ne rend jamais la main */
+const sNu = s.replace(/\n\(function\(\)\{[\s\S]*$/, '');
+new Function('out', sNu+'\n;out.api={agrege,MODELES,DOUBLON,POIDS,famille,majSelecteurModele,'
  +'set DATA(v){DATA=v},get DATA(){return DATA},POIS};')(o);
 const A=o.api;
 console.log('modèles restants :', A.MODELES.length);
