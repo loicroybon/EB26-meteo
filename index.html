@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v37 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v38 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -973,8 +973,12 @@ async function interroger(force){
   const dispo=[];
   let rendus=0;
 
-  const rendre=()=>{ try{ afficheDispo(dispo); majSelecteurModele(); majEtat(); dessine(); fiche();
-                          tableauTous(); resumeSegment(); majSMS(); }catch(e){} };
+  /* On delegue a rendreTout() : il couvre exactement les memes blocs, plus
+     heuresRender, heroRender et estimerGradient qui manquaient ici, et il
+     isole chaque bloc dans son propre try comme la v26 l'a etabli. Le
+     try/catch unique d'avant faisait qu'un seul bloc en echec emportait tous
+     les suivants. */
+  const rendre=()=>{ try{ afficheDispo(dispo); }catch(e){} rendreTout(); };
   const livrer=(etiquette, ids)=>{
     (ids||[]).forEach(id=>rafraichis[id]=1);
     if(!Object.keys(nD).length) return;
