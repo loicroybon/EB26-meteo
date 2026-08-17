@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v36 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v37 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -282,7 +282,8 @@ const MODELES = [
   ["ecmwf_aifs025_single","ECMWF AIFS (IA)",15],
   ["ukmo_global_deterministic_10km","UKMO Global 10 km",6.5],
   ["gfs_seamless","GFS (NOAA)",16],
-  ["metno_seamless","MET Norway",9.5]
+  ["metno_seamless","MET Norway",9.5],
+  ["metno_direct","MET Norway direct",9.5]
 ];
 const VARS = ["temperature_2m","apparent_temperature","dew_point_2m","relative_humidity_2m",
               "precipitation","precipitation_probability","snowfall","weather_code",
@@ -428,6 +429,7 @@ function ordonnanceur(nomServeur, concurrenceMax){
 const ORD_OM = ordonnanceur('open-meteo', 4);
 const ORD_MB = ordonnanceur('meteoblue', 6);
 const ORD_WY = ordonnanceur('windy', 5);
+const ORD_MN = ordonnanceur('met.no', 4);
 
 let N429 = 0;   /* refus pour depassement de quota sur le releve en cours */
 async function appel(ord, url, options){
@@ -501,6 +503,162 @@ function extraitSuffixe(rep, isoCible, suffixe){
     z700:g('geopotential_height_700hPa'),
     v750:g('wind_speed_750hPa'), v700:g('wind_speed_700hPa'),
     alt_demandee: rep.elevation};
+  return (e.t===null&&e.nu===null&&e.pr===null)? null : e;
+}
+
+/* ================= MET NORWAY (api.met.no) =================
+   Source libre, sans cle ni quota, CORS ouvert, et surtout : elle prend
+   l'altitude en parametre et la respecte. C'est le filet de securite quand
+   le quota Open-Meteo est epuise.
+   Deux pieges traites ici :
+   - wind_speed est en m/s, pas en km/h ;
+   - precipitation_amount est un CUMUL sur la periode annoncee (1 h ou 6 h),
+     il faut le ramener en mm/h pour rester homogene avec le reste. */
+const MN_ID  = 'metno_direct';
+const MN_NOM = 'MET Norway direct';
+const MN_URL = 'https://api.met.no/weatherapi/locationforecast/2.0/complete';
+
+/* Temperature apparente australienne, formule sur laquelle Open-Meteo assoit
+   son `apparent_temperature`. On l'emploie pour MET Norway, qui donne T,
+   humidite et vent mais pas de ressenti : sans elle, la physique de terrain
+   et le modele de tenue n'auraient rien a se mettre sous la dent quand
+   MET Norway est la seule source joignable. v en m/s. */
+function ressentiAT(t, hr, vms){
+  if(t===null||t===undefined||!isFinite(t)) return null;
+  const h=(hr===null||hr===undefined||!isFinite(hr))? 70 : hr;
+  const v=(vms===null||vms===undefined||!isFinite(vms))? 0 : vms;
+  const e=(h/100)*6.105*Math.exp(17.27*t/(237.7+t));
+  return t + 0.33*e - 0.70*v - 4.00;
+}
+
+/* symbol_code de met.no vers code WMO, pour les pictogrammes */
+function mnCode(sym){
+  if(!sym) return null;
+  const s=String(sym).split('_')[0];
+  if(s.indexOf('thunder')>=0) return 95;
+  if(s.indexOf('sleet')>=0)   return s.indexOf('heavy')>=0? 67 : 66;
+  if(s.indexOf('snow')>=0)    return s.indexOf('heavy')>=0? 75 : (s.indexOf('light')>=0? 71 : 73);
+  if(s.indexOf('rain')>=0)    return s.indexOf('heavy')>=0? 65 : (s.indexOf('light')>=0? 61 : 63);
+  if(s==='fog')               return 45;
+  if(s==='cloudy')            return 3;
+  if(s==='partlycloudy')      return 2;
+  if(s==='fair')              return 1;
+  if(s==='clearsky')          return 0;
+  return null;
+}
+
+async function mnBrut1(p){
+  /* met.no demande de tronquer les coordonnees : ca evite de casser son cache */
+  const q=new URLSearchParams();
+  q.set('lat', (+p.lat).toFixed(4));
+  q.set('lon', (+p.lon).toFixed(4));
+  q.set('altitude', String(Math.round(p.alt)));
+  const r=await appel(ORD_MN, MN_URL+'?'+q.toString());
+  if(!r||!r.ok) return null;
+  try{
+    const o=await r.json();
+    const ts=o&&o.properties&&o.properties.timeseries;
+    return (ts&&ts.length)? ts : null;
+  }catch(e){ return null; }
+}
+
+async function mnBrut(points, avance){
+  const out=new Array(points.length).fill(null);
+  let i=0, faits=0;
+  const FILE=4;
+  async function ouvrier(){
+    while(i<points.length){
+      const k=i++;
+      out[k]=await mnBrut1(points[k]);
+      faits++; if(avance) avance(faits, points.length);
+    }
+  }
+  await Promise.all(Array.from({length:FILE}, ouvrier));
+  return out;
+}
+
+/* A J-4 la serie est en pas de 6 h : prendre le pas le plus proche
+   introduirait jusqu'a 3 h d'erreur sur des grandeurs a fort cycle diurne.
+   On interpole donc lineairement entre les deux pas qui encadrent l'heure
+   visee. La pluie, elle, se lit sur la periode qui contient l'heure visee. */
+function mnExtrait(ts, iso, p){
+  if(!ts||!ts.length) return null;
+  const vise=new Date(iso).getTime();
+  const t=ts.map(x=>new Date(x.time).getTime());
+  if(vise<t[0]-1.6*3.6e6 || vise>t[t.length-1]+1.6*3.6e6) return null;
+
+  let a=-1;
+  for(let i=0;i<t.length-1;i++){ if(t[i]<=vise && vise<=t[i+1]){ a=i; break; } }
+  let det=null, frac=0, ia=a;
+  if(a<0){
+    /* hors encadrement : on se rabat sur le pas le plus proche */
+    let dt=1e15;
+    for(let i=0;i<t.length;i++){ const d=Math.abs(t[i]-vise); if(d<dt){dt=d;ia=i;} }
+    if(dt>1.6*3.6e6) return null;
+    det=ts[ia].data.instant.details||{};
+  } else {
+    frac=(t[a+1]-t[a])>0? (vise-t[a])/(t[a+1]-t[a]) : 0;
+    const d1=ts[a].data.instant.details||{}, d2=ts[a+1].data.instant.details||{};
+    det={};
+    Object.keys(d1).forEach(function(k){
+      const v1=d1[k], v2=d2[k];
+      if(typeof v1!=='number'){ det[k]=v1; return; }
+      if(typeof v2!=='number'){ det[k]=v1; return; }
+      if(k==='wind_from_direction'){
+        /* moyenne angulaire : 350 et 10 donnent 0, pas 180 */
+        const r=Math.PI/180;
+        const x=(1-frac)*Math.cos(v1*r)+frac*Math.cos(v2*r);
+        const y=(1-frac)*Math.sin(v1*r)+frac*Math.sin(v2*r);
+        let ang=Math.atan2(y,x)/r; if(ang<0) ang+=360;
+        det[k]=ang; return;
+      }
+      det[k]=v1+(v2-v1)*frac;
+    });
+    ia=a;
+  }
+
+  /* Pluie : il faut la periode qui COMMENCE a l'heure visee ou juste avant,
+     donc le dernier pas situe a ou avant `vise`. La recherche d'encadrement
+     ci-dessus ne convient pas : quand `vise` tombe pile sur un pas, elle
+     retient l'intervalle precedent et on lisait la periode qui se termine
+     la, pas celle qui commence. Ecart mesure a Belledonne : 2,8 mm/6h au
+     lieu de 11,1. Ramenee en mm/h pour rester homogene. */
+  let ib=0;
+  for(let i=0;i<t.length;i++){ if(t[i]<=vise) ib=i; else break; }
+  if(a<0) ib=ia;
+  let pr=null, sym=null;
+  const bloc=ts[ib].data||{};
+  if(bloc.next_1_hours){
+    const d=bloc.next_1_hours.details||{};
+    if(typeof d.precipitation_amount==='number') pr=d.precipitation_amount;
+    sym=(bloc.next_1_hours.summary||{}).symbol_code||null;
+  } else if(bloc.next_6_hours){
+    const d=bloc.next_6_hours.details||{};
+    if(typeof d.precipitation_amount==='number') pr=d.precipitation_amount/6;
+    sym=(bloc.next_6_hours.summary||{}).symbol_code||null;
+  }
+
+  const r1=x=>(x===null||x===undefined||!isFinite(x))? null : Math.round(x*10)/10;
+  const r0=x=>(x===null||x===undefined||!isFinite(x))? null : Math.round(x);
+  const num=k=>(typeof det[k]==='number')? det[k] : null;
+
+  const vKmh = num('wind_speed')===null? null : num('wind_speed')*3.6;
+  const e={
+    t:r1(num('air_temperature')),
+    res:r1(ressentiAT(num('air_temperature'), num('relative_humidity'), num('wind_speed'))),
+    ros:r1(num('dew_point_temperature')), hum:r0(num('relative_humidity')),
+    pr:r1(pr), pp:null, neige:null, code:mnCode(sym),
+    nu:r0(num('cloud_area_fraction')), nub:r0(num('cloud_area_fraction_low')),
+    num_:r0(num('cloud_area_fraction_medium')), nuh:r0(num('cloud_area_fraction_high')),
+    sol:null, ray:null, uv:r1(num('ultraviolet_index_clear_sky')), vis:null,
+    v:r1(vKmh), raf:null, dir:r0(num('wind_from_direction')),
+    iso0:null, cape:null, li:null, pres:r1(num('air_pressure_at_sea_level')),
+    /* met.no rend la valeur a l'altitude demandee : aucune correction a faire */
+    alt_demandee:p.alt, corrige_alt:false
+  };
+  /* la cle attendue par le moteur est `num`, que l'on ne peut pas nommer
+     directement au-dessus sans masquer la fonction locale */
+  e.num=e.num_; delete e.num_;
   return (e.t===null&&e.nu===null&&e.pr===null)? null : e;
 }
 
@@ -833,7 +991,7 @@ async function interroger(force){
   const tacheOM = (async()=>{
     const utiles=[];
     for(const [id,nom,portee] of MODELES){
-      if(id===MB_ID) continue;
+      if(id===MB_ID || id===MN_ID) continue;
       if(portee < jours){ REPORTES.push([nom, portee, id]); continue; }
       utiles.push([id,nom]);
     }
@@ -900,6 +1058,22 @@ async function interroger(force){
     }catch(e){ ECHECS.push(MB_NOM+' — '+e.message); }
   })();
 
+  /* ---- MET Norway : libre et sans quota, donc toujours interroge ---- */
+  const tacheMN = (async()=>{
+    try{
+      const raw = await mnBrut(POIS, (f,n)=>{ if(f%16===0) log('met.no '+f+'/'+n); });
+      const pts = POIS.map((p,i)=> raw[i]? mnExtrait(raw[i], p.t[SCENARIO], p) : null);
+      const c = pts.filter(e=>e&&e.t!==null&&e.t!==undefined).length;
+      if(c>0){
+        const d={nom:MN_NOM, pts:{[SCENARIO]:pts},
+                 serie:(i,iso)=> raw[i]? mnExtrait(raw[i], iso, POIS[i]) : null};
+        nD[MN_ID]=d; nJ[MN_ID]=d;
+        livrer('met.no', [MN_ID]);
+      }
+      dispo.push([MN_NOM, c, POIS.length]);
+    }catch(e){ ECHECS.push(MN_NOM+' \u2014 '+e.message); }
+  })();
+
   /* ---- Windy : modèles à portée, en parallèle entre eux ---- */
   const tacheWY = (async()=>{
     const utiles=WY_MODELES.filter(m=>{
@@ -921,7 +1095,7 @@ async function interroger(force){
 
   /* ---- sonde des identifiants hors de portée, notamment les suisses ---- */
   const tacheSONDE = (async()=>{
-    const dehors = MODELES.filter(m=>m[0]!==MB_ID && m[2] < jours).map(m=>m[0]);
+    const dehors = MODELES.filter(m=>m[0]!==MB_ID && m[0]!==MN_ID && m[2] < jours).map(m=>m[0]);
     try{ await sonderIdentifiants(dehors); }catch(e){}
   })();
 
@@ -934,7 +1108,7 @@ async function interroger(force){
     }catch(e){}
   })();
 
-  await Promise.all([tacheOM, tacheMB, tacheWY, tacheENS, tacheSONDE]);
+  await Promise.all([tacheOM, tacheMB, tacheMN, tacheWY, tacheENS, tacheSONDE]);
 
   /* un modèle sorti de portée ne doit pas survivre indéfiniment dans l'affichage */
   REPORTES.forEach(r=>{ const id=r[2]; if(id&&!rafraichis[id]){ delete nD[id]; delete nJ[id]; } });
@@ -1515,6 +1689,7 @@ const POIDS = {
   ecmwf_ifs025:                   [1.00,'ECMWF','meilleur global'],
   ecmwf_aifs025_single:           [0.70,'ECMWF','IA, même analyse qu\'IFS'],
   metno_seamless:                 [0.55,'ECMWF','post-traitement d\'ECMWF'],
+  metno_direct:                   [0.55,'ECMWF','post-traitement d\'ECMWF, source libre sans quota'],
   ukmo_global_deterministic_10km: [0.70,'UKMO', 'global solide'],
   gfs_seamless:                   [0.60,'NOAA', 'faible sur le relief alpin'],
   gfs_graphcast025:               [0.50,'NOAA', 'IA, même analyse que GFS'],
@@ -1526,6 +1701,7 @@ const POIDS = {
    gonfler le consensus. On le garde uniquement pour ce qu'il apporte seul. */
 const DOUBLON = {
   metno_seamless:       {parent:'ecmwf_ifs025',    garde:[]},
+  metno_direct:         {parent:'ecmwf_ifs025',    garde:[]},
   dwd_icon_global:      {parent:'dwd_icon_eu',     garde:[]},
   windy_iconEu:         {parent:'dwd_icon_eu',     garde:['pr_conv','cbase']},
   windy_iconD2:         {parent:'dwd_icon_d2',     garde:['pr_conv','cbase']},
