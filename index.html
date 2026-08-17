@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v32 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v33 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -965,12 +965,17 @@ function agrege(out){
   out.forEach(function(o){
     const d=DOUBLON[o.id];
     o.doublon = (d && presents[d.parent])? (d.garde||[]) : null;
+    /* L'API Windy renvoie la valeur à l'altitude de la maille du modèle,
+       sans descente d'échelle. Au Lac du Cos, 2195 m, elle donne 18,8 °C
+       quand le même ICON-EU corrigé en donne 8,9. Windy ne vote donc que
+       sur les deux variables qu'il est seul à fournir. */
+    if(o.id && o.id.indexOf('windy_')===0) o.doublon=['pr_conv'];
   });
   const ids=out.filter(o=>!o.doublon||o.doublon.length).map(o=>o.id);
   const wFam=poidsFamille(out.map(o=>o.id));
   out.forEach(o=>{ o.poids=wFam[o.id]!==undefined? wFam[o.id] : 0.5; o.divergent=false; });
 
-  const CLES=['t','res','ressT','ros','hum','tw','pr','pr_conv','pp','neige','nu','nub','num','nuh',
+  const CLES=['t','res','ressT','ros','hum','tw','pr','pr_moy','pr_conv','pp','neige','nu','nub','num','nuh',
     'sol','ray','uv','vis','cbase','v','vterrain','raf','dir','iso0','cape','pres',
     'tlibre','vcrete','iso0calc','li','tpi','speedup'];
 
@@ -994,6 +999,19 @@ function agrege(out){
            n:bruts.length,
            brut: bruts.slice().sort((a,b)=>a-b)[Math.floor(bruts.length/2)] };
   });
+
+  /* Pour la pluie, la médiane pondérée sous-estime : la variable est
+     asymétrique et pleine de zéros. On expose aussi la moyenne pondérée,
+     qui est la bonne statistique pour un cumul attendu. */
+  (function(){
+    let sw=0, sv=0, n=0;
+    out.forEach(function(o){
+      if(o.doublon) return;
+      if(o.pr===null||o.pr===undefined) return;
+      sw+=o.poids; sv+=o.poids*o.pr; n++;
+    });
+    S.pr_moy = n? {m:Math.round(sv/sw*100)/100, lo:null, hi:null, n:n} : null;
+  })();
 
   const codes=out.filter(o=>!o.doublon).map(o=>[o.code, o.poids])
     .filter(c=>c[0]!==null&&c[0]!==undefined);
@@ -2040,7 +2058,8 @@ function resumeSegment(){
   for(let hh=bornes[0];hh<=bornes[1];hh++){ const jj=sondeJalon(hh); if(!jj) continue;
     if(jj.t&&jj.t.m!==null) T.push(jj.t.m);
     if(jj.res&&jj.res.m!==null) RES.push(jj.res.m);
-    if(jj.pr&&jj.pr.m!==null) P.push(jj.pr.m);
+    if(jj.pr_moy&&jj.pr_moy.m!==null) P.push(jj.pr_moy.m);
+    else if(jj.pr&&jj.pr.m!==null) P.push(jj.pr.m);
     if(jj.pp&&jj.pp.m!==null) PP.push(jj.pp.m);
     if(jj.raf&&jj.raf.m!==null) R.push(jj.raf.m);
     if(jj.nu&&jj.nu.m!==null) N.push(jj.nu.m);
@@ -2227,7 +2246,7 @@ const COLS = [
   ['v','Vent km/h',0],['raf','Raf km/h',0],['dir','Dir °',0],
   ['vis','Visi m',0],['iso0','Iso0 m',0],['iso0calc','Iso0 calculé m',0],
   ['cape','CAPE',0],['li','LI',1],['uv','UV',1],['pres','P hPa',0],
-  ['ressT','Ressenti terrain °C',1],['tw','T humide °C',1],['tpi','Position topo m',0],
+  ['pr_moy','Pluie moyenne mm/h',2],['ressT','Ressenti terrain °C',1],['tw','T humide °C',1],['tpi','Position topo m',0],
   ['vterrain','Vent du lieu km/h',0],['speedup','Facteur relief',2],
   ['tlibre','T air libre °C',1],['vcrete','Vent crête km/h',0],['ecart_relief','Écart relief m',0]
 ];
