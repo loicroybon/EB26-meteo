@@ -1,0 +1,70 @@
+name: Relevé partagé
+
+# Un seul relevé pour tous les appareils, au lieu d'un par appareil et par visite.
+# C'est ce qui borne la consommation de quota : elle ne dépend plus du nombre de
+# consultations. Les clés restent dans les variables de dépôt, jamais dans un
+# appel fait depuis un téléphone.
+on:
+  schedule:
+    # Les mailles fines changent de run toutes les 3 h et sont publiées avec
+    # environ 3 h 30 de retard. On se place juste après chaque publication.
+    - cron: '35 2,5,8,11,14,17,20,23 * * *'
+  workflow_dispatch:            # déclenchement manuel depuis l'onglet Actions
+
+permissions:
+  contents: write               # nécessaire pour committer data/dernier.json
+
+concurrency:
+  group: releve
+  cancel-in-progress: false     # deux relevés qui se chevauchent produiraient un conflit
+
+jobs:
+  releve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Surchargent config.js pendant le relevé. Voir .env.example.
+      EB26_METEOBLUE_CLES: ${{ vars.EB26_METEOBLUE_CLES }}
+      EB26_WINDY_CLES: ${{ vars.EB26_WINDY_CLES }}
+      EB26_METEOFRANCE_CLES: ${{ vars.EB26_METEOFRANCE_CLES }}
+      EB26_OPENMETEO_CLES: ${{ vars.EB26_OPENMETEO_CLES }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Installer Selenium
+        run: pip install --quiet selenium
+
+      - name: Vérifier que Chrome est présent
+        run: google-chrome --version
+
+      - name: Relevé sur la page déployée
+        run: python scripts/releve.py "https://loicroybon.github.io/EB26-meteo/" data/dernier.json
+
+      - name: Contrôler le paquet produit
+        run: |
+          python - <<'PY'
+          import json, sys
+          with open('data/dernier.json', encoding='utf-8') as f:
+              p = json.load(f)
+          m = p.get('modeles') or {}
+          assert m, "paquet sans modèle : on ne publie pas"
+          assert p.get('ts'), "paquet sans horodatage"
+          print(f"{len(m)} modèle(s), {len(p.get('jalons') or [])} jalons")
+          PY
+
+      - name: Publier si le relevé a abouti
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/dernier.json
+          if git diff --cached --quiet; then
+            echo "Relevé identique au précédent, rien à publier."
+          else
+            git commit -m "data: relevé partagé $(date -u +'%Y-%m-%dT%H:%MZ')"
+            git push
+          fi
