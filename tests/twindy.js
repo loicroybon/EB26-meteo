@@ -20,7 +20,8 @@ global.fetch=async(url,opt)=>({ok:true,status:200,json:async()=>({
 const h=fs.readFileSync('../index.html','utf8');
 const o={};
 new Function('out', h.match(/<script>([\s\S]*)<\/script>/)[1]
- +';out.api={windyPoint,POIS,estimerGradient,get G(){return GRAD_LOCAL},set G(v){GRAD_LOCAL=v}};')(o);
+ +';WY_ACTIF=true;'
+  +';out.api={windyPoint,POIS,estimerGradient,get G(){return GRAD_LOCAL},set G(v){GRAD_LOCAL=v}};')(o);
 (async()=>{
   const p=o.api.POIS.find(x=>x.nom==='Lac du Cos');
   console.log('point :', p.nom, p.alt,'m  |  maille Windy simulée : 1180 m');

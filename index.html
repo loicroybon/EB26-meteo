@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v50 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v51 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -1531,6 +1531,20 @@ async function meteoblueBrut(points, avance){
      (le signal orageux propre) et base des nuages (serai-je dans la purée ?).
    Le regroupement par famille évite qu'AROME compte deux fois. */
 /* la cle Windy en service se relit a chaque appel : voir cleSuivante() */
+/* ---- Windy desactive ----
+   Decision assumee, appuyee sur la mesure du 17/08 : le niveau gratuit de Windy
+   est la "testing API". Ses reponses portent l'avertissement "This data is
+   randomly shuffled and slightly modified", et deux cles differentes rendent
+   17,1 et 17,9 C pour le meme point au meme instant. Aucune offre payante ne
+   sera prise, donc ces valeurs resteront volontairement alterees : les verser
+   dans le consensus ajouterait du bruit, et les telecharger coute 52 requetes
+   par modele pour rien.
+   Ce qu'on perd : pr_conv et cbase, les deux variables propres a Windy.
+   Ce qui les remplace, mieux : `cape` pour le signal orageux, deja utilise, et
+   la nebulosite par niveau de pression d'Open-Meteo pour la base des nuages,
+   qui donne une coupe verticale complete au lieu d'un plafond unique.
+   Repasser a true suffit si une vraie cle arrive un jour. */
+let WY_ACTIF = false;   /* modifiable : les harnais le passent a true pour tester la logique */
 let WY_TEST = null;   /* renseigne si l'API repond en mode test (donnees melangees) */
 const WY_URL = 'https://api.windy.com/api/point-forecast/v2';
 const WY_MODELES = [
@@ -1562,6 +1576,7 @@ function wyVent(o, niv, i){
 }
 
 async function windyPoint(p, iso, modele){
+  if(!WY_ACTIF) return null;   /* voir WY_ACTIF ci-dessus */
   const corps={ lat:+p.lat.toFixed(2), lon:+p.lon.toFixed(2), model:modele,
                 parameters:WY_PARAMS, levels:WY_NIVEAUX, key:cleDe('windy') };
   let o=null;
