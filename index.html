@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v105 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v106 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -3161,13 +3161,19 @@ function dessine(){
           const alts = tr.map(c=>c.base).sort((a,b)=>a-b);
           const mid = alts.length%2? alts[(alts.length-1)/2]
                                    : (alts[alts.length/2-1]+alts[alts.length/2])/2;
-          /* On se pose a l'heure ou le RELIEF est le plus bas du palier, et SOUS
-             le trait : les noms de sommets occupent l'air au-dessus des cretes,
-             l'air libre au-dessus d'un fond de vallee est le seul endroit sur. */
-          let creux = tr[0], creuxAlt = Infinity;
+          /* On se pose ou l'AIR LIBRE est le plus haut entre le plafond et la
+             crete, et sous le trait. Choisir le relief le plus bas semblait
+             prudent mais ne l'est pas : ce qui compte n'est pas l'altitude du
+             sol, c'est la place que les noms de sommets viennent occuper par le
+             bas. Un fond de vallee sous un plafond bas offre moins d'espace
+             qu'une crete moyenne sous un plafond haut - c'est ce qui faisait
+             chevaucher "Perioule", a quatre pixels pres. */
+          let creux = tr[0], meilleurEcart = -Infinity;
           for(let k=meilleur[0]; k<meilleur[1]; k++){
             const J = JALONS[h0+k];
-            if(dk[k] && J && (J.alt||0) < creuxAlt){ creuxAlt = J.alt||0; creux = dk[k]; }
+            if(!dk[k] || !J) continue;
+            const ecart = yAlt(J.alt||0) - yAlt(dk[k].base);   /* px d'air libre */
+            if(ecart > meilleurEcart){ meilleurEcart = ecart; creux = dk[k]; }
           }
           const ty = yAlt(mid) + 13;
           S.push('<text x="'+creux.x.toFixed(1)+'" y="'+ty.toFixed(1)+'" fill="'+PAL.plafond
