@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v87 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v95 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -2624,6 +2624,30 @@ const yNu=L.ciel, yPro=yNu+L.nuages, yPl=yPro+L.profil, yVe=yPl+L.pluie, yAx=yVe
 const ALT_MAX = 3200;
 const yAlt = a => yPro+8+(1-a/ALT_MAX)*(L.profil-20);
 const ALTS = [500,1000,1500,2000,2500,3000];
+/* Definition OMM des etages nuageux. L'echelle s'arretant a 3200 m, l'etage
+   moyen n'est visible que sur sa tranche basse et l'etage haut est hors cadre. */
+const ETAGE_MOY = 2000, ETAGE_HAUT = 6000;
+
+/* ---- Ou est la base du nuage, et le coureur est-il dedans ? ----
+   Espy donne le niveau de condensation d'une parcelle soulevee depuis le sol :
+   juste pour un cumulus, faux pour la pluie stratiforme d'un front, ou la couche
+   est saturee bien plus bas. Et son terme etant toujours positif, une base SOUS
+   le coureur y est inexprimable - alors que les modeles la placent entre 100 et
+   800 m sur cette situation. On detecte donc l'etat sature separement. */
+function airSature(nu, t, ros, nub, pr){
+  /* il pleut et la couche basse est couvrante */
+  if(pr!==null && pr>=0.2 && nub!==null && nub>=50) return true;
+  /* le ciel est bouche et l'air est a saturation */
+  if(nu!==null && nu>=95 && t!==null && ros!==null && (t-ros)<=1.5) return true;
+  return false;
+}
+/* Base du nuage, en metres au-dessus du niveau de la mer. */
+function baseNuage(sol, t, ros, nu, nub, pr, brouillard){
+  let b = (t!==null && ros!==null)? sol + 125*Math.max(0, t-ros) : sol + 300;
+  if(airSature(nu, t, ros, nub, pr)) b = sol - 150 - 350*((nub===null? 60 : nub)/100);
+  if(brouillard) b = sol;                       /* colle au relief */
+  return Math.max(0, Math.min(b, ALT_MAX-120));
+}
 /* geometrie de la bande de pluie, partagee : la gouttiere doit pouvoir
    placer les graduations exactement a la hauteur des lignes tracees. */
 const yPlBase = yPl+L.pluie-10, hPlMax = L.pluie-16;
@@ -2778,7 +2802,54 @@ function dessine(){
      Toujours aucune donnee nouvelle et aucun cout de quota. Dessine avant le
      relief : le terrain repeint par-dessus, la teinte ne subsiste que dans l'air. */
   S.push('<defs><filter id="flouNu" x="-12%" y="-40%" width="124%" height="180%">'
-    +'<feGaussianBlur stdDeviation="4.5"/></filter></defs>');
+    +'<feGaussianBlur stdDeviation="4.5"/></filter>'
+    +'<filter id="flouEt" x="-6%" y="-30%" width="112%" height="160%">'
+    +'<feGaussianBlur stdDeviation="6"/></filter></defs>');
+
+  /* ---- Etages moyen et haut ----
+     La base dit si l'on est mouille, le sommet dit si l'on peut percer. Sans
+     l'etage moyen, impossible de distinguer une mer de nuages - basse et
+     couvrante, degagee au-dessus - d'un ciel bouche sur toute son epaisseur.
+     nub, num et nuh sont releves a chaque point et n'etaient plus utilises
+     depuis le retrait de la bande a trois rangees ; on les redessine ici a leur
+     altitude, ce qui etait justement le reproche fait a cette bande. */
+  (function(){
+    const ET = (PAL.jour==='clair')
+      ? { moy:['#FFFFFF','#9AA9BE', .55], haut:['#FFFFFF','#B4C0D0', .40] }
+      : { moy:['#EDF3FB','#7686A0', .40], haut:['#E6EDF7','#68788F', .30] };
+    const yTop = yAlt(ALT_MAX), yMoy = yAlt(ETAGE_MOY);
+    let dm = '', nMoy = 0, nHaut = 0;
+    for(let hh=h0; hh<h1; hh++){
+      const s0 = j(hh); if(!s0) continue;
+      const g = k => (s0[k] && s0[k].m!==null && s0[k].m!==undefined)? s0[k].m : null;
+      const num = g('num'), nuh = g('nuh');
+      const x0 = x(hh), x1 = x(hh+1);
+      if(num!==null && num >= 15){
+        nMoy++;
+        S.push('<rect x="'+x0.toFixed(1)+'" y="'+yTop.toFixed(1)+'" width="'+(x1-x0).toFixed(1)
+          +'" height="'+(yMoy-yTop).toFixed(1)+'" fill="'+ET.moy[1]+'" opacity="'
+          +(ET.moy[2]*Math.min(1, num/100)).toFixed(3)+'" filter="url(#flouEt)"/>');
+      }
+      /* L'etage haut est hors cadre - au-dela de 6000 m. Un voile en lisiere
+         superieure dit qu'il y a du cirrus sans pretendre le situer. */
+      if(nuh!==null && nuh >= 20){
+        nHaut++;
+        S.push('<rect x="'+x0.toFixed(1)+'" y="'+(yTop-7).toFixed(1)+'" width="'+(x1-x0).toFixed(1)
+          +'" height="7" fill="'+ET.haut[1]+'" opacity="'
+          +(ET.haut[2]*Math.min(1, nuh/100)).toFixed(3)+'"/>');
+      }
+    }
+    /* Reperes d'etage, une seule fois, discrets : sans eux la bande moyenne est
+       une teinte sans signification. */
+    if(nMoy){
+      S.push('<line x1="'+GUT+'" y1="'+yMoy.toFixed(1)+'" x2="'+(W-8)+'" y2="'+yMoy.toFixed(1)
+        +'" stroke="'+PAL.grille+'" stroke-width="1" stroke-dasharray="1 5" opacity=".5"/>');
+      S.push('<text x="'+(W-14)+'" y="'+(yMoy-4).toFixed(1)+'" fill="'+PAL.libelle
+        +'" font-size="8.5" text-anchor="end" font-family="sans-serif"'
+        +' paint-order="stroke" stroke="'+PAL.fond+'" stroke-width="2.4">'
+        +'\u00e9tage moyen \u2014 2000 m et au-dessus</text>');
+    }
+  })();
   /* les colonnes servent deux fois : au dessin du nuage, puis au surlignage de
      la trace. On les expose donc au lieu de les enfermer. */
   let COL = null;
@@ -2797,6 +2868,7 @@ function dessine(){
       const code = (s0.code===null || s0.code===undefined)? null : +s0.code;
       const nu = g('nu'), t = g('t'), ros = g('ros');
       const cape = g('cape'), vis = g('vis');
+      const nub = g('nub'), pr = g('pr');
       const brouillard = (code===45 || code===48 || (vis!==null && vis < 900));
       /* Le brouillard se dessine meme si la couverture totale est faible : c'est
          un nuage au sol, et la variable de couverture ne le voit pas. */
@@ -2804,10 +2876,11 @@ function dessine(){
       /* nebulosite de travail : le brouillard est dense par nature */
       const nuE = (nu===null)? 90 : nu;
       const sol = J0.alt || 0;
-      /* base d'Espy, bornee : jamais sous le sol, jamais au-dela de l'echelle */
-      let base = (t!==null && ros!==null)? sol + 125*Math.max(0, t-ros) : sol + 300;
-      if(brouillard) base = sol;                      /* colle au relief */
-      base = Math.max(0, Math.min(base, ALT_MAX-120));
+      /* voir airSature() et baseNuage() : la regle est nommee pour etre testable,
+         et pour que la fiche et le SMS lisent la meme plutot que d'en inventer
+         une autre. */
+      const sature = airSature(nu, t, ros, nub, pr);
+      let base = baseNuage(sol, t, ros, nu, nub, pr, brouillard);
       /* Seuil de CAPE abaisse a 300 : sur ce parcours de montagne le maximum
          mesure est de 380, un seuil a 800 ne se declenchait donc jamais. Le
          code d'orage, desormais lisible, reste le signal principal. */
@@ -2822,8 +2895,21 @@ function dessine(){
       const ep = convectif  ? 900 + 2300*(nuE/100)
                : brouillard ? 140 +  520*(nuE/100)
                             : 320 + 1000*(nuE/100);
-      const haut = Math.min(ALT_MAX, base + ep);
-      col.push({x:x(hh), base:base, haut:haut, nu:nuE,
+      let haut = Math.min(ALT_MAX, base + ep);
+      /* Un coureur ne peut pas etre a la fois dans le nuage et au-dessus de son
+         sommet. Quand l'air est sature, la couche l'englobe : son sommet passe
+         au moins 600 m au-dessus de lui. Sans cela, entre Vizille et Arselle, le
+         dessin annoncait "dans la nuee" avec un sommet 200 m sous la crete. */
+      if(sature) haut = Math.min(ALT_MAX, Math.max(haut, sol + 600));
+      /* Base de DESSIN, distincte de la base de donnee. Depuis que la base peut
+         passer sous le coureur, la moitie dense du degrade se peignait derriere
+         la montagne : il ne restait au-dessus de la crete que la partie
+         transparente, et le ciel paraissait degage la ou l'on est dans la nuee.
+         On borne donc le trace a 250 m sous le relief. Le surlignage et le trait
+         de plafond continuent de lire la vraie base. */
+      const baseDessin = Math.max(base, sol - 250);
+      col.push({x:x(hh), base:base, haut:haut, sol:sol, bd:baseDessin, nu:nuE,
+                num:g('num'), sature:!!sature,
                 regime: brouillard? 'brouillard' : (convectif? 'convectif' : 'normal')});
     }
     /* ---- Plafond regional ----
@@ -2838,10 +2924,12 @@ function dessine(){
       const FEN = 2;                       /* +/- 2 h, soit cinq heures */
       const brut = col.map(c => c? c.base : null);
       col.forEach(function(c, k){
-        if(!c || c.regime==='brouillard') return;
+        /* Le brouillard colle au sol et l'etat sature est un fait constate, pas
+           l'estimation d'un plafond regional : ni l'un ni l'autre ne se lisse. */
+        if(!c || c.regime==='brouillard' || c.sature) return;
         const v = [];
         for(let i=k-FEN;i<=k+FEN;i++) if(brut[i]!==null && brut[i]!==undefined
-            && col[i] && col[i].regime!=='brouillard') v.push(brut[i]);
+            && col[i] && col[i].regime!=='brouillard' && !col[i].sature) v.push(brut[i]);
         if(v.length < 2) return;
         v.sort((a,b)=>a-b);
         const med = v.length%2? v[(v.length-1)/2] : (v[v.length/2-1]+v[v.length/2])/2;
@@ -2849,6 +2937,9 @@ function dessine(){
         c.haut += med - c.base;
         c.base = med;
         c.haut = Math.min(ALT_MAX, c.haut);
+        /* et le sommet doit rester au-dessus de la base apres lissage */
+        c.haut = Math.max(c.haut, c.base + 120);
+        c.bd = Math.max(c.base, c.sol - 250);
       });
     })();
     /* ---- Y a-t-il vraiment un plafond ? ----
@@ -2859,7 +2950,7 @@ function dessine(){
       let ouvert = false;
       col.forEach(function(c){
         if(!c){ ouvert = false; return; }
-        if(c.regime==='brouillard'){ c.deck = true; ouvert = true; return; }
+        if(c.regime==='brouillard' || c.sature){ c.deck = true; ouvert = true; return; }
         if(!ouvert && c.nu >= 60) ouvert = true;
         else if(ouvert && c.nu < 45) ouvert = false;
         c.deck = ouvert;
@@ -2897,34 +2988,38 @@ function dessine(){
         else if(cur.length){ bancs.push(cur); cur = []; }
       });
       if(cur.length) bancs.push(cur);
-      let d = '';
-      bancs.forEach(function(b){
+      const t = REG[reg];
+      /* Un degrade PAR BANC, et non un par regime. Un degrade unique s'etirait du
+         sommet du banc le plus haut a la base du banc le plus bas : un banc
+         intercale n'en recevait que la tranche moyenne, jamais la partie dense,
+         et sa base ne marquait donc rien. Cale sur sa propre etendue, chaque banc
+         porte sa matiere a sa propre base - qui est ce que la densite signifie. */
+      bancs.forEach(function(b, bi){
         /* un banc d'une seule heure ne fait qu'un triangle sans sens */
         if(b.length < 2) return;
         const sommet = function(c, i){
           const bord = (i===0 || i===b.length-1);
-          return bord? c.base + (c.haut-c.base)*0.22 : c.haut;
+          return bord? c.bd + (c.haut-c.bd)*0.22 : c.haut;
         };
-        d += ' M '+b[0].x.toFixed(1)+' '+yAlt(b[0].base).toFixed(1);
+        let d = ' M '+b[0].x.toFixed(1)+' '+yAlt(b[0].bd).toFixed(1);
         b.forEach(function(c, i){ d += ' L '+c.x.toFixed(1)+' '+yAlt(sommet(c,i)).toFixed(1); });
-        d += ' L '+b[b.length-1].x.toFixed(1)+' '+yAlt(b[b.length-1].base).toFixed(1)+' Z';
+        d += ' L '+b[b.length-1].x.toFixed(1)+' '+yAlt(b[b.length-1].bd).toFixed(1)+' Z';
+        const gid = 'gNu'+reg+bi;
+        const yH = Math.min.apply(null, b.map(c=>yAlt(c.haut)));
+        const yB = Math.max.apply(null, b.map(c=>yAlt(c.bd)));
+        /* un banc plus mince que deux pixels ne peut pas porter cinq arrets */
+        if(yB - yH < 3) return;
+        S.push('<defs><linearGradient id="'+gid+'" gradientUnits="userSpaceOnUse"'
+          +' x1="0" y1="'+yH.toFixed(1)+'" x2="0" y2="'+(yB+2).toFixed(1)+'">'
+          +'<stop offset="0%" stop-color="'+t[0]+'" stop-opacity="0"/>'
+          +'<stop offset="22%" stop-color="'+t[0]+'" stop-opacity=".38"/>'
+          +'<stop offset="48%" stop-color="'+t[0]+'" stop-opacity=".82"/>'
+          +'<stop offset="80%" stop-color="'+t[0]+'" stop-opacity="1"/>'
+          +'<stop offset="100%" stop-color="'+t[1]+'"/></linearGradient></defs>');
+        S.push('<path d="'+d.trim()+'" fill="url(#'+gid+')" opacity="'+t[2]
+          +'" filter="url(#flouNu)"/>');
+        NUES.push({d: d.trim(), gid: gid, op: t[2]});
       });
-      if(!d) return;
-      const t = REG[reg], gid = 'gNu'+reg;
-      /* le degrade est cale en coordonnees SVG sur l'etendue verticale reelle
-         de cette silhouette : le sommet est clair ou qu'il soit dans l'echelle */
-      const yH = Math.min.apply(null, vus.map(c=>yAlt(c.haut)));
-      const yB = Math.max.apply(null, vus.map(c=>yAlt(c.base)));
-      S.push('<defs><linearGradient id="'+gid+'" gradientUnits="userSpaceOnUse"'
-        +' x1="0" y1="'+yH.toFixed(1)+'" x2="0" y2="'+(yB+2).toFixed(1)+'">'
-        +'<stop offset="0%" stop-color="'+t[0]+'" stop-opacity="0"/>'
-        +'<stop offset="22%" stop-color="'+t[0]+'" stop-opacity=".38"/>'
-        +'<stop offset="48%" stop-color="'+t[0]+'" stop-opacity=".82"/>'
-        +'<stop offset="80%" stop-color="'+t[0]+'" stop-opacity="1"/>'
-        +'<stop offset="100%" stop-color="'+t[1]+'"/></linearGradient></defs>');
-      S.push('<path d="'+d.trim()+'" fill="url(#'+gid+')" opacity="'+t[2]
-        +'" filter="url(#flouNu)"/>');
-      NUES.push({d: d.trim(), gid: gid, op: t[2]});
       /* La base reste soulignee, mais discretement : elle sera etiquetee a
          l'iteration suivante, un trait nu ne disant rien au lecteur. */
       /* seules les colonnes a plafond etabli portent le trait */
@@ -3038,43 +3133,78 @@ function dessine(){
     if(COL){
       /* On n'annonce pas au coureur qu'il est dans la nuee sur un ciel a 3/8 :
          seules les colonnes a plafond etabli comptent. */
-      const plafond = function(th){
+      /* On interpole indifferemment la base ou le sommet : au-dessus de la
+         couche on est degage, et le dire compte - c'est le coureur qui perce la
+         mer de nuages. Tester la seule base l'aurait declare dans la nuee. */
+      const niveau = function(th, quoi){
         const k = th - h0;
         if(k < 0 || k > COL.length-1) return null;
         const a = COL[Math.floor(k)], b = COL[Math.min(COL.length-1, Math.ceil(k))];
         if(!a || !b || !a.deck || !b.deck) return null;
-        return a.base + (b.base - a.base) * (k - Math.floor(k));
+        return a[quoi] + (b[quoi] - a[quoi]) * (k - Math.floor(k));
       };
+      const plafond = th => niveau(th, 'base');
       /* Marge de 40 m : sans elle, la trace effleurant le plafond produisait un
          peigne de segments d'un point, artefact et non information. Et on jette
          les passages de moins de 400 m de developpe, trop courts pour valoir
          une alerte au coureur. */
-      const segs = []; let seg = [];
+      /* Percer la couche basse ne sert a rien si l'etage moyen est couvrant : on
+         retombe sous une autre. Le degagement se lit donc sur num. */
+      const degageDessus = function(th){
+        const k = th - h0;
+        if(k < 0 || k > COL.length-1) return false;
+        const a = COL[Math.floor(k)];
+        if(!a) return false;
+        return a.num === null || a.num === undefined || a.num < 40;
+      };
+      const segs = [], segsHaut = [];
+      let seg = [], segH = [];
+      const clore = () => {
+        if(seg.length){ segs.push(seg); seg = []; }
+        if(segH.length){ segsHaut.push(segH); segH = []; }
+      };
       pts.forEach(function(p){
-        const pl = plafond(heureAuKm(p[0]));
-        if(pl !== null && p[1] >= pl + 40) seg.push(p);
-        else if(seg.length){ segs.push(seg); seg = []; }
+        const th = heureAuKm(p[0]);
+        const pl = plafond(th), so = niveau(th, 'haut');
+        const dedans = pl !== null && p[1] >= pl + 40 && (so === null || p[1] <= so);
+        /* au-dessus : la couche existe, son sommet est sous le coureur, et
+           l'etage moyen laisse passer la lumiere */
+        const dessus = !dedans && pl !== null && so !== null
+                    && p[1] > so + 40 && degageDessus(th);
+        if(dedans){ if(segH.length){ segsHaut.push(segH); segH = []; } seg.push(p); }
+        else if(dessus){ if(seg.length){ segs.push(seg); seg = []; } segH.push(p); }
+        else clore();
       });
-      if(seg.length) segs.push(seg);
-      const retenus = segs.filter(function(sg){
-        return sg.length >= 2 && (sg[sg.length-1][0] - sg[0][0]) >= 0.4;
-      });
-      segs.length = 0; retenus.forEach(s2 => segs.push(s2));
+      clore();
+      /* Meme regle de duree pour les deux : moins de 400 m de developpe ne vaut
+         pas une annonce, c'est du bruit d'interpolation. */
+      const durable = liste => {
+        const g = liste.filter(sg => sg.length >= 2 && (sg[sg.length-1][0] - sg[0][0]) >= 0.4);
+        liste.length = 0; g.forEach(s2 => liste.push(s2));
+      };
+      durable(segs); durable(segsHaut);
       /* Liseré a la teinte d'ombre du theme, plus marque en theme clair ou le
          relief est pale. Le coeur reste blanc : c'est la couleur du nuage qui
          rend le surlignage lisible sans convention a apprendre. */
       const casing = PAL.ombre;
       const casOp = (PAL.jour==='clair')? '.80' : '.60';
       const casW  = (PAL.jour==='clair')? '6.4' : '5.4';
-      segs.forEach(function(sg){
-        if(sg.length < 2) return;
-        let dd = 'M '+cx(sg[0][0]).toFixed(1)+' '+yAlt(sg[0][1]).toFixed(1);
-        for(let i=1;i<sg.length;i++) dd += ' L '+cx(sg[i][0]).toFixed(1)+' '+yAlt(sg[i][1]).toFixed(1);
-        S.push('<path d="'+dd+'" fill="none" stroke="'+casing+'" stroke-width="'+casW+'"'
-          +' opacity="'+casOp+'" stroke-linecap="round" stroke-linejoin="round"/>');
-        S.push('<path d="'+dd+'" fill="none" stroke="#FFFFFF" stroke-width="3.2"'
-          +' opacity=".98" stroke-linecap="round" stroke-linejoin="round"/>');
-      });
+      const ruban = function(liste, coeur){
+        liste.forEach(function(sg){
+          if(sg.length < 2) return;
+          let dd = 'M '+cx(sg[0][0]).toFixed(1)+' '+yAlt(sg[0][1]).toFixed(1);
+          for(let i=1;i<sg.length;i++) dd += ' L '+cx(sg[i][0]).toFixed(1)+' '+yAlt(sg[i][1]).toFixed(1);
+          S.push('<path d="'+dd+'" fill="none" stroke="'+casing+'" stroke-width="'+casW+'"'
+            +' opacity="'+casOp+'" stroke-linecap="round" stroke-linejoin="round"/>');
+          S.push('<path d="'+dd+'" fill="none" stroke="'+coeur+'" stroke-width="3.2"'
+            +' opacity=".98" stroke-linecap="round" stroke-linejoin="round"/>');
+        });
+      };
+      ruban(segs, '#FFFFFF');
+      /* Au-dessus de la couche : la teinte du soleil, parce que c'est ce que ca
+         veut dire. Blanc = dans le nuage, soleil = au-dessus : deux etats, deux
+         couleurs qu'on n'a pas besoin d'apprendre. */
+      ruban(segsHaut, PAL.pSoleil);
       /* Legende : l'utilisateur dit ne pas comprendre la lecture, un dessin muet
          ne suffit donc pas. Deux mots suffisent, cales en haut a droite. */
       /* Legende a deux entrees, sur une ligne, avec les mots du coureur. Elle
@@ -3085,6 +3215,7 @@ function dessine(){
          garantit le contraste quelle que soit la masse nuageuse derriere. */
       const ent = [];
       if(segs.length) ent.push(['nuee', 'je suis dans la nu\u00e9e']);
+      if(segsHaut.length) ent.push(['dessus', 'au-dessus, ciel d\u00e9gag\u00e9']);
       ent.push(['base', 'base des nuages']);
       /* Quand le graphe defile, une legende calee a droite est a plus de mille
          pixels hors de l'ecran d'arrivee : personne ne la voit. On la pose alors
@@ -3098,12 +3229,13 @@ function dessine(){
         +'" stroke="'+PAL.bord+'" stroke-width=".8"/>');
       ent.forEach(function(e, i){
         const yy = ly0 + 12 + i*13, px = lx0 + 8;
-        if(e[0]==='nuee'){
+        if(e[0]==='nuee' || e[0]==='dessus'){
           S.push('<line x1="'+px+'" y1="'+(yy-3)+'" x2="'+(px+16)+'" y2="'+(yy-3)
             +'" stroke="'+casing+'" stroke-width="'+casW+'" opacity="'+casOp
             +'" stroke-linecap="round"/>');
           S.push('<line x1="'+px+'" y1="'+(yy-3)+'" x2="'+(px+16)+'" y2="'+(yy-3)
-            +'" stroke="#FFFFFF" stroke-width="3.2" opacity=".98" stroke-linecap="round"/>');
+            +'" stroke="'+(e[0]==='nuee'? '#FFFFFF' : PAL.pSoleil)
+            +'" stroke-width="3.2" opacity=".98" stroke-linecap="round"/>');
         } else {
           S.push('<line x1="'+px+'" y1="'+(yy-3)+'" x2="'+(px+16)+'" y2="'+(yy-3)
             +'" stroke="'+PAL.plafond+'" stroke-width="1.7"'
@@ -3271,6 +3403,8 @@ function resumeSegment(){
    +Math.floor(duree/60)+' h '+String(Math.round(duree%60)).padStart(2,'0')+'</span></div>';
 
   const bornes=fenetre(); const T=[],RES=[],P=[],PP=[],R=[],N=[],C=[],V=[],D=[];
+  /* etages et altitude du coureur : de quoi repondre a "puis-je percer ?" */
+  const NUB=[], NUM=[], ALTH=[];
   for(let hh=bornes[0];hh<=bornes[1];hh++){ const jj=sondeJalon(hh); if(!jj) continue;
     if(jj.t&&jj.t.m!==null) T.push(jj.t.m);
     if(jj.res&&jj.res.m!==null) RES.push(jj.res.m);
@@ -3281,7 +3415,10 @@ function resumeSegment(){
     if(jj.nu&&jj.nu.m!==null) N.push(jj.nu.m);
     if(jj.v&&jj.v.m!==null) V.push(jj.v.m);
     if(jj.dir&&jj.dir.m!==null) D.push(jj.dir.m);
-    if(jj.code!==null&&jj.code!==undefined) C.push(jj.code); }
+    if(jj.code!==null&&jj.code!==undefined) C.push(jj.code);
+    NUB.push(jj.nub&&jj.nub.m!==null? jj.nub.m : null);
+    NUM.push(jj.num&&jj.num.m!==null? jj.num.m : null);
+    ALTH.push(JALONS[hh]? (JALONS[hh].alt||0) : null); }
   if(!T.length){ h+='<div class="hnote">Pas encore de donn\u00e9es sur cette partie.</div>';
     el.innerHTML=h; return; }
 
@@ -3305,7 +3442,8 @@ function resumeSegment(){
     ['nuages', N.length? Math.round(med(N))+' %':'\u2014',
       PP.length? 'risque pluie '+Math.round(med(PP))+' %':'', ''],
     ['point haut', altMax+' m', '', ''],
-    ['pire ciel', pire!==null? (WMO[pire]||'\u2014'):'\u2014', '', pire>=95?'var(--alerte)':'']
+    ['pire ciel', pire!==null? (WMO[pire]||'\u2014'):'\u2014', '', pire>=95?'var(--alerte)':''],
+    merDeNuages(NUB, NUM, ALTH)
   ];
   h+='<div class="rgrille">';
   cases.forEach(c=>{ h+='<div class="rcase"><s>'+c[0]+'</s><b'
@@ -3841,6 +3979,39 @@ function motVent(v){ if(v===null||v===undefined) return '';
    On derive donc le ciel des valeurs consensuelles elles-memes, via mbCode()
    qui fait deja exactement cette traduction. La contradiction devient
    impossible par construction. Repli sur s.code si les nuages manquent. */
+/* ---- Puis-je percer la mer de nuages ? ----
+   Une absence mesuree est une reponse, et elle doit etre ecrite : ne rien
+   marquer se lit comme "on n'a pas regarde". On compte donc les heures passees
+   au-dessus de la couche, et a defaut on dit POURQUOI il n'y en a aucune.
+
+   Percer suppose trois choses simultanement : une couche basse qui existe, une
+   crete au-dessus d'elle, et un etage moyen degage - sinon on emerge sous une
+   autre couche et le soleil reste cache. Le motif d'echec distingue les deux cas
+   qui n'appellent pas la meme conduite. */
+function merDeNuages(nub, num, alt){
+  let heures = 0, coucheBasse = 0, moyenCouvrant = 0, n = 0;
+  for(let i=0;i<nub.length;i++){
+    const b = nub[i], m = num[i], a = alt[i];
+    if(b===null || b===undefined || a===null) continue;
+    n++;
+    const deck = b >= 50;
+    if(deck) coucheBasse++;
+    const degage = (m===null || m===undefined || m < 40);
+    if(deck && !degage) moyenCouvrant++;
+    /* sommet de couche basse : borne OMM de l'etage, ramenee a l'echelle */
+    if(deck && degage && a > 2000) heures++;
+  }
+  if(!n) return ['au-dessus des nuages', '\u2014', '', ''];
+  if(heures) return ['au-dessus des nuages', heures+' h',
+                     'mer de nuages perc\u00e9e', 'var(--accord)'];
+  if(!coucheBasse) return ['au-dessus des nuages', 'sans objet',
+                           'pas de couche basse \u00e0 percer', ''];
+  if(moyenCouvrant >= coucheBasse*0.8)
+    return ['au-dessus des nuages', 'jamais',
+            '\u00e9tage moyen couvrant sur '+moyenCouvrant+' h', ''];
+  return ['au-dessus des nuages', 'jamais', 'cr\u00eate toujours sous la couche', ''];
+}
+
 function cielCoherent(s){
   if(!s) return null;
   const nu = (s.nu && s.nu.m!==null && s.nu.m!==undefined)? s.nu.m : null;
