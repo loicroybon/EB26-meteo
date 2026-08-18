@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v106 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v107 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -2952,6 +2952,8 @@ function dessine(){
   /* les colonnes servent deux fois : au dessin du nuage, puis au surlignage de
      la trace. On les expose donc au lieu de les enfermer. */
   let COL = null;
+  /* altitude du plafond le plus etabli, portee par la legende */
+  let PLAFOND_MED = null;
   /* les bancs sont rejoues apres le relief, decoupes par sa silhouette */
   const NUES = [];
   (function(){
@@ -3175,12 +3177,16 @@ function dessine(){
             const ecart = yAlt(J.alt||0) - yAlt(dk[k].base);   /* px d'air libre */
             if(ecart > meilleurEcart){ meilleurEcart = ecart; creux = dk[k]; }
           }
-          const ty = yAlt(mid) + 13;
-          S.push('<text x="'+creux.x.toFixed(1)+'" y="'+ty.toFixed(1)+'" fill="'+PAL.plafond
-            +'" font-size="10" font-weight="600" text-anchor="middle"'
-            +' font-family="sans-serif" paint-order="stroke" stroke="'+PAL.fond
-            +'" stroke-width="3.6" stroke-linejoin="round">plafond ~'
-            +(Math.round(mid/50)*50)+' m</text>');
+          /* L'altitude part dans la legende plutot que dans le dessin. Quatre
+             replacements ont montre qu'une etiquette flottante dans un dessin
+             dense finit toujours par heurter un nom de sommet : ici Perioule,
+             Super Collet et Val Pelouse se suivent et occupent tout l'air sous
+             le plafond. La legende a une plaque opaque, une position deja
+             resolue pour les deux largeurs, et l'entree a laquelle ce nombre se
+             rapporte. La variable creux reste calculee : le critere de l'air
+             libre est juste et servira a la prochaine annotation. */
+          PLAFOND_MED = Math.round(mid/50)*50;
+          void creux;
         }
       }
     });
@@ -3321,11 +3327,15 @@ function dessine(){
       const ent = [];
       if(segs.length) ent.push(['nuee', 'je suis dans la nu\u00e9e']);
       if(segsHaut.length) ent.push(['dessus', 'au-dessus, ciel d\u00e9gag\u00e9']);
-      ent.push(['base', 'base des nuages']);
+      ent.push(['base', PLAFOND_MED!==null
+                        ? 'base des nuages \u00b7 ~'+PLAFOND_MED+' m'
+                        : 'base des nuages']);
       /* Quand le graphe defile, une legende calee a droite est a plus de mille
          pixels hors de l'ecran d'arrivee : personne ne la voit. On la pose alors
          a gauche, la ou le regard arrive et ou le relief est bas au depart. */
-      const lw = 128, lh = 13*ent.length + 8;
+      /* la plaque suit le texte : l'entree de base porte desormais une altitude */
+      const lmax = ent.reduce((a,e)=>Math.max(a, e[1].length), 0);
+      const lw = Math.max(128, 34 + lmax*5.1), lh = 13*ent.length + 8;
       const defile = W > dispo + 4;
       const lx0 = defile? (GUT + 10) : (W - lw - 14);
       const ly0 = yAlt(ALT_MAX) + 4;
