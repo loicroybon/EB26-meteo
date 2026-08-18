@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v79 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v82 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -2522,6 +2522,34 @@ const yNu=L.ciel, yPro=yNu+L.nuages, yPl=yPro+L.profil, yVe=yPl+L.pluie, yAx=yVe
 const ALT_MAX = 3200;
 const yAlt = a => yPro+8+(1-a/ALT_MAX)*(L.profil-20);
 const ALTS = [500,1000,1500,2000,2500,3000];
+/* geometrie de la bande de pluie, partagee : la gouttiere doit pouvoir
+   placer les graduations exactement a la hauteur des lignes tracees. */
+const yPlBase = yPl+L.pluie-10, hPlMax = L.pluie-16;
+
+/* Echelle de pluie FIXE et par paliers, jamais recalculee sur la fenetre.
+   Deux raisons, l'une de lisibilite, l'autre de comparabilite.
+
+   Une echelle lineaire consacre sa hauteur aux fortes intensites, qui sont rares,
+   et ecrase les faibles, qui sont la plupart du temps ce qu'on subit : a 4 mm/h
+   de plafond, une bruine de 0,2 mm/h faisait 1,6 px, donc rien. Le premier
+   millimetre recoit donc 45 % de la hauteur, la ou se joue la difference entre
+   rester sec et etre mouille huit heures durant.
+
+   Et une echelle recalculee sur la fenetre faisait changer de hauteur la meme
+   pluie selon qu'on regardait le parcours complet ou un segment : deux ecrans du
+   meme outil devenaient incomparables. C'est le defaut le plus insidieux d'un
+   graphe, puisqu'il ne se voit jamais sur une seule capture. */
+const PLUIE_PALIERS = [[0,0],[.5,.30],[1,.48],[4,.80],[10,1]];
+const PLUIE_PLAFOND = 10;
+function fracPluie(v){
+  if(!(v>0)) return 0;
+  for(let i=0;i<PLUIE_PALIERS.length-1;i++){
+    const a=PLUIE_PALIERS[i], b=PLUIE_PALIERS[i+1];
+    if(v<=b[0]) return a[1] + (v-a[0])/(b[0]-a[0])*(b[1]-a[1]);
+  }
+  return 1;
+}
+const yPr = v => yPlBase - fracPluie(v)*hPlMax;
 
 function fenetre(){
   if(!SEG) return [0, Math.ceil(dureeCourse())];
@@ -2545,14 +2573,21 @@ function gouttiere(){
   /* six graduations la ou il y en avait trois : l'altitude se lit
      maintenant a 500 m pres sans compter les intervalles. */
   ALTS.forEach(a=>lib(yAlt(a)+3, a, a%1000? PAL.libelle : PAL.libelleFort));
-  lib(yPl+12,'mm/h',PAL.libelleFort);
+  /* L'echelle etait ecrite dans la zone de trace, par-dessus les premieres
+     colonnes. Elle revient dans la gouttiere : le plafond au niveau de sa
+     graduation, le nom de la rangee au niveau du zero. Le lecteur a donc
+     l'unite et le maximum d'un seul coup d'oeil, hors du dessin. */
+  /* Les graduations suivent les paliers fixes : le lecteur apprend une echelle
+     une fois, et elle vaut sur tous les ecrans de l'outil. */
+  lib(yPr(4)+3, '4 mm/h', PAL.libelleFort);
+  lib(yPr(1)+3, '1');
+  lib(yPlBase+3, 'pluie');
   lib(yVe+18,'vent',PAL.libelleFort); lib(yVe+38,'rafales');
   T.push('<line x1="'+(GUT-.5)+'" y1="0" x2="'+(GUT-.5)+'" y2="'+HAUT+'" stroke="'+PAL.bord+'"/>');
   g.innerHTML=T.join('');
 }
 
 function dessine(){
-  gouttiere();
   const bornes=fenetre(), h0=bornes[0], h1=bornes[1], NH=Math.max(1,h1-h0);
   const large = (typeof window!=='undefined' && window.innerWidth)? window.innerWidth : 900;
   /* On MESURE le conteneur qui defile (#scroller) au lieu d'estimer depuis
@@ -2590,6 +2625,7 @@ function dessine(){
      clair, 66 % donne un pastel ou 11 et 15 degres se confondent ; sur le socle
      gris-bleu du theme sombre, 66 % garde du corps. Meme intention, deux
      reglages, parce que les fonds sont opposes. */
+  gouttiere();
   const OPMIN = (PAL.jour==='clair')? .86 : .66;
   S.push('</linearGradient><linearGradient id="gTemp" x1="0" x2="1">');
   for(let hh=h0;hh<=h1;hh++){ const s=j(hh);
@@ -3003,26 +3039,58 @@ function dessine(){
       +abrege(p.nom)+'</text></g>');
   });
 
-  /* pluie : échelle adaptée à la fenêtre, sinon 0,1 et 1,1 mm se ressemblent */
-  let prMax=0.6;
-  for(let hh=h0;hh<=h1;hh++){ const s=j(hh); if(s&&s.pr&&s.pr.hi!==null) prMax=Math.max(prMax,s.pr.hi); }
-  prMax=Math.ceil(prMax*2)/2;
-  const base=yPl+L.pluie-10, hMax=L.pluie-16, yPr=v=>base-Math.min(hMax, v/prMax*hMax);
-  S.push('<line x1="'+GUT+'" y1="'+base+'" x2="'+(W-8)+'" y2="'+base+'" stroke="'+PAL.grille+'" stroke-width="1.2"/>');
-  [prMax/2, prMax].forEach(v=>{
-    S.push('<line x1="'+GUT+'" y1="'+yPr(v)+'" x2="'+(W-8)+'" y2="'+yPr(v)+'" stroke="'+PAL.bord+'" stroke-dasharray="2 4"/>');
-    S.push('<text x="'+(GUT+4)+'" y="'+(yPr(v)-2)+'" fill="'+PAL.pluie+'" font-size="8" text-anchor="start">'
-      +(v<1?v.toFixed(1):v.toFixed(0))+' mm</text>');
-  });
+  /* ---- Bande de pluie ----
+     Echelle fixe a paliers (voir PLUIE_PALIERS) : identique sur tous les ecrans,
+     et genereuse sur le premier millimetre. Graduations dans la gouttiere. */
+  /* Sur fond sombre, #3A4A66 et #26344E sur #131C2C sont trois valeurs voisines :
+     le cadre disparaissait, et sans cadre la hauteur d'une barre n'a pas de
+     reference. On les remonte, la base davantage que les graduations pour
+     qu'elle reste le repere principal. */
+  const opBase = (PAL.jour==='clair')? '.75' : '.95';
+  const opGrad = (PAL.jour==='clair')? '.55' : '.75';
+  S.push('<line x1="'+GUT+'" y1="'+yPlBase+'" x2="'+(W-8)+'" y2="'+yPlBase
+    +'" stroke="'+PAL.grille+'" stroke-width="1.3" opacity="'+opBase+'"/>');
+  [1, 4].forEach(v=>S.push('<line x1="'+GUT+'" y1="'+yPr(v)+'" x2="'+(W-8)
+    +'" y2="'+yPr(v)+'" stroke="'+PAL.grille+'" stroke-dasharray="2 4" opacity="'
+    +opGrad+'"/>'));
   for(let hh=h0;hh<h1;hh++){
     const s=j(hh); if(!s||!s.pr||s.pr.m===null) continue;
     const w=x(hh+1)-x(hh), xb=x(hh)+w*.22, wb=w*.56;
-    if(s.pr.hi>0.02) S.push('<rect x="'+xb+'" y="'+yPr(s.pr.hi)+'" width="'+wb+'" height="'
-      +(base-yPr(s.pr.hi))+'" fill="'+PAL.pluie+'" opacity=".22" rx="1"/>');
-    if(s.pr.m>0.02) S.push('<rect x="'+xb+'" y="'+yPr(s.pr.m)+'" width="'+wb+'" height="'
-      +(base-yPr(s.pr.m))+'" fill="'+PAL.pluie+'" rx="1"/>');
-    if(s.pp&&s.pp.m>=40&&(hh-h0)%pas===0) S.push('<text x="'+((x(hh)+x(hh+1))/2)+'" y="'+(yPl+L.pluie-1)
-      +'" fill="'+PAL.pluieTexte+'" font-size="8.5" text-anchor="middle">'+s.pp.m.toFixed(0)+'%</text>');
+    /* Le doute est une MOUSTACHE, plus un bloc. Un rectangle pale monte a la
+       hauteur du quantile haut pesait plus lourd a l'oeil que la prevision
+       elle-meme, alors qu'il dit seulement ce qui pourrait arriver. Quand la
+       moustache sort du cadre, un chevron le dit : on ne tronque pas en silence. */
+    if(s.pr.hi!==null && s.pr.hi > s.pr.m + 0.05){
+      const cx=(xb+wb/2), ym=yPr(s.pr.m), yh=yPr(s.pr.hi);
+      const deborde = s.pr.hi > PLUIE_PLAFOND;
+      const yt = deborde? (yPlBase-hPlMax) : yh;
+      S.push('<line x1="'+cx.toFixed(1)+'" y1="'+ym.toFixed(1)+'" x2="'+cx.toFixed(1)
+        +'" y2="'+yt.toFixed(1)+'" stroke="'+PAL.pluie+'" stroke-width="1.1" opacity=".6"/>');
+      S.push(deborde
+        ? '<path d="M '+(cx-2.8).toFixed(1)+' '+(yt+3).toFixed(1)+' L '+cx.toFixed(1)+' '+yt.toFixed(1)
+          +' L '+(cx+2.8).toFixed(1)+' '+(yt+3).toFixed(1)+'" fill="none" stroke="'+PAL.pluie
+          +'" stroke-width="1.2" opacity=".75" stroke-linecap="round" stroke-linejoin="round"/>'
+        : '<line x1="'+(cx-2.8).toFixed(1)+'" y1="'+yt.toFixed(1)+'" x2="'+(cx+2.8).toFixed(1)
+          +'" y2="'+yt.toFixed(1)+'" stroke="'+PAL.pluie+'" stroke-width="1.1" opacity=".6"/>');
+    }
+    /* Deux canaux : la HAUTEUR dit combien, la SOLIDITE dit a quel point c'est
+       sur. Une barre haute et pale se lit alors "beaucoup, mais peut-etre pas",
+       ce qui est la question posee avant de sortir une veste. */
+    if(s.pr.m>0.02){
+      const sur = (s.pp && s.pp.m!==null)? Math.max(.42, Math.min(1, s.pp.m/100)) : .88;
+      /* Plancher de 3 px : meme apres les paliers, une pluie de 0,05 mm/h ferait
+         moins d'un pixel. Or "il pleut un peu" et "il ne pleut pas" sont deux
+         etats differents pour qui court, et le graphe doit les distinguer. */
+      const hb = Math.max(3, yPlBase - yPr(s.pr.m));
+      S.push('<rect x="'+xb+'" y="'+(yPlBase-hb).toFixed(1)+'" width="'+wb+'" height="'
+        +hb.toFixed(1)+'" fill="'+PAL.pluie+'" opacity="'+sur.toFixed(2)+'" rx="1"/>');
+    }
+    /* Les chiffres ne restent qu'au-dessus de 70 % : en dessous, la palissade de
+       pourcentages encombrait sans rien decider, la solidite de la barre le
+       disant deja. Halo, car ils touchent la bande du vent. */
+    if(s.pp&&s.pp.m>=70&&(hh-h0)%pas===0) S.push('<text x="'+((x(hh)+x(hh+1))/2)+'" y="'+(yPl+L.pluie-1)
+      +'" fill="'+PAL.pluieTexte+'" font-size="8.5" text-anchor="middle" font-weight="600"'
+      +' paint-order="stroke" stroke="'+PAL.fond+'" stroke-width="2.6">'+s.pp.m.toFixed(0)+'%</text>');
   }
 
   for(let hh=h0;hh<=h1;hh+=pas){
