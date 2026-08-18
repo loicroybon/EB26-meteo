@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v85 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v86 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -452,13 +452,22 @@ const ORD_WY = ordonnanceur('windy', 5);
 const ORD_MN = ordonnanceur('met.no', 4);
 
 let N429 = 0;   /* refus pour depassement de quota sur le releve en cours */
-async function appel(ord, url, options){
+/* surfacer429 : rendre la reponse 429 a l'appelant au lieu de la rejouer.
+   Un 429 "credits epuises" est definitif pour la cle en service - le rejouer
+   trois fois ne peut pas reussir, et cela masquait le motif a l'appelant, qui
+   aurait pu basculer sur la roue de secours. */
+async function appel(ord, url, options, surfacer429){
   for(let essai=0; essai<3; essai++){
     await ord.prendre();
     let r=null;
     try{ r = await fetch(url, options); }
     catch(e){ ord.rendre(false); continue; }
-    if(r.status===429 || r.status===503){ if(r.status===429) N429++; ord.rendre(false); continue; }
+    if(r.status===429 || r.status===503){
+      if(r.status===429) N429++;
+      ord.rendre(false);
+      if(surfacer429 && r.status===429) return r;
+      continue;
+    }
     ord.rendre(true);
     return r;
   }
@@ -1125,6 +1134,9 @@ async function interroger(force){
   const rafraichis={};
   TS_TENTATIVE=Date.now();
   ECHECS=[]; REPORTES=[]; WY_APPELS=0; N429=0; WY_TEST=null;
+  /* nouveau releve : on redonne sa chance a la premiere cle, les credits
+     meteoblue se rechargeant au fil du temps */
+  MB_ABANDON=false; CLE_RANG['meteoblue']=0;
   JALONS = construireJalons();
   const jours = (new Date(POIS[0].t[SCENARIO]) - Date.now())/864e5;
   const dispo=[];
@@ -1506,16 +1518,39 @@ function cleDe(fournisseur){
   if(!l.length) return null;
   return l[Math.min(CLE_RANG[fournisseur]||0, l.length-1)];
 }
-/* Vrai si la reponse indique que la CLE est refusee, et non que le plafond est
-   atteint. On ne bascule que dans le premier cas : un depassement de credits
-   n'est pas un probleme de cle, changer de cle ne ferait que deplacer le
-   plafond. */
-function cleRefusee(statut, corps){
-  if(statut===401 || statut===403) return true;
+/* Trois issues distinctes, et les confondre coutait cher.
+
+     'credits' : la cle n'a plus de credits. Sa contribution est terminee pour la
+                 session ; la roue de secours prend le relais. Mesure en direct :
+                 429 + "Available credits exceeded for this API key".
+     'cle'     : la cle est refusee en tant que telle - 401, cle invalide. Meme
+                 traitement, mais le motif journalise differe.
+     'paquet'  : ce PAQUET n'est pas ouvert a cette cle - 403 sur un package.
+                 Mesure en direct : la cle 2 rend 403 sur basic-1h_clouds-1h et
+                 200 sur basic-1h. La cle est bonne, il ne faut surtout pas la
+                 mettre au rebut : on retient le couple cle-paquet.
+     null      : rien qui concerne la cle. */
+function diagnosticCle(statut, corps, paquet){
   const t = String(corps||'').toLowerCase();
-  if(/credit|quota|limit|exceeded|too many/.test(t)) return false;
-  return /unauthoriz|invalid[ _-]?key|api[ _-]?key|forbidden|not authorized/.test(t);
+  if(/available credits|credits? exceeded|out of credits|credit limit/.test(t)) return 'credits';
+  if(statut===429 && /credit/.test(t)) return 'credits';
+  if(statut===403 && paquet) return 'paquet';
+  if(statut===401) return 'cle';
+  if(/invalid[ _-]?api[ _-]?key|invalid[ _-]?key|unauthoriz|not authorized/.test(t)) return 'cle';
+  if(statut===403) return 'cle';
+  return null;
 }
+/* Conserve pour Windy, qui n'a pas de notion de paquet. */
+function cleRefusee(statut, corps){
+  const d = diagnosticCle(statut, corps, null);
+  return d==='cle' || d==='credits';
+}
+
+/* Couples cle-paquet dont on sait qu'ils ne repondront pas : inutile de les
+   redemander aux 51 points suivants. */
+const PAQUET_KO = {};
+function paquetKO(cle, paquet){ return PAQUET_KO[cle+'|'+paquet]===true; }
+function marquerPaquetKO(cle, paquet){ PAQUET_KO[cle+'|'+paquet] = true; }
 /* Passe a la cle suivante. Rend faux s'il n'y a plus de roue de secours. */
 function cleSuivante(fournisseur, motif){
   const l = clesDe(fournisseur);
@@ -1526,6 +1561,9 @@ function cleSuivante(fournisseur, motif){
       + (suivant+1) + ' sur ' + l.length + '.');
   return true;
 }
+/* Vrai quand toutes les cles meteoblue sont hors service : evite de rejouer
+   l'echec aux 51 points suivants. Remis a zero au debut de chaque releve. */
+let MB_ABANDON = false;
 const MB_ID  = 'meteoblue';
 const MB_NOM = 'meteoblue MOS';
 
@@ -1548,45 +1586,66 @@ function rosee(t, hr){
 }
 
 async function meteoblueBrut1(p){
+  if(MB_ABANDON) return null;          /* plus une seule cle en etat : on arrete */
   const base='https://my.meteoblue.com/packages/';
-  const q=new URLSearchParams();
-  q.set('apikey', cleDe('meteoblue'));
-  q.set('lat', p.lat); q.set('lon', p.lon); q.set('asl', p.alt);
-  q.set('format','json'); q.set('tz','Europe/Paris');
-  q.set('temperature','C'); q.set('windspeed','kmh'); q.set('precipitationamount','mm');
-  q.set('history_days','0');
-  let j=null, refus=null;
-  for(const paquets of ['basic-1h_clouds-1h_wind-1h','basic-1h_clouds-1h','basic-1h']){
-    const r=await appel(ORD_MB, base+paquets+'?'+q.toString());
-    if(!r) continue;
-    let txt=null;
-    if(!r.ok){
-      try{ txt=await r.text(); }catch(e){}
-      if(cleRefusee(r.status, txt)) refus = 'HTTP '+r.status;
-      continue;
-    }
-    try{ const o=await r.json();
-         if(o&&o.data_1h){ j=o; break; }
-         if(o&&o.error && cleRefusee(r.status, o.error_message)) refus = o.error_message;
-    }catch(e){}
-  }
-  if(!j){
-    /* une cle refusee vaut la peine d'essayer la roue de secours, une fois */
-    if(refus && cleSuivante('meteoblue', refus)){
-      q.set('apikey', cleDe('meteoblue'));
-      for(const paquets of ['basic-1h_clouds-1h_wind-1h','basic-1h']){
-        const r=await appel(ORD_MB, base+paquets+'?'+q.toString());
-        if(!r||!r.ok) continue;
-        try{ const o=await r.json(); if(o&&o.data_1h){ j=o; break; } }catch(e){}
+  const PAQUETS = ['basic-1h_clouds-1h_wind-1h','basic-1h_clouds-1h','basic-1h'];
+  const requete = () => {
+    const q=new URLSearchParams();
+    q.set('apikey', cleDe('meteoblue'));
+    q.set('lat', p.lat); q.set('lon', p.lon); q.set('asl', p.alt);
+    q.set('format','json'); q.set('tz','Europe/Paris');
+    q.set('temperature','C'); q.set('windspeed','kmh'); q.set('precipitationamount','mm');
+    q.set('history_days','0');
+    return q;
+  };
+  let j=null, q=requete();
+  /* On retente le point ENTIER avec chaque roue de secours : une cle a court de
+     credits ne repondra plus, quel que soit le paquet demande. */
+  for(let tour=0; tour<Math.max(1, clesDe('meteoblue').length); tour++){
+    const cle = cleDe('meteoblue');
+    q = requete();
+    let bascule = null;
+    for(const paquets of PAQUETS){
+      if(paquetKO(cle, paquets)) continue;
+      const r = await appel(ORD_MB, base+paquets+'?'+q.toString(), null, true);
+      if(!r) continue;
+      let corps=null, o=null;
+      if(!r.ok){
+        try{ corps = await r.text(); }catch(e){}
+        const dg = diagnosticCle(r.status, corps, paquets);
+        if(dg==='paquet'){ marquerPaquetKO(cle, paquets); continue; }
+        if(dg){ bascule = dg; break; }
+        continue;
       }
+      try{ o = await r.json(); }catch(e){ continue; }
+      if(o && o.data_1h){ j=o; break; }
+      /* meteoblue rend parfois 200 avec un objet d'erreur */
+      const dg2 = diagnosticCle(r.status, o && (o.error_message||o.error), paquets);
+      if(dg2==='paquet'){ marquerPaquetKO(cle, paquets); continue; }
+      if(dg2){ bascule = dg2; break; }
     }
-    if(!j) return null;
+    if(j) break;
+    if(!bascule) break;                /* echec non imputable a la cle */
+    if(!cleSuivante('meteoblue', bascule)){
+      /* Plus de roue de secours : inutile de refaire l'essai aux 51 points
+         suivants, on le dit une fois et on arrete pour cette session. */
+      MB_ABANDON = true;
+      log('meteoblue : plus aucune cl\u00e9 disponible (' + bascule + ').');
+      break;
+    }
   }
+  if(!j) return null;
   if(!j.data_1h.totalcloudcover){
-    const r2=await appel(ORD_MB, base+'clouds-1h?'+q.toString());
+    const r2=await appel(ORD_MB, base+'clouds-1h?'+q.toString(), null, true);
     if(r2&&r2.ok){ try{ const o2=await r2.json();
       if(o2&&o2.data_1h) Object.keys(o2.data_1h).forEach(k=>{
         if(k!=='time'&&!j.data_1h[k]) j.data_1h[k]=o2.data_1h[k]; }); }catch(e){} }
+    else if(r2 && !r2.ok){
+      /* le paquet nuages peut manquer a cette cle sans que la cle soit en cause */
+      let c2=null; try{ c2 = await r2.text(); }catch(e){}
+      if(diagnosticCle(r2.status, c2, 'clouds-1h')==='paquet')
+        marquerPaquetKO(cleDe('meteoblue'), 'clouds-1h');
+    }
   }
   return j.data_1h;
 }

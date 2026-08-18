@@ -1,7 +1,16 @@
-/* v42 : roue de secours sur les clés fournisseurs.
-   L'invariant qui compte : on bascule quand la CLÉ est refusée, jamais quand
-   le PLAFOND est atteint. Un dépassement de crédits n'est pas un problème de
-   clé, et changer de clé ne ferait que déplacer le plafond.
+/* v86 : roue de secours sur les clés fournisseurs.
+
+   L'invariant a CHANGÉ, sur décision explicite de l'utilisateur. Jusqu'en v85 on
+   ne basculait jamais sur un dépassement de crédits, au motif qu'un plafond
+   n'est pas un problème de clé. Désormais si : une clé sans crédits a terminé sa
+   contribution, et la roue de secours prend le relais.
+
+   Ce qui reste vrai, et que ce harnais protège :
+   - un plafond de DÉBIT (limite horaire, journalière, « too many requests ») ne
+     déclenche pas de bascule : changer de clé n'y changerait rien, la limite
+     étant comptée sur la fenêtre de temps et non sur un solde ;
+   - un 403 portant sur un PAQUET ne condamne pas la clé. Mesuré en direct : la
+     clé 2 rend 403 sur basic-1h_clouds-1h et 200 sur basic-1h.
    node tcles.js */
 const fs = require('fs');
 const html = fs.readFileSync('../index.html', 'utf8');
@@ -20,14 +29,18 @@ function corps(nom) {
 
 /* on rejoue le mécanisme du fichier avec un journal muet */
 const CLE_RANG = {};
+const PAQUET_KO = {};   /* couples cle|paquet refuses, comme dans index.html */
 const CLE_REPLI = { meteoblue: 'QTysmp2OSKP7ba3j', windy: 'LMtKS6ka4dr1ta1qijmvXBFLUorC6aar' };
 const CLES_CFG = cfg;
 const journal = [];
 const log = m => journal.push(m);
 eval(corps('clesDe'));
 eval(corps('cleDe'));
+eval(corps('diagnosticCle'));
 eval(corps('cleRefusee'));
 eval(corps('cleSuivante'));
+eval(corps('paquetKO'));
+eval(corps('marquerPaquetKO'));
 
 let ko = 0;
 const dit = (ok, txt) => { console.log((ok ? '  ok    ' : '  ECHEC ') + txt); if (!ok) ko++; };
@@ -49,7 +62,7 @@ console.log('\n=== ce qui compte : clé refusée contre plafond atteint ===');
  [200, 'Unauthorized access Error 101', true, 'message « Unauthorized »'],
  [400, 'invalid api key', true, 'message « invalid api key »'],
  [400, 'The api key is not authorized', true, 'message « not authorized »'],
- [429, 'Available credits exceeded for this API key', false, 'crédits épuisés : PAS de bascule'],
+ [429, 'Available credits exceeded for this API key', true, 'crédits épuisés : BASCULE (v86)'],
  [429, null, false, 'HTTP 429 nu : PAS de bascule'],
  [429, 'Hourly API request limit exceeded', false, 'plafond horaire : PAS de bascule'],
  [429, 'Daily API request limit exceeded', false, 'plafond journalier : PAS de bascule'],
@@ -61,9 +74,29 @@ console.log('\n=== ce qui compte : clé refusée contre plafond atteint ===');
   dit(r === attendu, quoi);
 });
 
-console.log('\n=== le message « credits exceeded » contient « api key » : piège évité ===');
-dit(cleRefusee(429, 'Available credits exceeded for this API key') === false,
-  'le mot « API key » dans un message de crédits ne déclenche pas la bascule');
+console.log('\n=== trois issues, et non deux ===');
+[[429, 'Available credits exceeded for this API key', null, 'credits', 'solde épuisé'],
+ [401, null, null, 'cle', 'clé refusée'],
+ [400, 'Invalid API key', null, 'cle', 'clé invalide'],
+ [403, null, 'basic-1h_clouds-1h', 'paquet', "403 sur un paquet : la clé reste bonne"],
+ [403, null, null, 'cle', '403 hors paquet : clé refusée'],
+ [429, 'Hourly API request limit exceeded', 'basic-1h', null, 'débit : rien à voir avec la clé'],
+ [500, 'internal error', 'basic-1h', null, 'panne serveur : rien à voir avec la clé'],
+ [200, null, 'basic-1h', null, 'réponse saine']
+].forEach(([st, txt, paq, attendu, quoi]) => {
+  const r = diagnosticCle(st, txt, paq);
+  dit(r === attendu, `${quoi} → ${r === null ? 'null' : r}`);
+});
+
+console.log('\n=== un 403 de paquet ne doit pas condamner la clé ===');
+dit(diagnosticCle(403, null, 'basic-1h_clouds-1h') === 'paquet',
+  'le paquet nuages absent est diagnostiqué comme tel');
+dit(cleRefusee(403, null) === true,
+  'sans notion de paquet (Windy), un 403 reste un refus de clé');
+marquerPaquetKO('CLE_A', 'basic-1h_clouds-1h');
+dit(paquetKO('CLE_A', 'basic-1h_clouds-1h') === true, 'le couple refusé est retenu');
+dit(paquetKO('CLE_A', 'basic-1h') === false, "l'autre paquet de la même clé reste ouvert");
+dit(paquetKO('CLE_B', 'basic-1h_clouds-1h') === false, "et le même paquet d'une autre clé aussi");
 
 console.log('\n=== bascule effective ===');
 const n = cfg.windy.length;
@@ -93,6 +126,18 @@ dit(!/const MB_CLE\b/.test(html), 'MB_CLE supprimée');
 dit(!/const WY_CLE\b/.test(html), 'WY_CLE supprimée');
 dit(html.includes("q.set('apikey', cleDe('meteoblue'))"), 'meteoblue relit la clé à chaque appel');
 dit(html.includes("key:cleDe('windy')"), 'windy relit la clé à chaque appel');
+
+console.log('\n=== le 429 doit remonter à l\'appelant, sinon la bascule ne part pas ===');
+dit(/async function appel\(ord, url, options, surfacer429\)/.test(html),
+  'appel() accepte surfacer429');
+dit(html.includes('if(surfacer429 && r.status===429) return r;'),
+  'et rend la réponse 429 au lieu de la rejouer trois fois');
+dit(html.includes('const r = await appel(ORD_MB, base+paquets+\'?\'+q.toString(), null, true);'),
+  'meteoblue demande bien à voir le 429');
+dit(html.includes('if(MB_ABANDON) return null;'),
+  'et cesse d\'insister quand plus aucune clé ne répond');
+dit(html.includes("MB_ABANDON=false; CLE_RANG['meteoblue']=0;"),
+  'chaque relevé redonne sa chance à la première clé');
 
 console.log('\n=== la clé meteoblue épuisée n\'est plus référencée ===');
 dit(!html.includes('CwGWT5rQ8m21jLMf'), 'ancienne clé retirée de index.html');
