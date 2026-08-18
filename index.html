@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v84 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v85 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -1373,7 +1373,8 @@ function agrege(out){
   const wFam=poidsFamille(out.map(o=>o.id));
   out.forEach(o=>{ const base=wFam[o.id]!==undefined? wFam[o.id] : 0.5;
     o.couverture=facteurCouverture(o.id);
-    o.poids=base*o.couverture; o.divergent=false; });
+    o.fraicheur=facteurFraicheur(o.id);
+    o.poids=base*o.couverture*o.fraicheur; o.divergent=false; });
 
   const CLES=['t','res','ressT','ros','hum','tw','pr','pr_moy','pr_conv','pp','neige','nu','nub','num','nuh',
     'sol','ray','uv','vis','cbase','v','vterrain','raf','dir','iso0','cape','pres',
@@ -2022,6 +2023,21 @@ function majCouverture(){
   }
   COUV = c;
 }
+/* Decote d'age. Un modele dont le run date de la veille a vu la situation
+   evoluer : il vote encore, mais il ne doit pas decider seul face a huit modeles
+   du matin. Clement jusqu'a 8 h, les mailles fines publiant toutes les 3 h avec
+   environ 3,5 h de latence - un modele parfaitement a jour affiche donc
+   couramment 6 a 7 h d'age. */
+const AGE_FRANC_H = 8, AGE_PLANCHER_H = 24, FRAICHEUR_MIN = 0.45;
+function facteurFraicheur(id){
+  const maj = MAJ_MODELE[id];
+  if(!maj) return 1;                       /* age inconnu : on ne penalise pas */
+  const h = (Date.now() - maj) / 3.6e6;
+  if(!(h > AGE_FRANC_H)) return 1;
+  const f = (h - AGE_FRANC_H) / (AGE_PLANCHER_H - AGE_FRANC_H);
+  return Math.max(FRAICHEUR_MIN, 1 - (1 - FRAICHEUR_MIN) * Math.min(1, f));
+}
+
 function facteurCouverture(id){
   const part = COUV[id];
   if(part===undefined || part===null) return 1;     /* couverture inconnue : on ne penalise pas */
