@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v99 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v101 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -1137,6 +1137,7 @@ async function interroger(force){
   /* nouveau releve : on redonne sa chance a la premiere cle, les credits
      meteoblue se rechargeant au fil du temps */
   MB_ABANDON=false; CLE_RANG['meteoblue']=0;
+  Object.keys(CLE_KO).forEach(k=>delete CLE_KO[k]);
   JALONS = construireJalons();
   const jours = (new Date(POIS[0].t[SCENARIO]) - Date.now())/864e5;
   const dispo=[];
@@ -1289,7 +1290,7 @@ async function interroger(force){
           nD['windy_'+mid]={nom:mnom, pts:{[SCENARIO]:enr}};
           livrer('Windy '+mnom, ['windy_'+mid]);
         }
-        dispo.push([mnom, c, POIS.length]);
+        dispo.push([mnom, c, POIS.length, 'windy']);
       }catch(e){ ECHECS.push(mnom+' — '+e.message); }
     }));
   })();
@@ -1350,10 +1351,17 @@ async function interroger(force){
 function afficheDispo(d){
   const ul=q('#dispo'); ul.innerHTML='';
   const dep=new Date(POIS[0].t[SCENARIO]);
-  d.sort((a,b)=>b[1]-a[1]).forEach(([nom,c,n])=>{
+  d.sort((a,b)=>b[1]-a[1]).forEach(([nom,c,n,fourn])=>{
     const li=document.createElement('li');
-    const txt = c===0? 'répond, mais aucune valeur à cette échéance'
-              : (c===n? 'valeurs sur tout le parcours' : 'valeurs sur '+c+' points sur '+n);
+    /* Trois etats et non deux. Imputer a l'echeance ce qui tient a la cle
+       oriente vers la mauvaise action : on attend, alors qu'il faut regenerer
+       la cle. Verifie en direct le 18/08, les trois cles Windy repondent
+       HTTP 400 "Invalid API key" - elles ne sont pas limitees, elles sont
+       mortes. */
+    const refus = (c===0 && fourn && CLE_KO[fourn]) ? CLE_KO[fourn] : null;
+    const txt = refus? ('cl\u00e9 refus\u00e9e \u2014 ' + refus)
+              : (c===0? 'répond, mais aucune valeur à cette échéance'
+              : (c===n? 'valeurs sur tout le parcours' : 'valeurs sur '+c+' points sur '+n));
     li.innerHTML='<span>'+nom+'</span><span class="'+(c?'ok':'ko')+'">'+txt+'</span>';
     ul.appendChild(li);
   });
@@ -1558,10 +1566,15 @@ function cleRefusee(statut, corps){
 /* Couples cle-paquet dont on sait qu'ils ne repondront pas : inutile de les
    redemander aux 51 points suivants. */
 const PAQUET_KO = {};
+/* Fournisseurs dont la cle a ete refusee pendant ce releve. Sert a distinguer
+   "aucune valeur a cette echeance" de "cle refusee" dans la liste des modeles :
+   un diagnostic faux oriente vers la mauvaise action. */
+const CLE_KO = {};
 function paquetKO(cle, paquet){ return PAQUET_KO[cle+'|'+paquet]===true; }
 function marquerPaquetKO(cle, paquet){ PAQUET_KO[cle+'|'+paquet] = true; }
 /* Passe a la cle suivante. Rend faux s'il n'y a plus de roue de secours. */
 function cleSuivante(fournisseur, motif){
+  CLE_KO[fournisseur] = motif || 'refus';
   const l = clesDe(fournisseur);
   const suivant = (CLE_RANG[fournisseur]||0) + 1;
   if(suivant >= l.length) return false;
@@ -3467,7 +3480,12 @@ function resumeSegment(){
     if(jj.nu&&jj.nu.m!==null) N.push(jj.nu.m);
     if(jj.v&&jj.v.m!==null) V.push(jj.v.m);
     if(jj.dir&&jj.dir.m!==null) D.push(jj.dir.m);
-    if(jj.code!==null&&jj.code!==undefined) C.push(jj.code);
+    /* cielCoherent et non le code brut : le mode inter-modeles vaut 0 assez
+       souvent pour que le maximum ne signale rien, et la case "pire ciel"
+       restait vide sur une course qui traverse 28 h de pluie. Une synthese qui
+       se tait quand il pleut rassure a tort. */
+    const cjj = cielCoherent(jj);
+    if(cjj!==null&&cjj!==undefined) C.push(cjj);
     NUB.push(jj.nub&&jj.nub.m!==null? jj.nub.m : null);
     NUM.push(jj.num&&jj.num.m!==null? jj.num.m : null);
     ALTH.push(JALONS[hh]? (JALONS[hh].alt||0) : null); }
@@ -3562,7 +3580,10 @@ function descMeteo(s, alt){
   }
   if(s.vis&&s.vis.m!==null&&s.vis.m<1200) p.push('visi '+(s.vis.m/1000).toFixed(1)+'km');
   /* inutile de répéter : si le ciel dit déjà « orage », on n'ajoute rien */
-  if(s.code<95 && s.cape && s.cape.hi>900) p.push('risque orage');
+  /* Le code brut pouvait valoir 0 alors que le ciel derive dit deja orage : le
+     SMS ajoutait donc "risque orage" a la suite du mot orage. On compare au meme
+     ciel que celui qui est ecrit juste avant. */
+  if((cc===null || cc<95) && s.cape && s.cape.hi>900) p.push('risque orage');
   return p.join(', ');
 }
 
@@ -4104,7 +4125,10 @@ function alertesSimples(s, p){
   const A=[];
   if(s.raf&&s.raf.hi>60) A.push(['\u26a0','Rafales jusqu\'\u00e0 '+Math.round(s.raf.hi)+' km/h']);
   else if(s.raf&&s.raf.hi>40) A.push(['\u2691','Rafales '+Math.round(s.raf.hi)+' km/h']);
-  if(s.code>=95 || (s.cape&&s.cape.hi>900)) A.push(['\u26a1','Risque d\'orage']);
+  /* meme derivation que partout ailleurs : le code brut pouvait valoir 0 sur un
+     ciel d'orage et l'alerte ne se levait pas */
+  const cA = cielCoherent(s);
+  if((cA!==null && cA>=95) || (s.cape&&s.cape.hi>900)) A.push(['\u26a1','Risque d\'orage']);
   if(s.cbase&&s.cbase.m!==null&&s.cbase.m<p.alt) A.push(['\u2601','Vous serez dans les nuages']);
   if(s.res&&s.res.lo!==null&&s.res.lo<3) A.push(['\u2744','Ressenti possible \u00e0 '+Math.round(s.res.lo)+'\u00b0']);
   if(s.pr&&s.pr.hi>2) A.push(['\u2614','Averses jusqu\'\u00e0 '+s.pr.hi.toFixed(1)+' mm/h']);

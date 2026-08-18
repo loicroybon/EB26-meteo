@@ -30,6 +30,7 @@ function corps(nom) {
 /* on rejoue le mécanisme du fichier avec un journal muet */
 const CLE_RANG = {};
 const PAQUET_KO = {};   /* couples cle|paquet refuses, comme dans index.html */
+const CLE_KO = {};      /* fournisseurs dont la cle a ete refusee (v101) */
 const CLE_REPLI = { meteoblue: 'QTysmp2OSKP7ba3j', windy: 'LMtKS6ka4dr1ta1qijmvXBFLUorC6aar' };
 const CLES_CFG = cfg;
 const journal = [];
@@ -109,6 +110,8 @@ dit(!cleSuivante('windy', 'HTTP 403'), 'plus de roue de secours : bascule refus�
 dit(new Set(rangs).size === n, `les ${n} clés ont été servies, chacune une fois`);
 dit(rangs.join(',') === cfg.windy.join(','), "dans l'ordre de la liste, qui est l'ordre de préférence");
 dit(journal.length === n - 1, `${journal.length} bascule(s) journalisée(s)`);
+dit(CLE_KO.windy !== undefined, 'le refus est mémorisé pour la liste des modèles');
+dit(CLE_KO.meteoblue === undefined, "et seulement pour le fournisseur concerné");
 console.log('  journal :', journal.map(m => m.replace(/\\u00e9/g, 'é')).join(' | '));
 
 console.log('\n=== autonomie : sans config.js, le fichier garde ses replis ===');
