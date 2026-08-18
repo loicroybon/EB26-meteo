@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v104 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v105 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -2762,6 +2762,13 @@ function gouttiere(){
   /* six graduations la ou il y en avait trois : l'altitude se lit
      maintenant a 500 m pres sans compter les intervalles. */
   ALTS.forEach(a=>lib(yAlt(a)+3, a, a%1000? PAL.libelle : PAL.libelleFort));
+  /* Repere de l'etage moyen, a 2000 m au sens OMM. Il est dans la GOUTTIERE et
+     non dans le dessin : la gouttiere ne defile pas, donc ce repere reste
+     visible sur un telephone ou le profil s'etale sur 1600 px. Toute position
+     calculee dans le repere du dessin finit par sortir de l'ecran ou par entrer
+     en conflit - c'est arrive deux fois de suite avec ce meme libelle. */
+  T.push('<line x1="3" y1="'+(yAlt(2000)-0.5)+'" x2="15" y2="'+(yAlt(2000)-0.5)
+    +'" stroke="'+PAL.grille+'" stroke-width="1" stroke-dasharray="1 5" opacity=".9"/>');
   /* L'echelle etait ecrite dans la zone de trace, par-dessus les premieres
      colonnes. Elle revient dans la gouttiere : le plafond au niveau de sa
      graduation, le nom de la rangee au niveau du zero. Le lecteur a donc
@@ -2927,14 +2934,19 @@ function dessine(){
          oblique au-dessus des cretes, occupent l'air. Un echantillon du tiret
          precede le texte : le lien avec la ligne se fait par la forme, sans
          tirer de trait de rappel a travers le dessin. */
-      const yLib = yAlt(ALT_MAX) + 11, xLib = GUT + 12;
-      S.push('<line x1="'+xLib+'" y1="'+(yLib-3).toFixed(1)+'" x2="'+(xLib+14)+'" y2="'
-        +(yLib-3).toFixed(1)+'" stroke="'+PAL.grille+'" stroke-width="1"'
-        +' stroke-dasharray="1 5" opacity=".8"/>');
-      S.push('<text x="'+(xLib+20)+'" y="'+yLib.toFixed(1)+'" fill="'+PAL.libelle
-        +'" font-size="8.5" text-anchor="start" font-family="sans-serif"'
-        +' paint-order="stroke" stroke="'+PAL.fond+'" stroke-width="2.6">'
-        +'\u00e9tage moyen \u00b7 2000 m+</text>');
+      /* Seulement quand le graphe tient a l'ecran. Des qu'il defile, la legende
+         vient occuper ce coin et les deux se recouvrent ; le repere de la
+         gouttiere prend alors le relais, lui qui ne defile jamais. */
+      if(!(W > dispo + 4)){
+        const yLib = yAlt(ALT_MAX) + 11, xLib = GUT + 12;
+        S.push('<line x1="'+xLib+'" y1="'+(yLib-3).toFixed(1)+'" x2="'+(xLib+14)+'" y2="'
+          +(yLib-3).toFixed(1)+'" stroke="'+PAL.grille+'" stroke-width="1"'
+          +' stroke-dasharray="1 5" opacity=".8"/>');
+        S.push('<text x="'+(xLib+20)+'" y="'+yLib.toFixed(1)+'" fill="'+PAL.libelle
+          +'" font-size="8.5" text-anchor="start" font-family="sans-serif"'
+          +' paint-order="stroke" stroke="'+PAL.fond+'" stroke-width="2.6">'
+          +'\u00e9tage moyen \u00b7 2000 m+</text>');
+      }
     }
   })();
   /* les colonnes servent deux fois : au dessin du nuage, puis au surlignage de
