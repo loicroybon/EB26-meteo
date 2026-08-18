@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v108 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v111 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -3476,6 +3476,42 @@ function dessine(){
       +'text-anchor="middle">H+'+hh+'</text>');
   }
 
+  /* ---- Fenetre orageuse ----
+     Posee en dernier, donc par-dessus tout : un marquage de fond serait masque
+     par le socle opaque du relief et ne se verrait pas la ou il compte, sur la
+     crete. Opacite tres faible pour ne rien effacer de la donnee.
+     Seuls les niveaux modere et fort sont marques : signaler le risque faible
+     teinterait la moitie du graphe et n'attirerait l'oeil nulle part. */
+  (function(){
+    let marques = 0;
+    for(let hh=h0; hh<h1; hh++){
+      const s = j(hh); if(!s) continue;
+      const ro = risqueOrage(s);
+      if(!ro || ro.n < 2) continue;
+      marques++;
+      const x0 = x(hh), x1 = x(hh+1);
+      S.push('<rect x="'+x0.toFixed(1)+'" y="0" width="'+(x1-x0).toFixed(1)
+        +'" height="'+(yAx+4)+'" fill="'+PAL.alerte+'" opacity="'
+        +(ro.n>=3? '.16' : '.09')+'"/>');
+    }
+    if(!marques) return;
+    /* un eclair par episode continu, en tete de colonne : un par heure ferait
+       une rangee de symboles qui ne dit rien de plus */
+    let ouvert = false;
+    for(let hh=h0; hh<=h1; hh++){
+      const s = hh<h1? j(hh) : null;
+      const ro = s? risqueOrage(s) : null;
+      const actif = !!(ro && ro.n >= 2);
+      if(actif && !ouvert){
+        S.push('<text x="'+(x(hh)+5).toFixed(1)+'" y="11" fill="'+PAL.alerte
+          +'" font-size="11" font-weight="700" font-family="sans-serif"'
+          +' paint-order="stroke" stroke="'+PAL.fond+'" stroke-width="2.6">'
+          +'\u26a1</text>');
+      }
+      ouvert = actif;
+    }
+  })();
+
   const svg=q('#ruban');
   svg.setAttribute('viewBox','0 0 '+W+' '+HAUT);
   svg.setAttribute('width',W); svg.setAttribute('height',HAUT);
@@ -3533,6 +3569,8 @@ function resumeSegment(){
   const bornes=fenetre(); const T=[],RES=[],P=[],PP=[],R=[],N=[],C=[],V=[],D=[];
   /* etages et altitude du coureur : de quoi repondre a "puis-je percer ?" */
   const NUB=[], NUM=[], ALTH=[];
+  /* niveaux de risque orageux heure par heure, et l'heure correspondante */
+  const ORAGE=[], ORAGE_H=[];
   for(let hh=bornes[0];hh<=bornes[1];hh++){ const jj=sondeJalon(hh); if(!jj) continue;
     if(jj.t&&jj.t.m!==null) T.push(jj.t.m);
     if(jj.res&&jj.res.m!==null) RES.push(jj.res.m);
@@ -3549,6 +3587,9 @@ function resumeSegment(){
        se tait quand il pleut rassure a tort. */
     const cjj = cielCoherent(jj);
     if(cjj!==null&&cjj!==undefined) C.push(cjj);
+    const ro = risqueOrage(jj);
+    ORAGE.push(ro? ro.n : null);
+    ORAGE_H.push(hhmm(new Date(new Date(POIS[0].t[SCENARIO]).getTime()+hh*3.6e6)));
     NUB.push(jj.nub&&jj.nub.m!==null? jj.nub.m : null);
     NUM.push(jj.num&&jj.num.m!==null? jj.num.m : null);
     ALTH.push(JALONS[hh]? (JALONS[hh].alt||0) : null); }
@@ -3576,7 +3617,8 @@ function resumeSegment(){
       PP.length? 'risque pluie '+Math.round(med(PP))+' %':'', ''],
     ['point haut', altMax+' m', '', ''],
     ['pire ciel', pire!==null? (WMO[pire]||'\u2014'):'\u2014', '', pire>=95?'var(--alerte)':''],
-    merDeNuages(NUB, NUM, ALTH)
+    merDeNuages(NUB, NUM, ALTH),
+    orageFenetre(ORAGE, ORAGE_H)
   ];
   h+='<div class="rgrille">';
   cases.forEach(c=>{ h+='<div class="rcase"><s>'+c[0]+'</s><b'
@@ -4259,6 +4301,79 @@ async function exportPNG(){
     if(b) b.textContent = 'Export image';
     log('Export image impossible : ' + e.message);
   }
+}
+
+/* ---- Risque orageux ----
+   Le parametre qui decide des coupures de parcours, donc celui qui ne se lit pas
+   comme les autres : ce qui compte n'est pas la mediane mais le PIRE CAS
+   CREDIBLE. A Belledonne vendredi 13h18 la mediane donne 280 J/kg quand ECMWF
+   IFS en annonce 980 - la dispersion de 900 EST l'information, et un
+   organisateur regarde le haut de la fourchette, pas son milieu.
+
+   Trois entrees, toutes relevees et verifiees presentes :
+     - CAPE, cinq modeles, lue au quantile HAUT ;
+     - indice de soulevement LI, fourni par GFS seul, negatif = instable ;
+     - code temps OMM, 95 et au-dela signalant l'orage.
+
+   La vigilance officielle de Meteo-France demande une cle d'API - verifie, elle
+   repond 401 sans - donc elle n'est pas integrable ici. Cet indice ne la
+   remplace pas et ne pretend pas le faire.
+
+   Seuils de l'usage operationnel, abaisses pour la montagne : le relief fournit
+   le declencheur, une CAPE modeste y suffit la ou il en faudrait le double en
+   plaine. */
+const ORAGE_MOTS = ['nul', 'faible', 'mod\u00e9r\u00e9', 'fort'];
+function risqueOrage(s){
+  if(!s) return null;
+  const q = (k, w) => (s[k] && s[k][w]!==null && s[k][w]!==undefined)? s[k][w] : null;
+  const capeHi = q('cape','hi'), capeM = q('cape','m'), li = q('li','m');
+  const code = cielCoherent(s);
+  if(capeHi===null && li===null && (code===null||code<95)) return null;
+  let n = 0;
+  if(code!==null && code>=95) n = 3;
+  if(capeHi!==null){
+    if(capeHi >= 1000) n = Math.max(n, 3);
+    else if(capeHi >= 500) n = Math.max(n, 2);
+    else if(capeHi >= 150) n = Math.max(n, 1);
+  }
+  if(li!==null){
+    if(li <= -5) n = Math.max(n, 3);
+    else if(li <= -2) n = Math.max(n, 2);
+    else if(li < 0)   n = Math.max(n, 1);
+  }
+  return {n: n, mot: ORAGE_MOTS[n], cape: capeM, capeHi: capeHi, li: li};
+}
+
+/* Synthese sur la fenetre. On distingue le PIC de la periode de surveillance :
+   melanger les deux fait lire treize heures de risque fort la ou le pic tient en
+   quatre, et masque justement les quatre heures sur lesquelles la decision se
+   prend. Mesure du 18/08 : niveau fort de 14 h a 17 h vendredi, modere de 7 h a
+   19 h, samedi stable. */
+function orageFenetre(niveaux, heures){
+  const vus = niveaux.filter(v => v!==null && v!==undefined);
+  if(!vus.length) return ['risque orageux', '\u2014', 'donn\u00e9e absente', ''];
+  const pire = Math.max.apply(null, vus);
+  if(pire <= 1)
+    return ['risque orageux', ORAGE_MOTS[pire],
+            pire? 'instabilit\u00e9 faible, sans orage' : 'atmosph\u00e8re stable', ''];
+
+  /* fenetre du pic, et fenetre plus large de surveillance */
+  const plage = seuil => {
+    let n = 0, deb = null, fin = null;
+    for(let i=0;i<niveaux.length;i++){
+      const v = niveaux[i];
+      if(v===null || v===undefined || v < seuil) continue;
+      n++; if(deb===null) deb = heures[i]; fin = heures[i];
+    }
+    return {n: n, deb: deb, fin: fin};
+  };
+  const pic = plage(pire), surv = plage(2);
+  const dire = p => (p.deb===p.fin? p.deb : p.deb+' \u2192 '+p.fin);
+  let note = pic.n + ' h \u00b7 ' + dire(pic);
+  /* la periode de surveillance n'est rappelee que si elle deborde le pic */
+  if(surv.n > pic.n) note += ' \u00b7 \u00e0 surveiller d\u00e8s ' + surv.deb;
+  return ['risque orageux', ORAGE_MOTS[pire], note,
+          pire>=3? 'var(--alerte)' : 'var(--chaud)'];
 }
 
 function cielCoherent(s){
