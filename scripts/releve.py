@@ -31,8 +31,23 @@ SORTIE = sys.argv[2] if len(sys.argv) > 2 else "data/dernier.json"
 ORIGINE = os.environ.get("EB26_ORIGINE") or ("github-actions" if os.environ.get("CI") else "poste-local")
 
 CLE_CACHE = "cache:v3"          # doit suivre index.html
-ATTENTE_MAX_S = 300
+ATTENTE_MAX_S = 420             # une reprise Open-Meteo dure une minute pleine
 STABLE_REQUIS = 4               # nombre de sondages identiques avant de conclure
+
+# La page est IMMOBILE pendant qu'elle patiente entre deux tentatives : juger sur
+# le seul texte affiche faisait conclure trop tot. On lit donc l'etat reel des
+# ordonnanceurs - requetes en vol et pauses programmees.
+OCCUPE_JS = """
+  try{
+    const now = Date.now();
+    const O = [];
+    for (const n of ['ORD_OM','ORD_MB','ORD_WY','ORD_MN','ORD_AR']) {
+      try { const o = eval(n); if (o) O.push(o); } catch(e) {}
+    }
+    if (!O.length) return null;              // rien a observer, on retombe sur le texte
+    return O.some(o => (o.enCours|0) > 0 || (o.pause|0) > now);
+  }catch(e){ return null; }
+"""
 
 
 def journal(msg):
@@ -75,9 +90,14 @@ def main():
                 courant = d.find_element(By.TAG_NAME, "body").text
             except Exception:
                 break
+            try:
+                occupe = d.execute_script(OCCUPE_JS)
+            except Exception:
+                occupe = None
             if courant == precedent:
                 stable += 1
-                if stable >= STABLE_REQUIS:
+                # immobile ET plus rien en vol ni en attente de reprise
+                if stable >= STABLE_REQUIS and not occupe:
                     break
             else:
                 stable = 0

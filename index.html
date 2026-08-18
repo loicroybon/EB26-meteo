@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v82 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v83 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -412,9 +412,14 @@ const FENETRE = {h0:'2026-08-21T05:00', h1:'2026-08-23T03:00',
                  d0:'2026-08-21', d1:'2026-08-23'};
 
 /* ---- ordonnanceur adaptatif ---- */
-function ordonnanceur(nomServeur, concurrenceMax){
+function ordonnanceur(nomServeur, concurrenceMax, repriseMs, depart){
   return {
-    nom:nomServeur, max:concurrenceMax, actuel:Math.min(2,concurrenceMax),
+    nom:nomServeur, max:concurrenceMax,
+    actuel:Math.min(depart||2, concurrenceMax),
+    /* Duree de reprise apres un refus, propre au serveur. Open-Meteo limite PAR
+       MINUTE et le dit dans sa reponse : reprendre avant que la fenetre se
+       rearme garantit un second echec. */
+    reprise: repriseMs || 2500,
     enCours:0, file:[], pause:0, echecs:0,
     async prendre(){
       while(true){
@@ -430,14 +435,18 @@ function ordonnanceur(nomServeur, concurrenceMax){
         if(this.actuel<this.max) this.actuel=Math.min(this.max, this.actuel+1); }
       else { this.echecs++;
         this.actuel=Math.max(1, Math.floor(this.actuel/2));
-        /* la limite Open-Meteo se réarme en moins d'une minute : inutile
-           d'attendre davantage, et une progression linéaire suffit */
-        this.pause=Date.now()+Math.min(15000, 2500*this.echecs);
+        /* Mesure a l'appui : Open-Meteo repond "Minutely API request limit
+           exceeded. Please try again in one minute". Reprendre avant que la
+           fenetre se rearme ne fait que consommer une tentative pour rien -
+           c'est ce qui vidait les trois essais en quinze secondes. */
+        this.pause=Date.now()+Math.min(this.reprise*3, this.reprise*this.echecs);
       }
     }
   };
 }
-const ORD_OM = ordonnanceur('open-meteo', 4);
+/* Open-Meteo : un appel porte deja 52 points x 9 modeles x 15 variables. On
+   part donc a UN seul appel simultane, et on reprend au-dela de la minute. */
+const ORD_OM = ordonnanceur('open-meteo', 4, 62000, 1);
 const ORD_MB = ordonnanceur('meteoblue', 6);
 const ORD_WY = ordonnanceur('windy', 5);
 const ORD_MN = ordonnanceur('met.no', 4);
@@ -458,7 +467,10 @@ async function appel(ord, url, options){
 
 /* ---- un seul appel pour tous les modèles ---- */
 async function lotOpenMeteo(ids, points, vars){
-  const LOT=40;
+  /* 60 et non 40 : les 52 points tiennent dans un seul appel, verifie en direct
+     contre l'API. Deux appels concurrents doublaient la pression sur la limite
+     par minute pour un resultat identique. */
+  const LOT=60;
   const res=new Array(points.length).fill(null);
   const morceaux=[];
   for(let d=0;d<points.length;d+=LOT) morceaux.push([d, points.slice(d,d+LOT)]);
