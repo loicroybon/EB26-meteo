@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v83 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v84 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -1276,12 +1276,19 @@ async function interroger(force){
 
   /* ---- sonde des identifiants hors de portée, notamment les suisses ---- */
   const tacheSONDE = (async()=>{
+    /* Apres le releve principal : Open-Meteo compte PAR MINUTE, et une sonde de
+       portee ne vaut pas de faire tomber les modeles que l'on affiche. */
+    try{ await tacheOM; }catch(e){}
     const dehors = MODELES.filter(m=>m[0]!==MB_ID && m[0]!==MN_ID && m[0]!==AR_ID && m[2] < jours).map(m=>m[0]);
     try{ await sonderIdentifiants(dehors); }catch(e){}
   })();
 
   /* ---- ensembles ---- */
   const tacheENS = (async()=>{
+    /* Apres le releve principal, et pour la meme raison. Un ensemble porte des
+       dizaines de membres par point : c'est de loin l'appel le plus lourd, et le
+       laisser partir en meme temps que le releve faisait perdre les deux. */
+    try{ await tacheOM; }catch(e){}
     try{
       const e=await ensembles(POIS, p=>p.t[SCENARIO]);
       if(Object.keys(e).length){ ENS=e;

@@ -37,16 +37,18 @@ STABLE_REQUIS = 4               # nombre de sondages identiques avant de conclur
 # La page est IMMOBILE pendant qu'elle patiente entre deux tentatives : juger sur
 # le seul texte affiche faisait conclure trop tot. On lit donc l'etat reel des
 # ordonnanceurs - requetes en vol et pauses programmees.
+# Reference DIRECTE et non eval() : les ordonnanceurs sont des `const` de portee
+# lexicale globale, atteignables par leur nom mais pas par eval() dans le contexte
+# injecte. La version precedente renvoyait donc toujours null, et le releve
+# repartait au bout de douze secondes sans attendre la moindre reprise.
 OCCUPE_JS = """
-  try{
-    const now = Date.now();
-    const O = [];
-    for (const n of ['ORD_OM','ORD_MB','ORD_WY','ORD_MN','ORD_AR']) {
-      try { const o = eval(n); if (o) O.push(o); } catch(e) {}
-    }
-    if (!O.length) return null;              // rien a observer, on retombe sur le texte
-    return O.some(o => (o.enCours|0) > 0 || (o.pause|0) > now);
-  }catch(e){ return null; }
+  const now = Date.now(), O = [];
+  try { O.push(ORD_OM); } catch(e) {}
+  try { O.push(ORD_MB); } catch(e) {}
+  try { O.push(ORD_WY); } catch(e) {}
+  try { O.push(ORD_MN); } catch(e) {}
+  if (!O.length) return null;                // rien a observer : on retombe sur le texte
+  return O.some(o => o && ((o.enCours|0) > 0 || (o.pause|0) > now));
 """
 
 
