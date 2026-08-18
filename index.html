@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v107 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v108 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -244,6 +244,7 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
   <div class="smspied"><span id="smsinfo"></span><button id="smscopie">Copier le SMS</button></div>
   <div class="smspied" style="border-top:1px solid var(--trace);padding-top:10px;margin-top:12px">
     <button id="exportmd">Export Markdown</button>
+    <button id="exportpng">Export image</button>
     <button id="raz" title="Effacer l'historique">Vider</button>
   </div>
 </div>
@@ -3582,6 +3583,11 @@ function resumeSegment(){
     +(c[3]?' style="color:'+c[3]+'"':'')+'>'+c[1]+'</b>'+(c[2]?'<em>'+c[2]+'</em>':'')+'</div>'; });
   h+='</div>';
   el.innerHTML=h;
+  /* Memorise pour l'export image : le bandeau est du HTML et sera redessine en
+     SVG, faute de pouvoir rasteriser un foreignObject de facon fiable. */
+  RESUME_EXPORT = {titre: titre, sous: dist.toFixed(1)+' km \u00b7 +'+dp+' m \u00b7 \u2212'+dm
+    +' m \u00b7 '+hhmm(dep.t[SCENARIO])+' \u2192 '+hhmm(arr.t[SCENARIO])+' \u00b7 '
+    +Math.floor(duree/60)+' h '+String(Math.round(duree%60)).padStart(2,'0'), cases: cases};
 }
 
 /* ---------- chips de points, limitées au segment ---------- */
@@ -4158,6 +4164,103 @@ function merDeNuages(nub, num, alt){
   return ['au-dessus des nuages', 'jamais', 'cr\u00eate toujours sous la couche', ''];
 }
 
+let RESUME_EXPORT = null;
+
+/* ---- Export image ----
+   L'utilisateur veut exactement les deux zones qu'il regarde - le meteogramme et
+   le bandeau - plus un titre datant les donnees. On reprend les SVG deja
+   calcules par la page, ce qui garantit la fidelite, et on redessine le bandeau
+   en SVG faute de pouvoir rasteriser un foreignObject de facon fiable. */
+function svgExport(){
+  const g = q('#gouttiere'), r = q('#ruban');
+  if(!g || !r) return null;
+  const W = +(r.getAttribute('width') || 0), H = +(r.getAttribute('height') || 0);
+  const GG = +(g.getAttribute('width') || 0);
+  if(!W || !H) return null;
+
+  const TITRE = 34, ECART = 12;
+  const nCase = RESUME_EXPORT? RESUME_EXPORT.cases.length : 0;
+  const COLS = Math.min(4, Math.max(1, nCase));
+  const RANGS = Math.ceil(nCase / COLS) || 0;
+  const HC = nCase? (30 + RANGS*46) : 0;
+  const LARG = GG + W, HAUTEUR = TITRE + H + (HC? ECART + HC : 0);
+
+  const esc = t => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const P = [];
+  P.push('<svg xmlns="http://www.w3.org/2000/svg" width="'+LARG+'" height="'+HAUTEUR
+    +'" viewBox="0 0 '+LARG+' '+HAUTEUR+'" font-family="ui-monospace,Menlo,Consolas,monospace">');
+  P.push('<rect width="'+LARG+'" height="'+HAUTEUR+'" fill="'+PAL.fond+'"/>');
+
+  /* le titre ne porte QUE la date des donnees, comme demande */
+  const d = new Date(TS_DONNEES || Date.now());
+  const deuxCh = n => String(n).padStart(2,'0');
+  P.push('<text x="10" y="21" fill="'+PAL.texte+'" font-size="13" font-weight="700">'
+    +esc('\u00c9chapp\u00e9e Belle 2026 \u00b7 donn\u00e9es du '
+      +deuxCh(d.getDate())+'/'+deuxCh(d.getMonth()+1)+'/'+d.getFullYear()
+      +' \u00e0 '+deuxCh(d.getHours())+'h'+deuxCh(d.getMinutes()))+'</text>');
+
+  P.push('<g transform="translate(0,'+TITRE+')">'+g.innerHTML+'</g>');
+  P.push('<g transform="translate('+GG+','+TITRE+')">'+r.innerHTML+'</g>');
+
+  if(nCase){
+    const y0 = TITRE + H + ECART, LC = LARG / COLS;
+    P.push('<rect x="0" y="'+y0+'" width="'+LARG+'" height="'+HC+'" fill="'+PAL.fond
+      +'" stroke="'+PAL.bord+'"/>');
+    P.push('<text x="10" y="'+(y0+18)+'" fill="'+PAL.texte+'" font-size="12" font-weight="700">'
+      +esc(RESUME_EXPORT.titre)+'</text>');
+    P.push('<text x="10" y="'+(y0+32)+'" fill="'+PAL.texteFaible+'" font-size="9.5">'
+      +esc(RESUME_EXPORT.sous)+'</text>');
+    RESUME_EXPORT.cases.forEach(function(c, i){
+      const cx = (i % COLS) * LC + 10, cy = y0 + 44 + Math.floor(i / COLS) * 46;
+      P.push('<text x="'+cx+'" y="'+cy+'" fill="'+PAL.libelle+'" font-size="8.5">'
+        +esc(String(c[0]).toUpperCase())+'</text>');
+      P.push('<text x="'+cx+'" y="'+(cy+17)+'" fill="'+(c[3]? PAL.texte : PAL.texte)
+        +'" font-size="14" font-weight="700">'+esc(c[1])+'</text>');
+      if(c[2]) P.push('<text x="'+cx+'" y="'+(cy+30)+'" fill="'+PAL.texteFaible
+        +'" font-size="8.5">'+esc(c[2])+'</text>');
+    });
+  }
+  P.push('</svg>');
+  return {svg: P.join(''), w: LARG, h: HAUTEUR, d: d};
+}
+
+async function exportPNG(){
+  const b = q('#exportpng');
+  const fait = svgExport();
+  if(!fait){ if(b) b.textContent = 'Rien \u00e0 exporter'; return; }
+  if(b) b.textContent = 'Image\u2026';
+  try{
+    const ECH = 2;                       /* 2x : le texte de 8,5 px doit rester net */
+    const url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(fait.svg);
+    const img = new Image();
+    await new Promise(function(ok, ko){
+      img.onload = ok; img.onerror = () => ko(new Error('svg illisible'));
+      img.src = url;
+    });
+    const cv = document.createElement('canvas');
+    cv.width = fait.w * ECH; cv.height = fait.h * ECH;
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = PAL.fond; ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.drawImage(img, 0, 0, cv.width, cv.height);
+    const blob = await new Promise(ok => cv.toBlob(ok, 'image/png'));
+    if(!blob) throw new Error('rasterisation vide');
+    const dd = fait.d, p2 = n => String(n).padStart(2,'0');
+    /* le nom porte la date des DONNEES et non du clic : deux exports du meme
+       releve produisent le meme nom, donc pas de doublons */
+    const nom = 'EB26-meteo_' + dd.getFullYear() + p2(dd.getMonth()+1) + p2(dd.getDate())
+              + '-' + p2(dd.getHours()) + p2(dd.getMinutes()) + '.png';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = nom;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    if(b) b.textContent = 'Export image';
+    log('Image export\u00e9e : ' + nom);
+  }catch(e){
+    if(b) b.textContent = 'Export image';
+    log('Export image impossible : ' + e.message);
+  }
+}
+
 function cielCoherent(s){
   if(!s) return null;
   const nu = (s.nu && s.nu.m!==null && s.nu.m!==undefined)? s.nu.m : null;
@@ -4555,6 +4658,7 @@ async function convergence(){
   segChips(); chips();
   q('#smscopie').onclick=copierSMS;
   q('#exportmd').onclick=exportMD;
+  q('#exportpng').onclick=exportPNG;
   q('#smscourt').onclick=()=>{ q('#smscourt').setAttribute('aria-pressed','true');
     q('#smscomplet').setAttribute('aria-pressed','false'); majSMS(); };
   q('#smscomplet').onclick=()=>{ q('#smscomplet').setAttribute('aria-pressed','true');
