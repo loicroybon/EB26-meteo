@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v86 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v87 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -1150,7 +1150,15 @@ async function interroger(force){
   const rendre=()=>{ try{ afficheDispo(dispo); }catch(e){} rendreTout(); };
   const livrer=(etiquette, ids)=>{
     const maintenant=Date.now();
-    (ids||[]).forEach(id=>{ rafraichis[id]=1; MAJ_MODELE[id]=maintenant; });
+    /* On n'horodate que les modeles qui ont VRAIMENT livre des points ce tour-ci.
+       nD[id] n'est renseigne que dans ce cas. Marquer comme frais un modele dont
+       la requete n'a rien ramene lui laissait une prevision ancienne avec un
+       horodatage neuf : l'affichage mentait, et surtout la decote d'age du
+       consensus se trouvait annulee, le modele retrouvant tout son poids. */
+    (ids||[]).forEach(id=>{
+      if(!nD[id]) return;
+      rafraichis[id]=1; MAJ_MODELE[id]=maintenant;
+    });
     if(!Object.keys(nD).length) return;
     DATA=Object.assign({}, nD); DATA_J=Object.assign({}, nJ);
     if(Object.keys(rafraichis).length){ TS_DONNEES=Date.now(); HORS_LIGNE=false; rendus++; }
