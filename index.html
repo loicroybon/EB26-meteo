@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v95 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v99 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -1395,6 +1395,7 @@ function agrege(out){
     o.couverture=facteurCouverture(o.id);
     o.fraicheur=facteurFraicheur(o.id);
     o.poids=base*o.couverture*o.fraicheur; o.divergent=false; });
+  plafonnerPart(out);
 
   const CLES=['t','res','ressT','ros','hum','tw','pr','pr_moy','pr_conv','pp','neige','nu','nub','num','nuh',
     'sol','ray','uv','vis','cbase','v','vterrain','raf','dir','iso0','cape','pres',
@@ -2105,6 +2106,37 @@ function facteurFraicheur(id){
   return Math.max(FRAICHEUR_MIN, 1 - (1 - FRAICHEUR_MIN) * Math.min(1, f));
 }
 
+/* Aucun modele ne decide seul. Mesure du 18/08 : meteoblue pesait 2,20 sur 4,33,
+   soit 50,8 % - le consensus etait donc meteoblue, ce que confirmait un ecart au
+   consensus nul a tous les points. Ce n'etait pas l'intention : Windy est hors
+   service et Meteo-France reduit a ARPEGE sur 4 points, si bien que meteoblue
+   avait herite de la part des deux autres.
+
+   Le plafond porte sur la PART, pas sur le poids, donc il se relache tout seul
+   des que les autres reviennent - notamment quand AROME entrera dans la portee.
+   C'est une garde structurelle, pas un reglage a maintenir a la main. */
+const PART_MAX = 0.40;
+function plafonnerPart(out){
+  const vivants = out.filter(o => o && o.poids > 0);
+  if(vivants.length < 2) return;                 /* seul, on ne se plafonne pas */
+  /* Une part de 40 % est inatteignable a deux modeles : l'un d'eux en detient
+     forcement la moitie. Viser plus bas que la part egale ferait osciller le
+     plafond d'un modele a l'autre sans jamais converger, et produirait des poids
+     absurdes - exactement le cas de ce matin, ou deux modeles seulement
+     repondaient. La cible ne descend donc jamais sous la part egale. */
+  const cible = Math.max(PART_MAX, 1 / vivants.length);
+  for(let tour=0; tour<4; tour++){               /* plafonner l'un releve les autres */
+    const total = vivants.reduce((a,o)=>a+o.poids, 0);
+    if(!(total > 0)) return;
+    const chef = vivants.reduce((a,o)=> o.poids>a.poids? o : a, vivants[0]);
+    if(chef.poids / total <= cible + 1e-9) return;
+    /* part visee p : chef.poids = p/(1-p) * somme des autres */
+    const autres = total - chef.poids;
+    chef.plafonne = true;
+    chef.poids = autres * cible / (1 - cible);
+  }
+}
+
 function facteurCouverture(id){
   const part = COUV[id];
   if(part===undefined || part===null) return 1;     /* couverture inconnue : on ne penalise pas */
@@ -2666,6 +2698,21 @@ const yPlBase = yPl+L.pluie-10, hPlMax = L.pluie-16;
    meme outil devenaient incomparables. C'est le defaut le plus insidieux d'un
    graphe, puisqu'il ne se voit jamais sur une seule capture. */
 const PLUIE_PALIERS = [[0,0],[.5,.30],[1,.48],[4,.80],[10,1]];
+
+/* Intensite de pluie a afficher : la MOYENNE inter-modeles, pas la mediane.
+   La precipitation est tres dissymetrique et pleine de zeros ; il suffit que la
+   moitie des modeles placent l'averse a une autre heure pour que la mediane
+   horaire tombe a zero alors que chacun prevoit de la pluie. Mesure sur le
+   releve du 18/08 : neuf points sur cinquante-deux affichaient 0,00 mm/h en
+   mediane, dont Belledonne a 0,00 avec 88 % de risque, quand la moyenne y donne
+   0,68. La mediane est le bon estimateur d'une temperature, le mauvais d'un
+   cumul. Le bandeau de synthese lisait deja pr_moy : on aligne le reste. */
+function pluieAffichee(s){
+  if(!s) return null;
+  if(s.pr_moy && s.pr_moy.m!==null && s.pr_moy.m!==undefined) return s.pr_moy.m;
+  if(s.pr && s.pr.m!==null && s.pr.m!==undefined) return s.pr.m;
+  return null;
+}
 const PLUIE_PLAFOND = 10;
 function fracPluie(v){
   if(!(v>0)) return 0;
@@ -2776,9 +2823,12 @@ function dessine(){
   for(let hh=h0;hh<=h1;hh+=pas){
     const s=j(hh); if(!s) continue;
     const nuit = hLoc(hh)>=20.5||hLoc(hh)<6.3;
-    /* meme seuil que contraste() : on regarde le fond reellement peint a
-       cette heure-la, pas le theme */
-    S.push(picto(s.code, x(hh), 22, 11, nuit,
+    /* cielCoherent et non s.code brut : le mode entre modeles affichait un
+       grand soleil a 13 h sous 100 % de nuages et 85 % de risque de pluie. Il
+       suffit que cinq modeles sur neuf renvoient 0 pour que le mode bascule.
+       Meme seuil que contraste() pour la teinte : on regarde le fond
+       reellement peint a cette heure-la, pas le theme. */
+    S.push(picto(cielCoherent(s), x(hh), 22, 11, nuit,
                  luminance(couleurCiel(hLoc(hh))) <= 0.42));
     if(s.t&&s.t.m!==null) S.push('<text x="'+x(hh)+'" y="45" fill="'+contraste(couleurCiel(hLoc(hh)))
       +'" font-size="12.5" font-weight="700" text-anchor="middle">'+s.t.m.toFixed(0)+'\u00b0</text>');
@@ -3288,14 +3338,16 @@ function dessine(){
     +'" y2="'+yPr(v)+'" stroke="'+PAL.grille+'" stroke-dasharray="2 4" opacity="'
     +opGrad+'"/>'));
   for(let hh=h0;hh<h1;hh++){
-    const s=j(hh); if(!s||!s.pr||s.pr.m===null) continue;
+    const s=j(hh); if(!s||!s.pr) continue;
+    const prA = pluieAffichee(s);
+    if(prA===null) continue;
     const w=x(hh+1)-x(hh), xb=x(hh)+w*.22, wb=w*.56;
     /* Le doute est une MOUSTACHE, plus un bloc. Un rectangle pale monte a la
        hauteur du quantile haut pesait plus lourd a l'oeil que la prevision
        elle-meme, alors qu'il dit seulement ce qui pourrait arriver. Quand la
        moustache sort du cadre, un chevron le dit : on ne tronque pas en silence. */
-    if(s.pr.hi!==null && s.pr.hi > s.pr.m + 0.05){
-      const cx=(xb+wb/2), ym=yPr(s.pr.m), yh=yPr(s.pr.hi);
+    if(s.pr.hi!==null && s.pr.hi > prA + 0.05){
+      const cx=(xb+wb/2), ym=yPr(prA), yh=yPr(s.pr.hi);
       const deborde = s.pr.hi > PLUIE_PLAFOND;
       const yt = deborde? (yPlBase-hPlMax) : yh;
       S.push('<line x1="'+cx.toFixed(1)+'" y1="'+ym.toFixed(1)+'" x2="'+cx.toFixed(1)
@@ -3310,12 +3362,12 @@ function dessine(){
     /* Deux canaux : la HAUTEUR dit combien, la SOLIDITE dit a quel point c'est
        sur. Une barre haute et pale se lit alors "beaucoup, mais peut-etre pas",
        ce qui est la question posee avant de sortir une veste. */
-    if(s.pr.m>0.02){
+    if(prA>0.02){
       const sur = (s.pp && s.pp.m!==null)? Math.max(.42, Math.min(1, s.pp.m/100)) : .88;
       /* Plancher de 3 px : meme apres les paliers, une pluie de 0,05 mm/h ferait
          moins d'un pixel. Or "il pleut un peu" et "il ne pleut pas" sont deux
          etats differents pour qui court, et le graphe doit les distinguer. */
-      const hb = Math.max(3, yPlBase - yPr(s.pr.m));
+      const hb = Math.max(3, yPlBase - yPr(prA));
       S.push('<rect x="'+xb+'" y="'+(yPlBase-hb).toFixed(1)+'" width="'+wb+'" height="'
         +hb.toFixed(1)+'" fill="'+PAL.pluie+'" opacity="'+sur.toFixed(2)+'" rx="1"/>');
     }
@@ -3477,15 +3529,26 @@ const CIEL_COURT={0:'ciel clair',1:'peu nuageux',2:'nuageux',3:'couvert',
   80:'averses',81:'averses',82:'averses fortes',85:'averses de neige',86:'averses de neige',
   95:'orage',96:'orage et grele',99:'orage violent'};
 
-function descMeteo(s){
+function descMeteo(s, alt){
   if(!s||!s.t) return 'pas de donnees';
   const p=[];
-  let ciel = (s.code!==null&&s.code!==undefined)? (CIEL_COURT[s.code]||'') : '';
+  /* cielCoherent et non s.code brut. Le code temps est un mode entre modeles :
+     il annoncait "ciel clair" a Belledonne quand le consensus de la meme page
+     donnait 100 % de nuages. La correction existait pour la fiche du point et
+     avait ete oubliee ici, c'est-a-dire dans le seul texte qui part a des tiers. */
+  const cc = cielCoherent(s);
+  let ciel = (cc!==null&&cc!==undefined)? (CIEL_COURT[cc]||'') : '';
+  const m = k => (s[k] && s[k].m!==null && s[k].m!==undefined)? s[k].m : null;
   /* la couche basse est ce qui compte en montagne : brouillard sur les crêtes */
-  if(s.nub&&s.nub.m>=65&&s.code<=3) ciel='nuages bas';
-  else if(s.nu&&s.nu.m<=25&&s.code<=1) ciel='ciel degage';
+  if(s.nub&&s.nub.m>=65&&cc<=3) ciel='nuages bas';
+  else if(s.nu&&s.nu.m<=25&&cc<=1) ciel='ciel degage';
+  /* Air sature : le coureur est DANS le nuage. C'est ce qu'un proche comprend,
+     et ce qui change la conduite - on ne cherche pas quelqu'un de la meme facon
+     dans la purée. Voir airSature(). */
+  if(airSature(m('nu'), m('t'), m('ros'), m('nub'), m('pr'))) ciel='dans la nuee';
   if(ciel) p.push(ciel);
-  if(s.pr&&s.pr.m>=0.05) p.push('pluie '+s.pr.m.toFixed(1)+'mm');
+  const prS = pluieAffichee(s);
+  if(prS!==null && prS>=0.05) p.push('pluie '+prS.toFixed(1)+'mm');
   if(s.neige&&s.neige.m>=0.2) p.push('neige '+s.neige.m.toFixed(1)+'cm');
   if(s.v&&s.v.m!==null){
     let v='vent '+Math.round(s.v.m);
@@ -4067,7 +4130,7 @@ function heroRender(){
   el.style.display='';
   const nuit = (()=>{ const hh=new Date(p.t[SCENARIO]).getHours(); return hh>=21||hh<6; })();
   const svg='<svg viewBox="0 0 64 64" width="62" height="62" aria-hidden="true">'
-    +picto(s.code, 32, 30, 19, nuit)+'</svg>';
+    +picto(cielCoherent(s), 32, 30, 19, nuit)+'</svg>';
   const T=s.t&&s.t.m!==null? Math.round(s.t.m) : '\u2014';
   const pr=s.pr&&s.pr.m!==null? s.pr.m : 0;
   const proba=s.pp&&s.pp.m!==null? Math.round(s.pp.m) : null;
@@ -4108,7 +4171,7 @@ function heuresRender(){
     const hh=d.getHours(), nuit=hh>=21||hh<6;
     const jour=['dim','lun','mar','mer','jeu','ven','sam'][d.getDay()];
     const svg='<svg viewBox="0 0 44 44" width="34" height="34" aria-hidden="true">'
-      +(s? picto(s.code,22,20,12,nuit) : '')+'</svg>';
+      +(s? picto(cielCoherent(s),22,20,12,nuit) : '')+'</svg>';
     const T=s&&s.t&&s.t.m!==null? Math.round(s.t.m)+'\u00b0' : '\u2014';
     const pp=s&&s.pp&&s.pp.m!==null? Math.round(s.pp.m) : null;
     const raf=s&&s.raf&&s.raf.m!==null? Math.round(s.raf.m) : null;
