@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v125 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v126 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -4620,7 +4620,11 @@ function risqueOrage(s, sLarge){
      seul un niveau modere que ni ICON-CH2 ni ICON-2I ne voyaient. */
   const liFin = q('li','m'), liVeto = qL('li','m');
   const code = cielCoherent(s);
-  if(capeHi===null && li===null && (code===null||code<95)) return null;
+  /* Residu du renommage de la v66 corrige ici : cette garde lisait encore `li`,
+     nom qui n'existe plus. Le court-circuit de && la protegeait tant que capeHi
+     n'etait pas nul, donc pour tous les modeles Open-Meteo ; AROME, lu depuis le
+     GRIB, n'a pas de CAPE et faisait echouer dessine() en silence. */
+  if(capeHi===null && liFin===null && liVeto===null && (code===null||code<95)) return null;
   let n = 0;
   if(code!==null && code>=95) n = 3;
   /* Seuils de l'usage operationnel, et non abaisses "pour la montagne". La
