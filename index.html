@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v111 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v112 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -4340,6 +4340,16 @@ function risqueOrage(s){
     if(li <= -5) n = Math.max(n, 3);
     else if(li <= -2) n = Math.max(n, 2);
     else if(li < 0)   n = Math.max(n, 1);
+    /* Veto de stabilite. La CAPE dit l'energie disponible, le LI dit si une
+       parcelle peut monter : un LI franchement positif signifie une atmosphere
+       capee, ou l'energie reste enfermee sous l'inversion. Les deux grandeurs
+       sont complementaires et non interchangeables - les traiter par un simple
+       maximum classait Vizille en risque FORT au depart le 19/08, sur une CAPE
+       haute de 1050 J/kg alors que le LI valait +2. Fausse alerte au point le
+       plus frequente du parcours.
+       Exception necessaire : un code temps d'orage n'est pas contredit par un
+       indice que seul GFS fournit. */
+    else if(li >= 1 && (code===null || code < 95)) n = Math.min(n, 1);
   }
   return {n: n, mot: ORAGE_MOTS[n], cape: capeM, capeHi: capeHi, li: li};
 }
