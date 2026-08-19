@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v116 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v118 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -290,6 +290,17 @@ const MODELES = [
   ["metno_direct","MET Norway direct \u00b7 post-trait\u00e9 ECMWF",9.5],
   ["arome_direct","AROME 1,3 km direct",2.1]
 ];
+/* Index des noms. Le nom est aussi recopie dans le paquet au moment du relevé,
+   mais un paquet peut dater de plusieurs heures : renommer un modele resterait
+   alors sans effet jusqu'au prochain relevé complet. La table est la source de
+   verite, le paquet n'est qu'un repli pour les identifiants qui n'y figurent
+   pas - les modeles Windy, nommes dynamiquement. */
+const NOM_MODELE = {};
+MODELES.forEach(m => { NOM_MODELE[m[0]] = m[1]; });
+function nomModele(id){
+  return NOM_MODELE[id] || (DATA[id] && DATA[id].nom) || id;
+}
+
 const VARS = ["temperature_2m","apparent_temperature","dew_point_2m","relative_humidity_2m",
               "precipitation","precipitation_probability","snowfall","weather_code",
               "cloud_cover","cloud_cover_low","cloud_cover_mid","cloud_cover_high",
@@ -1005,7 +1016,7 @@ function majSelecteurModele(){
      cela l'ordre relatif suit celui d'arrivee des reponses reseau et change d'un
      relevé a l'autre, ce qui rend la liste immemorisable. Arbitraire mais
      stable, et c'est la seule qualite qui compte pour departager. */
-  const nomDe = id => (DATA[id] && DATA[id].nom) || id;
+  const nomDe = nomModele;
   const ordre=dispo.slice().sort(function(a,b){
     const d = poidsBase(b) - poidsBase(a);
     return d || nomDe(a).localeCompare(nomDe(b), 'fr');
@@ -1031,7 +1042,24 @@ function majSelecteurModele(){
     h+='<option value="'+id+'"'+(MODELE_ACTIF===id?' selected':'')+'>'
       +nomDe(id)+part+'</option>';
   });
-  if(!dispo.length) h='<option value="">Aucun modèle</option>';
+  /* Les modeles hors de portee figurent dans la liste, desactives, avec leur
+     date d'entree. Absents, on ne pouvait pas savoir qu'AROME arrive ni quand :
+     un modele qu'on attend n'est pas un modele qui n'existe pas. */
+  if(REPORTES.length){
+    const dep0 = new Date(POIS[0].t[SCENARIO]);
+    const vus = {};
+    const att = REPORTES.slice()
+      .filter(r => { if(vus[r[0]]) return false; vus[r[0]] = 1; return true; })
+      .sort((a,b) => a[1]===b[1]? String(a[0]).localeCompare(String(b[0]),'fr') : b[1]-a[1]);
+    h += '<optgroup label="\u00e0 venir">';
+    att.forEach(function(r){
+      const arr = new Date(dep0.getTime() - r[1]*864e5);
+      const q = arr.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit'});
+      h += '<option value="" disabled>' + r[0] + ' \u00b7 vers le ' + q + '</option>';
+    });
+    h += '</optgroup>';
+  }
+  if(!dispo.length && !REPORTES.length) h='<option value="">Aucun modèle</option>';
   sel.innerHTML=h;
   majNoteFiabilite();
 }
@@ -3492,6 +3520,44 @@ function dessine(){
     else if(hh%6===0) S.push('<text x="'+x(hh)+'" y="'+(yAx+25)+'" fill="'+PAL.texteFaible+'" font-size="8.5" '
       +'text-anchor="middle">H+'+hh+'</text>');
   }
+
+  /* ---- Dire l'absence de donnee ----
+     Une zone grise muette laisse croire a une panne. C'est presque toujours une
+     portee de modele depassee, c'est-a-dire une information, et une information
+     datee. On l'ecrit, au centre de la plage concernee.
+     A partir de trois heures consecutives seulement : en dessous, un trou d'une
+     heure est du bruit, et l'annoncer generait plus que le trou lui-meme. */
+  (function(){
+    const vide = hh => { const s = j(hh); return !s || !s.t || s.t.m===null || s.t.m===undefined; };
+    let deb = null;
+    const plages = [];
+    for(let hh=h0; hh<=h1+1; hh++){
+      if(hh<=h1 && vide(hh)){ if(deb===null) deb = hh; }
+      else if(deb!==null){ plages.push([deb, hh-1]); deb = null; }
+    }
+    plages.forEach(function(p){
+      if(p[1] - p[0] < 2) return;                 /* moins de 3 heures : on se tait */
+      const cx = (x(p[0]) + x(p[1]+1)) / 2, cy = yAlt(ALT_MAX) + 74;
+      /* jusqu'ou va le modele : la derniere heure renseignee avant la plage */
+      let fin = null;
+      for(let hh=p[0]-1; hh>=h0; hh--){ if(!vide(hh)){ fin = hh; break; } }
+      const quand = (fin!==null)
+        ? new Date(t0+fin*3.6e6).toLocaleString('fr-FR',
+            {weekday:'short', hour:'2-digit', minute:'2-digit'})
+        : null;
+      const nom = MODELE_ACTIF? (DATA[MODELE_ACTIF] && DATA[MODELE_ACTIF].nom) || MODELE_ACTIF : null;
+      const l1 = nom? (nom + ' \u2014 port\u00e9e d\u00e9pass\u00e9e')
+                    : 'aucune donn\u00e9e \u00e0 cette \u00e9ch\u00e9ance';
+      const l2 = quand? ('va jusqu\u2019\u00e0 ' + quand) : '';
+      const t = [l1, l2].filter(Boolean);
+      t.forEach(function(ligne, k){
+        S.push('<text x="'+cx.toFixed(1)+'" y="'+(cy + k*15).toFixed(1)+'" fill="'+PAL.libelle
+          +'" font-size="'+(k? 9.5 : 11)+'" text-anchor="middle" font-family="sans-serif"'
+          +(k? '' : ' font-weight="600"')
+          +' paint-order="stroke" stroke="'+PAL.fond+'" stroke-width="3.2">'+ligne+'</text>');
+      });
+    });
+  })();
 
   /* ---- Fenetre orageuse ----
      Posee en dernier, donc par-dessus tout : un marquage de fond serait masque
