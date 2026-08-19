@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v118 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v121 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -50,10 +50,13 @@ h1 span{color:var(--brume);font-weight:400}
   .ctl .grp{flex:1 1 auto}
   .ctl select{flex:1 1 auto;min-width:0}
 }
-button,select{font-family:var(--mono);font-size:12.5px;background:var(--panneau);color:var(--neige);
+button,select,#depart{font-family:var(--mono);font-size:12.5px;background:var(--panneau);color:var(--neige);
   border:1px solid var(--trace);border-radius:3px;padding:7px 11px;cursor:pointer}
-button:hover,select:hover{border-color:var(--froid)}
-button:focus-visible,select:focus-visible,.tick:focus-visible{outline:2px solid var(--froid);outline-offset:2px}
+/* le champ d'heure reste discret : il ne s'etire pas comme les listes et son
+   contenu ne fait que cinq caracteres */
+#depart{flex:0 0 auto;width:auto;min-height:40px}
+button:hover,select:hover,#depart:hover{border-color:var(--froid)}
+button:focus-visible,select:focus-visible,#depart:focus-visible,.tick:focus-visible{outline:2px solid var(--froid);outline-offset:2px}
 button[disabled]{opacity:.45;cursor:default}
 .ctl label{font-family:var(--sans);font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--brume)}
 
@@ -202,6 +205,8 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
 <header>
   <div class="ctl">
     <select id="scen" aria-label="Scénario"></select>
+    <input id="depart" type="time" step="300" value="06:30" title="Heure de départ"
+           aria-label="Heure de départ">
     <select id="modele" aria-label="Modèle"><option value="">Multimodèle</option></select>
     <span class="theme" role="group" aria-label="Apparence">
       <button id="th-clair" title="Clair">☀</button>
@@ -1509,10 +1514,11 @@ function agrege(out){
                poidsTotal:Math.round(out.reduce((a,o)=>a+o.poids,0)*100)/100};
   return {lignes:out, ...S};
 }
-function sonde(i){
+function sonde(i, filtre){
   const out=[];
   for(const id in DATA){
     if(MODELE_ACTIF && id!==MODELE_ACTIF) continue;
+    if(filtre && !filtre(id)) continue;
     const e=extraitPoi(DATA[id], i); if(e) out.push({id, nom:DATA[id].nom, ...e}); }
   const a=agrege(out); return a? {p:POIS[i], ...a} : null;
 }
@@ -1548,11 +1554,12 @@ function extraitJalonD(d, k){
   });
   return enrichir(m, J.alt, null, J);
 }
-function sondeJalon(k){
+function sondeJalon(k, filtre){
   if(!JALONS[k]) return null;
   const out=[];
   for(const id in DATA_J){
     if(MODELE_ACTIF && id!==MODELE_ACTIF) continue;
+    if(filtre && !filtre(id)) continue;
     const e=extraitJalonD(DATA_J[id], k);
     if(e) out.push({id, nom:DATA_J[id].nom, ...e}); }
   return agrege(out);
@@ -3568,8 +3575,8 @@ function dessine(){
   (function(){
     let marques = 0;
     for(let hh=h0; hh<h1; hh++){
-      const s = j(hh); if(!s) continue;
-      const ro = risqueOrage(s);
+      /* seules les mailles fines votent sur l'orage : voir finPourOrage() */
+      const ro = risqueOrage(sondeJalon(hh, finPourOrage), sondeJalon(hh));
       if(!ro || ro.n < 2) continue;
       marques++;
       const x0 = x(hh), x1 = x(hh+1);
@@ -3582,8 +3589,7 @@ function dessine(){
        une rangee de symboles qui ne dit rien de plus */
     let ouvert = false;
     for(let hh=h0; hh<=h1; hh++){
-      const s = hh<h1? j(hh) : null;
-      const ro = s? risqueOrage(s) : null;
+      const ro = hh<h1? risqueOrage(sondeJalon(hh, finPourOrage), sondeJalon(hh)) : null;
       const actif = !!(ro && ro.n >= 2);
       if(actif && !ouvert){
         S.push('<text x="'+(x(hh)+5).toFixed(1)+'" y="11" fill="'+PAL.alerte
@@ -3670,7 +3676,7 @@ function resumeSegment(){
        se tait quand il pleut rassure a tort. */
     const cjj = cielCoherent(jj);
     if(cjj!==null&&cjj!==undefined) C.push(cjj);
-    const ro = risqueOrage(jj);
+    const ro = risqueOrage(sondeJalon(hh, finPourOrage), jj);
     ORAGE.push(ro? ro.n : null);
     ORAGE_H.push(hhmm(new Date(new Date(POIS[0].t[SCENARIO]).getTime()+hh*3.6e6)));
     NUB.push(jj.nub&&jj.nub.m!==null? jj.nub.m : null);
@@ -4405,11 +4411,63 @@ async function exportPNG(){
    Seuils de l'usage operationnel, abaisses pour la montagne : le relief fournit
    le declencheur, une CAPE modeste y suffit la ou il en faudrait le double en
    plaine. */
+/* Maille de chaque modele, en km. null = pas de maille au sens propre : MOS
+   statistique ou echo post-traite d'un autre modele. */
+const MAILLE_KM = {
+  meteofrance_arome_france_hd: 1.3, arome_direct: 1.3, windy_arome: 1.3,
+  meteoswiss_icon_ch1: 1.0, meteoswiss_icon_ch2: 2.0,
+  dwd_icon_d2: 2.2, windy_iconD2: 2.2,
+  italia_meteo_arpae_icon_2i: 2.2, windy_aladin: 2.3,
+  meteofrance_arome_france: 2.5,
+  knmi_harmonie_arome_europe: 5.5,
+  dwd_icon_eu: 7.0, windy_iconEu: 7.0,
+  ecmwf_ifs025: 9.0, ukmo_global_deterministic_10km: 10.0,
+  meteofrance_arpege_europe: 11.0, dwd_icon_global: 11.0,
+  gfs_seamless: 13.0, windy_gfs: 13.0,
+  ecmwf_aifs025_single: 28.0, gfs_graphcast025: 28.0,
+  meteoblue: null, metno_seamless: null, metno_direct: null,
+  jma_seamless: null, cma_grapes_global: null, bom_access_global: null
+};
+
+/* ---- Qui a le droit de voter sur l'orage ----
+   En montagne, un risque orageux annonce par un modele a 13 km ne veut rien
+   dire : la convection alpine tient dans un vallon, et une maille de 13 km ne
+   represente meme pas le relief qui la declenche. Un modele global ne se trompe
+   pas sur la masse d'air, il se trompe sur le fait qu'il puisse s'y passer
+   quelque chose de local.
+
+   Seuil pose a 3 km, pour ce parametre SEULEMENT : ces modeles continuent de
+   voter sur la temperature, la pluie et le vent, ou leur maille n'est pas
+   disqualifiante. Un modele sans maille propre - MOS ou post-traitement - ne
+   vote pas non plus : on ne sait pas a quelle resolution sa convection est
+   resolue. */
+const ORAGE_MAILLE_MAX = 3;
+function finPourOrage(id){
+  const m = MAILLE_KM[id];
+  return m !== null && m !== undefined && m <= ORAGE_MAILLE_MAX;
+}
+
 const ORAGE_MOTS = ['nul', 'faible', 'mod\u00e9r\u00e9', 'fort'];
-function risqueOrage(s){
+/* Deux sondes et non une, parce que les deux affirmations ne demandent pas la
+   meme resolution.
+
+   ACCUSER demande une maille fine : dire qu'un orage se declenche ICI suppose de
+   representer le vallon qui le declenche. C'est la CAPE et le code temps, lus
+   sur `s`, deja filtre a 3 km par l'appelant.
+
+   OPPOSER UN VETO n'en demande pas : un indice de soulevement positif dit que la
+   masse d'air est capee sur des dizaines de kilometres, ce qu'un modele global
+   decrit correctement - c'est meme ce pour quoi il est bon. Il se lit donc sur
+   `sLarge`, tous modeles confondus. Sans cela le veto serait inerte, l'indice
+   n'etant fourni que par GFS, a 13 km, donc exclu du vote.
+
+   Une maille large ne peut pas accuser, elle peut disculper. */
+function risqueOrage(s, sLarge){
   if(!s) return null;
   const q = (k, w) => (s[k] && s[k][w]!==null && s[k][w]!==undefined)? s[k][w] : null;
-  const capeHi = q('cape','hi'), capeM = q('cape','m'), li = q('li','m');
+  const src = sLarge || s;
+  const qL = (k, w) => (src[k] && src[k][w]!==null && src[k][w]!==undefined)? src[k][w] : null;
+  const capeHi = q('cape','hi'), capeM = q('cape','m'), li = qL('li','m');
   const code = cielCoherent(s);
   if(capeHi===null && li===null && (code===null||code<95)) return null;
   let n = 0;
@@ -4504,8 +4562,14 @@ function alertesSimples(s, p){
   else if(s.raf&&s.raf.hi>40) A.push(['\u2691','Rafales '+Math.round(s.raf.hi)+' km/h']);
   /* meme derivation que partout ailleurs : le code brut pouvait valoir 0 sur un
      ciel d'orage et l'alerte ne se levait pas */
-  const cA = cielCoherent(s);
-  if((cA!==null && cA>=95) || (s.cape&&s.cape.hi>900)) A.push(['\u26a1','Risque d\'orage']);
+  /* L'alerte d'orage se lit sur les seules mailles fines, comme partout
+     ailleurs. Les entrees de POIS ne portent pas leur indice - verifie - donc on
+     le retrouve par identite, ce qui reste exact meme si deux points portaient
+     le meme nom. */
+  const iP = POIS.indexOf(p);
+  const sO = (iP >= 0)? sonde(iP, finPourOrage) : null;
+  const rO = risqueOrage(sO, s);
+  if(rO && rO.n >= 2) A.push(['\u26a1','Risque d\'orage \u2014 '+rO.mot]);
   if(s.cbase&&s.cbase.m!==null&&s.cbase.m<p.alt) A.push(['\u2601','Vous serez dans les nuages']);
   if(s.res&&s.res.lo!==null&&s.res.lo<3) A.push(['\u2744','Ressenti possible \u00e0 '+Math.round(s.res.lo)+'\u00b0']);
   if(s.pr&&s.pr.hi>2) A.push(['\u2614','Averses jusqu\'\u00e0 '+s.pr.hi.toFixed(1)+' mm/h']);
@@ -4821,8 +4885,76 @@ async function convergence(){
   el.innerHTML=h;
 }
 
+/* ---------- heure de depart ----------
+   Le road book donne l'heure de passage absolue de chacun des 52 points, pour
+   chaque scenario. Decaler le depart decale toutes ces heures du meme
+   intervalle, et donc les heures auxquelles chaque modele est interroge.
+
+   On garde une copie intacte du road book et on repart TOUJOURS d'elle : appliquer
+   un decalage sur un etat deja decale derive, et l'erreur ne se verrait qu'apres
+   un aller-retour. */
+const DEPART_REF = '06:30';
+const ROADBOOK = POIS.map(p => Object.assign({}, p.t));
+
+function minutesDe(hhmm){
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm||''));
+  if(!m) return null;
+  const h = +m[1], mn = +m[2];
+  if(h>23 || mn>59) return null;
+  return h*60 + mn;
+}
+
+function appliquerDepart(hhmm){
+  const cible = minutesDe(hhmm), ref = minutesDe(DEPART_REF);
+  if(cible===null) return false;
+  const delta = (cible - ref) * 60000;
+  POIS.forEach(function(p, i){
+    const src = ROADBOOK[i];
+    Object.keys(src).forEach(function(s){
+      /* Format LOCAL, surtout pas toISOString() : le road book est en heure
+         locale, et toISOString rend de l'UTC - le decalage se serait ajoute aux
+         deux heures du fuseau d'ete. Le test en navigateur l'a montre, 05:00
+         demande donnait 03:00 ; le test en Python, qui rejouait la formule et
+         non le code, ne pouvait pas le voir. */
+      const q2 = n => String(n).padStart(2,'0');
+      const dd = new Date(new Date(src[s]).getTime() + delta);
+      p.t[s] = dd.getFullYear()+'-'+q2(dd.getMonth()+1)+'-'+q2(dd.getDate())
+             +'T'+q2(dd.getHours())+':'+q2(dd.getMinutes());
+    });
+  });
+  DEPART_ACTUEL = hhmm;
+  try{ localStorage.setItem('depart', hhmm); }catch(e){}
+  return true;
+}
+let DEPART_ACTUEL = DEPART_REF;
+
 /* ---------- init ---------- */
 (function(){
+  const dep=q('#depart');
+  if(dep){
+    let voulu = DEPART_REF;
+    try{ voulu = localStorage.getItem('depart') || DEPART_REF; }catch(e){}
+    if(minutesDe(voulu)===null) voulu = DEPART_REF;
+    dep.value = voulu;
+    if(voulu !== DEPART_REF) appliquerDepart(voulu);
+    dep.onchange=function(){
+      if(!appliquerDepart(dep.value)){ dep.value = DEPART_ACTUEL; return; }
+      /* Meme regle que le selecteur de scenario : les valeurs du cache sont
+         extraites pour des heures precises, changer le depart les perime. On
+         redessine tout de suite, et on reinterroge si la meteo ne vient pas de
+         reponses brutes encore en memoire. */
+      const surCache = Object.keys(DATA).some(id=>DATA[id].pts && !DATA[id].reps);
+      JALONS = construireJalons();
+      dessine(); fiche(); tableauTous(); resumeSegment(); convergence();
+      if(surCache && !(PRECHARGE && PRECHARGE.modeles)){
+        log('D\u00e9part \u00e0 '+dep.value+' : les heures de passage changent, '
+          +'r\u00e9interrogation des mod\u00e8les\u2026');
+        interroger();
+      } else {
+        log('D\u00e9part r\u00e9gl\u00e9 \u00e0 '+dep.value+'.');
+      }
+    };
+  }
   const sel=q('#scen');
   for(let s=36;s<=52;s++){ const o=document.createElement('option'); o.value=s; o.textContent=s+' h'; if(s===43)o.selected=true; sel.appendChild(o); }
   sel.onchange=()=>{
