@@ -82,6 +82,20 @@ def main():
         # déclenchement manuel qui veut vraiment un relevé.
         forcer = os.environ.get("FORCER", "") == "1"
         avant = d.execute_script("return TS_DONNEES")
+
+        # Sortie anticipée : depuis que la tentative est semi-horaire, cinq sur six
+        # n'ont rien à faire. Inutile de lancer le relevé pour se faire refuser
+        # trois secondes plus tard — la page sait le dire d'avance, et le prédicat
+        # rejoue sa propre règle plutôt que d'en dupliquer une seconde.
+        if not forcer:
+            try:
+                inutile = d.execute_script("return releveInutile && releveInutile()")
+            except Exception:
+                inutile = False
+            if inutile:
+                journal("  le cache porte déjà le dernier run publié : rien à faire")
+                return 3
+
         d.execute_script("interroger(arguments[0])", forcer)
 
         precedent, stable = None, 0

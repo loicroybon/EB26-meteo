@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v145 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v151 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -100,6 +100,27 @@ h2::after{content:"";flex:1;height:1px;background:var(--trace)}
 .rtete span{font-size:11.5px;color:var(--brume)}
 .rgrille{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:0;
   border:1px solid var(--trace);border-radius:5px;overflow:hidden}
+/* ---- Ligne de tenue, dessinee comme un plan de metro ----
+   Espacement SCHEMATIQUE et non proportionnel : un plan de metro ne respecte pas
+   les distances, il respecte la lisibilite. La duree du trajet est ecrite sur le
+   trait, ce qui rend l'information sans deformer la ligne. */
+.tmetro{overflow-x:auto;padding:2px 0 10px}
+.tvoie{display:flex;align-items:flex-start;min-width:min-content}
+.tstat{flex:0 0 auto;min-width:118px;padding-right:4px}
+.tstat.tfin{min-width:64px}
+.ttenue{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:-.02em;
+  white-space:nowrap;margin-bottom:5px;color:var(--neige)}
+.trail{display:flex;align-items:center;gap:5px;margin:2px 0 6px}
+.tpoint{flex:0 0 auto;width:9px;height:9px;border-radius:50%;background:var(--froid);
+  box-shadow:0 0 0 2px var(--roche)}
+.tfil{flex:1 1 auto;height:3px;border-radius:2px;background:var(--trace)}
+.tduree{flex:0 0 auto;font-family:var(--mono);font-size:9.5px;color:var(--brume);
+  white-space:nowrap}
+.tlieu{font-size:11.5px;color:var(--neige);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;padding-right:8px}
+.theure,.tkm{font-family:var(--mono);font-size:10px;color:var(--brume);white-space:nowrap}
+.tfroid{color:var(--froid)}
+.tchaud{color:var(--chaud)}
 .rcase{background:var(--roche);padding:8px 10px;border-right:1px solid var(--trace);
   border-bottom:1px solid var(--trace)}
 .rcase s{display:block;text-decoration:none;font-family:var(--sans);font-size:9.5px;
@@ -241,6 +262,8 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
 </div>
 
 <div class="fiche" id="segresume"></div>
+
+<div class="fiche" id="tenue"></div>
 
 <div class="hero" id="hero"></div>
 <div class="heures" id="heures"></div>
@@ -1186,6 +1209,13 @@ function modelesAttendus(){
     const d = DOUBLON[id];
     return !(d && (!d.garde || !d.garde.length) && ens.has(d.parent));
   }).length;
+}
+/* Le cron interroge ceci AVANT de lancer un relevé : inutile de demarrer tout
+   l'appareillage pour se faire refuser trois secondes plus tard. On ne duplique
+   aucune regle, on rejoue runPublie() que la page porte deja. */
+function releveInutile(){
+  if(!TS_DONNEES) return false;
+  return new Date(TS_DONNEES).getTime() >= runPublie(Date.now());
 }
 async function interroger(force){
   if(EN_COURS) return;
@@ -2160,6 +2190,16 @@ function ressTerrain(e, p, nuit){
 }
 
 /* ================= PONDÉRATION DES MODÈLES ================= */
+/* Les quatre globaux — AIFS 28 km, GFS 13 km, UKMO 10 km à 0,08, IFS 9 km à 0,12 —
+   pèsent un rapport de 1 à 27 face à AROME HD. Mesure à l'appui,
+   les retirer entièrement ne déplaçait le consensus que de 0,17 °C en moyenne.
+   Ils ne faussaient rien, mais ne gagnaient pas leur place non plus.
+
+   Pas zéro pour autant. GFS est la seule famille NOAA, donc la seule analyse
+   vraiment indépendante d'ECMWF. Et surtout ces modèles alimentent l'ÉCART
+   affiché — la ligne de désaccord, et la transparence de la bande de température,
+   qui suit hi moins lo. Les annuler rendrait la page plus confiante sans la rendre
+   plus juste. */
 /* Deux corrections au simple médian :
    1. tous les modèles ne se valent pas sur les Alpes ;
    2. IFS, AIFS et MET Norway partagent l'analyse d'ECMWF — les compter
@@ -2181,13 +2221,13 @@ const POIDS = {
   meteoswiss_icon_ch2:            [1.20,'CH','maille 2 km, arc alpin'],
   italia_meteo_arpae_icon_2i:     [1.00,'IT','maille 2,2 km — domaine centré sur le versant italien'],
   knmi_harmonie_arome_europe:     [0.55,'KNMI','maille 5,5 km — domaine centré plus au nord'],
-  ecmwf_ifs025:                   [0.40,'ECMWF','meilleur global, mais maille 9 km sur Belledonne'],
-  ecmwf_aifs025_single:           [0.25,'ECMWF','IA, même analyse qu’IFS'],
+  ecmwf_ifs025:                   [0.12,'ECMWF','meilleur global, mais maille 9 km sur Belledonne'],
+  ecmwf_aifs025_single:           [0.08,'ECMWF','IA, même analyse qu’IFS — maille 28 km, la plus grossière'],
   metno_seamless:                 [0.20,'ECMWF','post-traitement d’ECMWF'],
   metno_direct:                   [0.20,'ECMWF','post-traitement d’ECMWF, source libre sans quota'],
   arome_direct:                   [2.20,'MF',   'AROME 1,3 km, GRIB Météo-France sans clé, grille native'],
-  ukmo_global_deterministic_10km: [0.25,'UKMO','global solide, maille trop large ici'],
-  gfs_seamless:                   [0.25,'NOAA','faible sur le relief alpin'],
+  ukmo_global_deterministic_10km: [0.08,'UKMO','global solide, maille trop large ici'],
+  gfs_seamless:                   [0.08,'NOAA','faible sur le relief alpin — gardé pour l’indépendance NOAA'],
   gfs_graphcast025:               [0.20,'NOAA','IA, même analyse que GFS'],
   jma_seamless:                   [0.35,'JMA',  'peu adapté aux Alpes'],
   cma_grapes_global:              [0.25,'CMA',  'peu adapté aux Alpes'],
@@ -2196,8 +2236,17 @@ const POIDS = {
 /* Doublons : un modèle qui redit ce qu'un autre a déjà dit ne doit pas
    gonfler le consensus. On le garde uniquement pour ce qu'il apporte seul. */
 const DOUBLON = {
-  metno_seamless:       {parent:'ecmwf_ifs025',    garde:[]},
-  metno_direct:         {parent:'ecmwf_ifs025',    garde:[]},
+  /* La famille ECMWF parle par MET Norway direct et non par IFS. Les trois
+     portent la meme analyse, donc un seul doit voter - mais depuis que les
+     globaux sont retombes a 0,08-0,12, laisser IFS parent aurait fait taire un
+     modele a 0,20 au profit d'un modele a 0,12.
+
+     Et le choix se defend au-dela de l'arithmetique : MET Norway direct est un
+     post-traitement, comme meteoblue dont le MOS vaut 2,20 justement parce qu'il
+     est cale sur le relief. En montagne il vaut mieux qu'une maille brute de
+     9 km. Il est en outre gratuit et sans quota. */
+  metno_seamless:       {parent:'metno_direct',    garde:[]},
+  ecmwf_ifs025:         {parent:'metno_direct',    garde:[]},
   arome_direct:         {parent:'meteofrance_arome_france_hd', garde:[]},
   dwd_icon_global:      {parent:'dwd_icon_eu',     garde:[]},
   windy_iconEu:         {parent:'dwd_icon_eu',     garde:['pr_conv','cbase']},
@@ -2676,7 +2725,10 @@ function abrege(n){
     'R8 Super Collet':'Super Collet','R9 Val Pelouse':'Val Pelouse',
     'Col de l\'Aigleton':'Aigleton','Rochers Rouges':'Roch. Rouges','Col de Freydane':'Freydane',
     'Vizille':'Vizille'};
-  return M[n] || n.replace(/^R\d+ /,'').replace('Refuge ','').replace(/^Col (de la|de l'|du|de|des|d')\s*/,'')
+  return M[n] || n.replace(/^R\d+ /,'').replace('Refuge ','')/* de la plus LONGUE a la plus courte : une alternation retient la premiere
+                     branche qui matche, pas la plus longue, et "de" mordait sur "des" -
+                     le col des Lessines s'abregeait en "s Lessines" */
+                  .replace(/^Col (?:de la|de l'|des|du|de|d')\s*/,'')
                   .trim().slice(0,16);
 }
 function altAuKm(km){
@@ -3907,6 +3959,171 @@ function resumeSegment(){
   RESUME_EXPORT = {titre: titre, sous: sous, cases: cases};
 }
 
+/* ================= LIGNE DE TENUE =================
+   Les regles viennent de .claude/passation/03_algo_tenue, calees sur onze choix
+   reels annonces par Loic - voir l'en-tete du commit de la v146 pour le detail du
+   calage et des ecarts qui subsistent. */
+const TN_CLO = {MC:3.5, ML:6.0, GILET:4.0, IMPER:3.0};
+const TN_IMPER_OUVERT = 1.0;
+const TN_MANIP = {ML:1.5, GILET:1.5, IMPER:0.5};
+/* TREF 10 et non les 17 de la specification : cale sur les choix reels. A 17 le
+   modele enfilait une manche longue a Vizille par 18 degres. */
+const TN_TREF = 10.0, TN_SUEUR = 1.0, TN_NUIT = 2.0, TN_FROID = 4.0, TN_CHAUD = 3.0;
+const TN_PIECES = ['ML','GILET','IMPER'];
+const TN_ETATS = (function(){
+  const out = [];
+  for(let m=0;m<8;m++){
+    const e = {};
+    TN_PIECES.forEach((x,k)=>{ if(m & (1<<k)) e[x]=1; });
+    out.push(e);
+  }
+  return out;
+})();
+const tnA = (e,x) => !!e[x];
+const tnCle = e => TN_PIECES.filter(x=>e[x]).join('+');
+function tnClo(e, ouvert){
+  let t = TN_CLO.MC;
+  TN_PIECES.forEach(function(x){ if(!e[x] || x==='IMPER') return; t += TN_CLO[x]; });
+  if(e.IMPER) t += ouvert? TN_IMPER_OUVERT : TN_CLO.IMPER;
+  return t;
+}
+/* Pente amont sur 2 km, comme la specification la definit. */
+function tnPente(i){
+  let j = i;
+  while(j>0 && POIS[i].km - POIS[j].km < 2) j--;
+  const d = POIS[i].km - POIS[j].km;
+  return d<=0? 0 : (POIS[i].alt - POIS[j].alt)/(d*1000)*100;
+}
+/* Indice de DECISION, section 3 de la specification. Ce n'est pas la temperature
+   apparente affichee sur le graphe : celui-la decrit le temps, celui-ci decide
+   d'une veste. Ils different de 3,9 degres en moyenne sur ce parcours. */
+function tnRessenti(s, i){
+  const g = k => (s[k] && s[k].m!==null && s[k].m!==undefined)? s[k].m : null;
+  const t = g('t'); if(t===null) return null;
+  /* loC et non lo : depuis la v129 aucun verdict ne se prononce sur un extremum
+     porte par un seul modele. Verifie, les deux donnent la meme tenue partout. */
+  const tmin = (s.t && s.t.loC!==null && s.t.loC!==undefined)? s.t.loC : t;
+  let T = 0.5*t + 0.5*tmin;
+  let v = g('raf'); if(v===null) v = g('v')||0;
+  if(POIS[i].alt >= 2000) v *= 1.40;
+  if(v > 5) T -= 0.70*Math.sqrt(v);
+  const pr = (s.pr_moy && s.pr_moy.m!==null)? s.pr_moy.m : (g('pr')||0);
+  if(pr >= 0.3) T -= 3.0;
+  const pe = tnPente(i);
+  if(pe > 10) T += 4.0; else if(pe < -10) T -= 2.0;
+  return T;
+}
+function tnNuit(i){
+  const h = new Date(POIS[i].t[SCENARIO]).getHours();
+  return h>=21 || h<6;
+}
+function tnCout(e, i, s, h){
+  const R = tnRessenti(s, i); if(R===null) return null;
+  const pr = (s.pr_moy && s.pr_moy.m!==null)? s.pr_moy.m
+           : ((s.pr && s.pr.m!==null)? s.pr.m : 0);
+  /* aucune interdiction sur le gilet : le materiel de secours est le merinos,
+     qui ne sort jamais du sac */
+  if(pr >= 0.3 && !e.IMPER) return Infinity;
+  const tref = TN_TREF + (tnNuit(i)? TN_NUIT : 0);
+  const bas = tref - tnClo(e, false);
+  const haut = tref - tnClo(e, !!e.IMPER) + 4.0;
+  let c = 0;
+  if(R < bas) c += TN_FROID*(bas-R)*h;
+  const nc = TN_PIECES.filter(x=>e[x] && x!=='IMPER').length;
+  if(R > haut) c += (TN_CHAUD + 1.2*nc)*(R-haut)*h;
+  if(e.IMPER && pr < 0.3) c += TN_SUEUR*h;
+  return c;
+}
+function tnManip(a, b){
+  let c = 0;
+  TN_PIECES.forEach(function(x){ if(!!a[x] !== !!b[x]) c += TN_MANIP[x]; });
+  return c;
+}
+/* Viterbi point par point : le changement peut se faire partout, et ce sont ces
+   points-la qui deviennent les stations. Impose une tenue par troncon laissait
+   des creux - le col de la Vache a +0,6 au milieu d'un troncon qui monte a +8,2. */
+function tnResoudre(){
+  const S = [], H = [];
+  for(let i=0;i<POIS.length;i++){
+    const s = Object.keys(DATA).length? sonde(i) : null;
+    S.push(s && s.t && s.t.m!==null? s : null);
+    const a = new Date(POIS[i].t[SCENARIO]).getTime();
+    const b = (i+1<POIS.length)? new Date(POIS[i+1].t[SCENARIO]).getTime() : a+18e5;
+    H.push(Math.max(0.05, (b-a)/36e5));
+  }
+  if(!S.some(Boolean)) return null;
+  const N = TN_ETATS.length;
+  const D = [], P = [];
+  for(let i=0;i<POIS.length;i++){ D.push(new Array(N).fill(Infinity)); P.push(new Array(N).fill(-1)); }
+  for(let i=0;i<POIS.length;i++){
+    for(let k=0;k<N;k++){
+      const c = S[i]? tnCout(TN_ETATS[k], i, S[i], H[i]) : 0;
+      if(c===null || c===Infinity) continue;
+      if(i===0){ D[0][k] = c; continue; }
+      let best = Infinity, pre = -1;
+      for(let j=0;j<N;j++){
+        if(D[i-1][j]===Infinity) continue;
+        const v = D[i-1][j] + tnManip(TN_ETATS[j], TN_ETATS[k]) + c;
+        if(v < best){ best = v; pre = j; }
+      }
+      D[i][k] = best; P[i][k] = pre;
+    }
+  }
+  let k = 0;
+  for(let j=1;j<N;j++) if(D[POIS.length-1][j] < D[POIS.length-1][k]) k = j;
+  if(D[POIS.length-1][k]===Infinity) return null;
+  const ch = new Array(POIS.length);
+  for(let i=POIS.length-1;i>=0;i--){ ch[i] = TN_ETATS[k]; k = P[i][k]; if(k<0 && i>0) return null; }
+  return {ch: ch, S: S};
+}
+function tnCourt(n){
+  return n.replace(/^Col de la |^Col des |^Col de |^Col du /,'Col ')
+          .replace(/^R\d+ /,'').replace(/^Refuge de la /,'Ref. ').replace(/^Lac du /,'Lac ');
+}
+function tnDuree(ms){
+  const h = Math.floor(ms/36e5), m = Math.round((ms%36e5)/6e4);
+  return h+'h'+String(m).padStart(2,'0');
+}
+function tenueRender(){
+  const el = q('#tenue'); if(!el) return;
+  const r = tnResoudre();
+  if(!r){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='';
+  const stations = [0];
+  for(let i=1;i<POIS.length;i++)
+    if(tnCle(r.ch[i]) !== tnCle(r.ch[i-1])) stations.push(i);
+  let h = '<div class="rtete"><b>Ligne de tenue \u00b7 '+stations.length+' changement'
+    +(stations.length>1?'s':'')+'</b><span>MC \u00b7 ML \u00b7 GILET \u00b7 IMPER'
+    +' \u2014 le m\u00e9rinos de secours reste dans le sac'
+    +' \u00b7 ressenti de d\u00e9cision, plus prudent que celui du graphe</span></div>';
+  h += '<div class="tmetro"><div class="tvoie">';
+  for(let k=0;k<stations.length;k++){
+    const i = stations[k];
+    const jFin = (k+1<stations.length)? stations[k+1] : POIS.length-1;
+    const dt = new Date(POIS[jFin].t[SCENARIO]) - new Date(POIS[i].t[SCENARIO]);
+    const d = new Date(POIS[i].t[SCENARIO]);
+    const R = r.S[i]? tnRessenti(r.S[i], i) : null;
+    const cls = (R!==null && R<3)? ' tfroid' : ((R!==null && R>12)? ' tchaud' : '');
+    h += '<div class="tstat">'
+      +'<div class="ttenue">MC'+(tnCle(r.ch[i])? '+'+tnCle(r.ch[i]) : '')+'</div>'
+      +'<div class="trail"><span class="tpoint"></span>'
+      +'<span class="tfil"></span><span class="tduree">'+tnDuree(dt)+'</span>'
+      +'<span class="tfil"></span></div>'
+      +'<div class="tlieu'+cls+'">'+tnCourt(POIS[i].nom)+'</div>'
+      /* hhmm() porte deja le jour : le prefixer donnait "ven ven 06:30" */
+      +'<div class="theure">'+hhmm(POIS[i].t[SCENARIO])+'</div>'
+      +'<div class="tkm">km '+Math.round(POIS[i].km)
+      +(R!==null? ' \u00b7 '+R.toFixed(0)+'\u00b0' : '')+'</div></div>';
+  }
+  h += '<div class="tstat tfin"><div class="ttenue">&nbsp;</div>'
+    +'<div class="trail"><span class="tpoint"></span></div>'
+    +'<div class="tlieu">'+tnCourt(POIS[POIS.length-1].nom)+'</div>'
+    +'<div class="theure">'+hhmm(POIS[POIS.length-1].t[SCENARIO])+'</div>'
+    +'<div class="tkm">km '+Math.round(POIS[POIS.length-1].km)+'</div></div>';
+  h += '</div></div>';
+  el.innerHTML = h;
+}
+
 /* ---------- chips de points, limitées au segment ---------- */
 function chips(){
   const c=q('#chips'); c.innerHTML='';
@@ -4042,9 +4259,18 @@ function texteSMS(complet){
   } else {
     L.push('EB26 parcours complet');
   }
-  let jourPrec=null;
+  let jourPrec=null, segPrec=null;
   idx.forEach(i=>{
     const p=POIS[i], s=Object.keys(DATA).length? sonde(i):null;
+    /* Separateur de segment, en parcours complet seulement : sur un segment
+       isole la premiere ligne du message le nomme deja. Il ne se pose que
+       lorsqu'un point suit - en mode court, un segment sans point retenu n'a pas
+       a annoncer le vide. */
+    if(!SEG){
+      const tr=SEGMENTS.filter(g=>p.km>g.km0-0.4&&p.km<=g.km1+0.4)[0];
+      if(tr && tr.n!==segPrec){ segPrec=tr.n;
+        L.push('- S'+String(tr.n).padStart(2,'0')+' -'); }
+    }
     const d=new Date(p.t[SCENARIO]);
     const jr=['dim','lun','mar','mer','jeu','ven','sam'][d.getDay()];
     const marq = (jr!==jourPrec)? jr+' ' : '';
@@ -4998,7 +5224,7 @@ function rendreTout(){
   try{ majCouverture(); }catch(e){}
   try{ estimerGradient(); }catch(e){}
   const etapes=[['selecteur',majSelecteurModele],['etat',majEtat],['meteogramme',dessine],
-    ['resume',resumeSegment],['hero',heroRender],['heures',heuresRender],
+    ['resume',resumeSegment],['tenue',tenueRender],['hero',heroRender],['heures',heuresRender],
     ['fiche',fiche],['sms',majSMS],['tableau',tableauTous]];
   const casses=[];
   etapes.forEach(function(e){ try{ e[1](); }catch(err){ casses.push(e[0]+' : '+err.message); } });

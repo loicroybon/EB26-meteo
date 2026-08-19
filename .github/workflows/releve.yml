@@ -6,13 +6,20 @@ name: Relevé partagé
 # appel fait depuis un téléphone.
 on:
   schedule:
-    # Tentative chaque heure, pour que le cache partagé soit frais peu après la
-    # publication d'un run. Mais les mailles fines ne changent de run que toutes
-    # les 3 h : le relevé est donc auto-régulé. Le runner n'impose rien, il
-    # laisse le garde-fou de la page décider, et celle-ci refuse tant qu'aucun
-    # run nouveau n'est publié. Deux tentatives sur trois ne coûtent donc rien
-    # aux fournisseurs, et la troisième ramène la donnée fraîche sans délai.
-    - cron: '35 * * * *'
+    # Tentative toutes les 30 minutes, pour que le cache partagé soit frais au
+    # plus tard une demi-heure après la publication d'un run.
+    #
+    # Cela n'augmente PAS la consommation des fournisseurs, et c'est le point
+    # qu'il fallait vérifier avant de doubler la cadence : le garde-fou agit
+    # avant toute dépense. interroger() compare le relevé partagé au dernier run
+    # publié et refuse si le cache le contient déjà. La consommation reste donc
+    # bornée par la cadence de publication — 3 h pour les mailles fines — et non
+    # par celle du cron.
+    #
+    # Ce qui double, c'est le temps de runner. On l'écourte : le script demande
+    # d'abord à la page si elle refuserait, via releveInutile(), et sort sans
+    # rien charger de plus. Cinq tentatives sur six sortiront par ce chemin.
+    - cron: '5,35 * * * *'
   workflow_dispatch:            # déclenchement manuel depuis l'onglet Actions
 
 permissions:

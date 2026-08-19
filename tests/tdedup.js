@@ -78,10 +78,21 @@ const j4 = selection(4);
 /* On teste par PREFIXE et non par egalite : le libelle porte desormais la
    resolution ou la nature du modele, et il changera encore. Ce que ce harnais
    protege est le mecanisme de doublon, pas l'orthographe d'un nom. */
-dit(j4.ecartes.some(n => n.startsWith('MET Norway')),
-  'MET Norway ecarte a J-4 (echo strict d ECMWF IFS, portee 15 j)');
-dit(j4.retenus.some(r => r[0] === 'ecmwf_ifs025'),
-  'ECMWF IFS bien conserve comme source');
+/* Le sens a ete INVERSE a la v149, et ce harnais figeait l'ancien. La famille
+   ECMWF parle desormais par MET Norway direct : les trois portent la meme
+   analyse, donc un seul vote, et depuis que les globaux sont retombes a 0,08-0,12
+   laisser IFS parent aurait fait taire un modele a 0,20 au profit d'un a 0,12.
+
+   Le choix vaut aussi pour le quota, ce que ce harnais rend visible : ecarter un
+   modele, c'est ne pas l'INTERROGER. On interroge maintenant la source gratuite
+   et sans quota, et on laisse tomber celle qui consomme du Open-Meteo - la
+   ressource effectivement rare. */
+dit(j4.retenus.some(r => r[0] === 'metno_direct'),
+  'MET Norway direct conserve comme source : la famille ECMWF parle par lui');
+dit(j4.ecartes.some(n => n.startsWith('ECMWF IFS')),
+  'ECMWF IFS ecarte a J-4, echo de la meme analyse et maille 9 km');
+dit(!j4.retenus.some(r => r[0] === 'ecmwf_ifs025'),
+  'IFS n est donc plus interroge : une requete Open-Meteo de moins par releve');
 
 console.log('\n=== economie ===');
 const avant = MODELES.filter(m => m[0] !== MB_ID && m[2] >= 4).length;
