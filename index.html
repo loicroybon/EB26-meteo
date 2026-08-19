@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v129 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v131 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -3706,10 +3706,6 @@ function resumeSegment(){
   const titre = s? 'Segment '+String(s.n).padStart(2,'0')+' \u00b7 '+abrege(s.de)+' \u2192 '+abrege(s.vers)
                  : 'Parcours complet \u00b7 Vizille \u2192 Aiguebelle';
 
-  let h='<div class="rtete"><b>'+titre+'</b><span>'+dist.toFixed(1)+' km \u00b7 +'+dp+' m \u00b7 \u2212'+dm
-   +' m \u00b7 '+hhmm(dep.t[SCENARIO])+' \u2192 '+hhmm(arr.t[SCENARIO])+' \u00b7 '
-   +Math.floor(duree/60)+' h '+String(Math.round(duree%60)).padStart(2,'0')+'</span></div>';
-
   const bornes=fenetre(); const T=[],RES=[],P=[],PP=[],R=[],N=[],C=[],V=[],D=[];
   /* etages et altitude du coureur : de quoi repondre a "puis-je percer ?" */
   const NUB=[], NUM=[], ALTH=[];
@@ -3737,6 +3733,24 @@ function resumeSegment(){
     NUB.push(jj.nub&&jj.nub.m!==null? jj.nub.m : null);
     NUM.push(jj.num&&jj.num.m!==null? jj.num.m : null);
     ALTH.push(JALONS[hh]? (JALONS[hh].alt||0) : null); }
+  /* La couverture reelle du modele n'est connue qu'ici, apres la boucle : c'est
+     pourquoi l'en-tete est bati a cet endroit et non avant. Un modele qui ne
+     couvre que les premieres heures affichait son cumul et son "aucune pluie"
+     sous un en-tete annoncant "Parcours complet, 43 h 11". Sur AROME HD, trois
+     heures couvertes sur quarante-cinq, cela se lisait comme une promesse de
+     course seche - exactement le defaut symetrique de la v129, dans le sens
+     rassurant. */
+  const couvH = T.length, totH = bornes[1]-bornes[0]+1;
+  const partiel = couvH < totH;
+  /* Un seul sous-titre pour l'ecran et pour l'export image. Il en existait deux
+     exemplaires identiques : deux copies d'une meme chaine finissent toujours par
+     diverger. */
+  const sous = dist.toFixed(1)+' km \u00b7 +'+dp+' m \u00b7 \u2212'+dm
+    +' m \u00b7 '+hhmm(dep.t[SCENARIO])+' \u2192 '+hhmm(arr.t[SCENARIO])+' \u00b7 '
+    +Math.floor(duree/60)+' h '+String(Math.round(duree%60)).padStart(2,'0')
+    +(partiel? ' \u00b7 mod\u00e8le limit\u00e9 \u00e0 '+couvH+' h sur '+totH : '');
+  let h='<div class="rtete"><b>'+titre+'</b><span>'+sous+'</span></div>';
+
   if(!T.length){ h+='<div class="hnote">Pas encore de donn\u00e9es sur cette partie.</div>';
     el.innerHTML=h; return; }
 
@@ -3752,8 +3766,20 @@ function resumeSegment(){
   const cases=[
     ['temp\u00e9rature', Math.round(mn)+'\u00b0 \u00e0 '+Math.round(mx)+'\u00b0',
       resMin!==null? 'ressenti min '+Math.round(resMin)+'\u00b0':'', couleurT((mn+mx)/2)],
-    ['pluie cumul\u00e9e', cum.toFixed(1)+' mm',
-      hPluie? hPluie+' h de pluie sur '+P.length : 'aucune pluie', cum>2?'var(--pluie)':''],
+    /* "aucune pluie" est une affirmation sur toute la fenetre. Sur une couverture
+       partielle elle n'est vraie que des heures couvertes, et il faut le dire :
+       AROME HD ecrivait "aucune pluie" en connaissant trois heures sur
+       quarante-cinq. */
+    /* Faute de donnee de pluie, la case se tait. Elle affichait 0,0 mm : le cumul
+       est une SOMME, et une somme vide vaut zero sans se plaindre. Sur AROME
+       direct, dont le GRIB ne porte aucune variable de precipitation, cela
+       annoncait une course seche au nom du modele le plus fin de la liste. Les
+       autres cases savaient deja se taire ; celle-ci repondait quand meme. */
+    ['pluie cumul\u00e9e', P.length? cum.toFixed(1)+' mm' : '\u2014',
+      !P.length? 'donn\u00e9e de pluie absente'
+        : (hPluie? hPluie+' h de pluie sur '+P.length
+                 : (partiel? 'aucune pluie sur les '+P.length+' h couvertes' : 'aucune pluie')),
+      (P.length && cum>2)?'var(--pluie)':''],
     ['rafale max', rafMax!==null? Math.round(rafMax)+' km/h':'\u2014',
       V.length? 'vent moyen '+Math.round(med(V))+' '+dirMoy:'',
       rafMax>60?'var(--alerte)':rafMax>40?'var(--chaud)':''],
@@ -3771,9 +3797,7 @@ function resumeSegment(){
   el.innerHTML=h;
   /* Memorise pour l'export image : le bandeau est du HTML et sera redessine en
      SVG, faute de pouvoir rasteriser un foreignObject de facon fiable. */
-  RESUME_EXPORT = {titre: titre, sous: dist.toFixed(1)+' km \u00b7 +'+dp+' m \u00b7 \u2212'+dm
-    +' m \u00b7 '+hhmm(dep.t[SCENARIO])+' \u2192 '+hhmm(arr.t[SCENARIO])+' \u00b7 '
-    +Math.floor(duree/60)+' h '+String(Math.round(duree%60)).padStart(2,'0'), cases: cases};
+  RESUME_EXPORT = {titre: titre, sous: sous, cases: cases};
 }
 
 /* ---------- chips de points, limitées au segment ---------- */
