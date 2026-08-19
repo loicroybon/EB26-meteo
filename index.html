@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v132 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v133 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -3538,12 +3538,23 @@ function dessine(){
     if(prA===null) continue;
     const w=x(hh+1)-x(hh), xb=x(hh)+w*.22, wb=w*.56;
     /* Le doute est une MOUSTACHE, plus un bloc. Un rectangle pale monte a la
-       hauteur du quantile haut pesait plus lourd a l'oeil que la prevision
-       elle-meme, alors qu'il dit seulement ce qui pourrait arriver. Quand la
-       moustache sort du cadre, un chevron le dit : on ne tronque pas en silence. */
-    if(s.pr.hi!==null && s.pr.hi > prA + 0.05){
-      const cx=(xb+wb/2), ym=yPr(prA), yh=yPr(s.pr.hi);
-      const deborde = s.pr.hi > PLUIE_PLAFOND;
+       hauteur haute pesait plus lourd a l'oeil que la prevision elle-meme, alors
+       qu'il dit seulement ce qui pourrait arriver. Quand la moustache sort du
+       cadre, un chevron le dit : on ne tronque pas en silence.
+
+       Elle se cale sur la valeur CORROBOREE et non sur le maximum brut. Le
+       commentaire d'origine annoncait deja "le quantile haut" quand le code lisait
+       hi : l'intention etait la bonne, l'implementation prenait l'extremum. Deux
+       raisons de la corriger, outre la coherence avec la v129. La moustache n'a
+       pas de branche basse, donc elle ne peut qu'ajouter de l'alarme et un seul
+       modele humide suffisait a la dessiner - a h+2 elle montait a 6,1 mm/h pour
+       une prevision de 1,96. Et comme tout extremum d'echantillon elle grandissait
+       avec le nombre de modeles : de sept ce matin a quinze ce soir, les
+       moustaches s'allongeaient toutes seules. */
+    const prH = (s.pr.hiC!==null && s.pr.hiC!==undefined)? s.pr.hiC : null;
+    if(prH!==null && prH > prA + 0.05){
+      const cx=(xb+wb/2), ym=yPr(prA), yh=yPr(prH);
+      const deborde = prH > PLUIE_PLAFOND;
       const yt = deborde? (yPlBase-hPlMax) : yh;
       S.push('<line x1="'+cx.toFixed(1)+'" y1="'+ym.toFixed(1)+'" x2="'+cx.toFixed(1)
         +'" y2="'+yt.toFixed(1)+'" stroke="'+PAL.pluie+'" stroke-width="1.1" opacity=".6"/>');
