@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v136 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v138 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -1054,7 +1054,20 @@ function majSelecteurModele(){
      relevé a l'autre, ce qui rend la liste immemorisable. Arbitraire mais
      stable, et c'est la seule qualite qui compte pour departager. */
   const nomDe = nomModele;
-  const ordre=dispo.slice().sort(function(a,b){
+  /* Un modele qui double un modele PRESENT ne merite pas sa propre entree : c'est
+     le meme modele par un autre tuyau - AROME 1,3 km arrive a la fois par
+     Open-Meteo et par le GRIB direct. Le decompte de sources dedoublonnait deja,
+     juste en dessous ; la liste, elle, ne le faisait pas, et affichait deux
+     entrees a 1,3 km pour un seul modele.
+
+     Ses donnees ne sont pas perdues pour autant : agrege() applique le doublon
+     POINT PAR POINT, donc la ou le parent manque, l'enfant vote pleinement. C'est
+     ce qui en fait une redondance utile - Open-Meteo a un quota journalier, le
+     GRIB sur S3 n'en a pas. Seule la vue isolee disparait, et seulement tant
+     qu'elle ferait double emploi. */
+  const masque = id => { const d = DOUBLON[id];
+    return !!(d && (d.garde||[]).length === 0 && dispo.indexOf(d.parent) >= 0); };
+  const ordre=dispo.filter(id=>!masque(id)).sort(function(a,b){
     const d = poidsBase(b) - poidsBase(a);
     return d || nomDe(a).localeCompare(nomDe(b), 'fr');
   });
@@ -1613,7 +1626,6 @@ function extraitJalonD(d, k){
   });
   return enrichir(m, J.alt, null, J);
 }
-let CIEL_EMPRUNTE = false;
 /* tousModeles : ignore MODELE_ACTIF. Nomme explicitement et lu a un seul endroit
    - le repli de ciel - pour qu'aucun appel ne franchisse la vue isolee par
    inadvertance. C'est la vue isolee qui garantit qu'un modele ne parle jamais au
@@ -2946,9 +2958,6 @@ function dessine(){
   const hLoc=hh=>{ const d=new Date(t0+hh*3.6e6); return d.getHours()+d.getMinutes()/60; };
   const j=k=>sondeJalon(k);
   const S=[];
-  /* remis a zero a chaque dessin : un drapeau qui survit d'un rendu a l'autre
-     ferait mentir la mention sur un modele qui, lui, fournit son ciel */
-  CIEL_EMPRUNTE = false;
   const pas = px>=70? 1 : (px>=46? (SEG?1:2) : 2);
 
   S.push('<defs><linearGradient id="gCiel" x1="0" x2="1">');
@@ -2996,7 +3005,7 @@ function dessine(){
     if((cc===null || cc===undefined) && MODELE_ACTIF){
       const sTous = sondeJalon(hh, null, true);
       const cTous = cielCoherent(sTous);
-      if(cTous!==null && cTous!==undefined){ cc = cTous; emprunte = true; CIEL_EMPRUNTE = true; }
+      if(cTous!==null && cTous!==undefined){ cc = cTous; emprunte = true; }
     }
     S.push((emprunte? '<g opacity=".45">' : '')
       + picto(cc, x(hh), 22, 11, nuit,
@@ -3005,11 +3014,6 @@ function dessine(){
     if(s.t&&s.t.m!==null) S.push('<text x="'+x(hh)+'" y="45" fill="'+contraste(couleurCiel(hLoc(hh)))
       +'" font-size="12.5" font-weight="700" text-anchor="middle">'+s.t.m.toFixed(0)+'\u00b0</text>');
   }
-
-  /* La bande le dit une fois, plutot que de le repeter a chaque heure. */
-  if(CIEL_EMPRUNTE) S.push('<text x="'+(GUT+10)+'" y="57" fill="'+PAL.brume
-    +'" font-size="9" font-family="'+"var(--sans)"+'">ciel : consensus des autres mod\u00e8les'
-    +' \u2014 celui-ci ne fournit pas de n\u00e9bulosit\u00e9</text>');
 
   /* ---- Couverture nuageuse, base calculee et intensite ----
      Deux choses que des etages fixes ne disaient pas.
