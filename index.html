@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v143 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v145 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -2801,7 +2801,9 @@ function flecheVent(dir, force, cx, cy, L){
 /* pluie:78 - la bande a double de hauteur utile, 62 px contre 32, a la demande
    de l'utilisateur. Les 30 px viennent du profil, qui garde 160 px utiles pour
    3200 m soit 25 px entre deux graduations de 500 m. Hauteur totale inchangee. */
-const L = {ciel:52, nuages:0, profil:180, pluie:78, vent:46, axe:30};
+/* ciel a 64 et non 52 : la bande porte desormais deux lignes de texte sous le
+   pictogramme, la temperature puis le ressenti. Tout le reste en derive. */
+const L = {ciel:64, nuages:0, profil:180, pluie:78, vent:46, axe:30};
 const HAUT = L.ciel+L.nuages+L.profil+L.pluie+L.vent+L.axe;
 const GUT = 52;
 const yNu=L.ciel, yPro=yNu+L.nuages, yPl=yPro+L.profil, yVe=yPl+L.pluie, yAx=yVe+L.vent;
@@ -2910,7 +2912,9 @@ function gouttiere(){
   const T=['<rect x="0" y="0" width="'+GUT+'" height="'+HAUT+'" fill="'+PAL.fond+'"/>'];
   const lib=(y,t,c)=>T.push('<text x="'+(GUT-9)+'" y="'+y+'" fill="'+(c||PAL.libelle)
     +'" font-size="8.5" text-anchor="end" font-family="sans-serif">'+t+'</text>');
-  lib(L.ciel/2+4,'ciel',PAL.libelleFort);
+  lib(L.ciel/2-4,'ciel',PAL.libelleFort);
+  /* les parentheses de la seconde ligne se lisent sans legende separee */
+  lib(L.ciel/2+11,'(ress.)',PAL.brume);
   /* six graduations la ou il y en avait trois : l'altitude se lit
      maintenant a 500 m pres sans compter les intervalles. */
   ALTS.forEach(a=>lib(yAlt(a)+3, a, a%1000? PAL.libelle : PAL.libelleFort));
@@ -2960,7 +2964,9 @@ function dessine(){
      mesure, donc aucune barre de defilement */
   const W = (!SEG && large>=1100)? Math.min(Wvoulu, dispo)
                                  : Math.max(880, Wvoulu);
-  const x=hh=>GUT+8+(hh-h0)*(W-GUT-24)/NH;
+  /* 15 et non 8 : centre sur 8, "(20°)" de la premiere heure debordait dans la
+     gouttiere. Decalage uniforme, donc aucun desalignement. */
+  const x=hh=>GUT+15+(hh-h0)*(W-GUT-24)/NH;
   const t0=new Date(POIS[0].t[SCENARIO]).getTime();
   const hLoc=hh=>{ const d=new Date(t0+hh*3.6e6); return d.getHours()+d.getMinutes()/60; };
   const j=k=>sondeJalon(k);
@@ -3018,8 +3024,22 @@ function dessine(){
       + picto(cc, x(hh), 22, 11, nuit,
               luminance(couleurCiel(hLoc(hh))) <= 0.42)
       + (emprunte? '</g>' : ''));
-    if(s.t&&s.t.m!==null) S.push('<text x="'+x(hh)+'" y="45" fill="'+contraste(couleurCiel(hLoc(hh)))
-      +'" font-size="12.5" font-weight="700" text-anchor="middle">'+s.t.m.toFixed(0)+'\u00b0</text>');
+    if(s.t&&s.t.m!==null){
+      S.push('<text x="'+x(hh)+'" y="45" fill="'+contraste(couleurCiel(hLoc(hh)))
+        +'" font-size="12.5" font-weight="700" text-anchor="middle">'+s.t.m.toFixed(0)+'\u00b0</text>');
+      /* Le ressenti, sous la temperature, et seulement quand il en differe assez
+         pour valoir la place : sous 1,5 degre les deux valeurs arrondies sont
+         souvent identiques et "12° (12°)" n'apprend rien.
+
+         C'est s.res, la temperature apparente - la meme que le bandeau et les SMS.
+         Surtout pas l'indice de l'algorithme de tenue, qui embarque une marge de
+         prudence et un modele d'effort : ce n'est pas une temperature, et deux
+         echelles pour un meme mot est precisement le defaut corrige aujourd'hui. */
+      if(s.res && s.res.m!==null && Math.abs(s.res.m - s.t.m) >= 1.5)
+        S.push('<text x="'+x(hh)+'" y="57" fill="'+contraste(couleurCiel(hLoc(hh)))
+          +'" font-size="9.5" opacity=".72" text-anchor="middle">('
+          +s.res.m.toFixed(0)+'\u00b0)</text>');
+    }
   }
 
   /* ---- Couverture nuageuse, base calculee et intensite ----
