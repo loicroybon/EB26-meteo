@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v112 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v114 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -2038,14 +2038,14 @@ const POIDS = {
   meteoblue:                      [2.20,'MB','MOS calé sur le relief — poids le plus élevé à ce stade'],
   meteofrance_arome_france_hd:    [2.20,'MF','maille 1,3 km — à l’équivalent de meteoblue sur le court terme'],
   meteofrance_arome_france:       [1.50,'MF','maille 2,5 km'],
-  meteofrance_arpege_europe:      [0.45,'MF','maille 11 km — biais mesuré +3,4 °C et couverture 4 points sur 52'],
-  dwd_icon_d2:                    [0.85,'DWD','maille 2,2 km, Alpes du Nord'],
+  meteofrance_arpege_europe:      [0.35,'MF','maille 11 km, ne résout pas Belledonne — biais mesuré +3,4 °C'],
+  dwd_icon_d2:                    [1.20,'DWD','maille 2,2 km, Alpes du Nord'],
   dwd_icon_eu:                    [0.45,'DWD','maille 7 km'],
   dwd_icon_global:                [0.25,'DWD','maille 11 km globale'],
-  meteoswiss_icon_ch1:            [0.70,'CH','maille 1 km, arc alpin'],
-  meteoswiss_icon_ch2:            [0.40,'CH','maille 2 km, arc alpin'],
-  italia_meteo_arpae_icon_2i:     [0.45,'IT','maille 2,2 km, versant alpin'],
-  knmi_harmonie_arome_europe:     [0.35,'KNMI','domaine centré plus au nord'],
+  meteoswiss_icon_ch1:            [1.80,'CH','maille 1 km, arc alpin — la plus fine après AROME'],
+  meteoswiss_icon_ch2:            [1.20,'CH','maille 2 km, arc alpin'],
+  italia_meteo_arpae_icon_2i:     [1.00,'IT','maille 2,2 km — domaine centré sur le versant italien'],
+  knmi_harmonie_arome_europe:     [0.55,'KNMI','maille 5,5 km — domaine centré plus au nord'],
   ecmwf_ifs025:                   [0.40,'ECMWF','meilleur global, mais maille 9 km sur Belledonne'],
   ecmwf_aifs025_single:           [0.25,'ECMWF','IA, même analyse qu’IFS'],
   metno_seamless:                 [0.20,'ECMWF','post-traitement d’ECMWF'],
@@ -4331,10 +4331,14 @@ function risqueOrage(s){
   if(capeHi===null && li===null && (code===null||code<95)) return null;
   let n = 0;
   if(code!==null && code>=95) n = 3;
+  /* Seuils de l'usage operationnel, et non abaisses "pour la montagne". La
+     precaution montagnarde est deja portee par le choix du quantile HAUT : la
+     compter une seconde fois en divisant les seuils par deux decalait tout le
+     bareme d'un cran et sur-evaluait le risque. */
   if(capeHi!==null){
-    if(capeHi >= 1000) n = Math.max(n, 3);
-    else if(capeHi >= 500) n = Math.max(n, 2);
-    else if(capeHi >= 150) n = Math.max(n, 1);
+    if(capeHi >= 2500) n = Math.max(n, 3);
+    else if(capeHi >= 1000) n = Math.max(n, 2);
+    else if(capeHi >= 300) n = Math.max(n, 1);
   }
   if(li!==null){
     if(li <= -5) n = Math.max(n, 3);
