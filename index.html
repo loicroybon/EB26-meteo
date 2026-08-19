@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v122 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v123 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -250,6 +250,7 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
   <div class="smspied" style="border-top:1px solid var(--trace);padding-top:10px;margin-top:12px">
     <button id="exportmd">Export Markdown</button>
     <button id="exportpng">Export image</button>
+    <button id="exportpile">Export par modèle</button>
     <button id="raz" title="Effacer l'historique">Vider</button>
   </div>
 </div>
@@ -368,7 +369,7 @@ const PALETTES = {
            tige:'#E9EEF6', point:'#DCE6F4', pointActif:'#FFD98A', bord:'#26344E',
            pluie:'#8E7CF0', pluieTexte:'#A99BF5', chaud:'#F0A24B', alerte:'#F0553D',
            tempTexte:'#F2F6FC', jour:'sombre', socle:'#4E5C74', ombre:'#0B1220',
-           plafond:'#E8EEF8',
+           plafond:'#E8EEF8', panneauExport:'#1B2537',
            pNuage:'#C9D3E2', pNuageF:'#9FAEC4', pNuageS:'#7C8CA5', pGoutte:'#7FB2E8',
            pSoleil:'#F2C14E', pLune:'#D8DEEA', pFlocon:'#DCE7F5' },
   /* contour : sombre en theme clair. Blanc sur un ciel clair ne separait rien,
@@ -379,7 +380,7 @@ const PALETTES = {
            tige:'#3E4C64', point:'#31405C', pointActif:'#B5670F', bord:'#C6D0DD',
            pluie:'#5A46C8', pluieTexte:'#4B3AA8', chaud:'#A85C0A', alerte:'#B32E1B',
            tempTexte:'#FFFFFF', jour:'clair', socle:'#FFFFFF', ombre:'#2B3A52',
-           plafond:'#3E5270',
+           plafond:'#3E5270', panneauExport:'#EEF2F7',
            pNuage:'#5E7090', pNuageF:'#4A5C76', pNuageS:'#36455C',
            pGoutte:'#12518F', pSoleil:'#C88A08', pLune:'#36455C', pFlocon:'#36455C' }
 };
@@ -4355,6 +4356,125 @@ function svgExport(){
   return {svg: P.join(''), w: LARG, h: HAUTEUR, d: d};
 }
 
+/* ---- Export empile, un bandeau par modele ----
+   On ne recompose rien a la main : on bascule MODELE_ACTIF, on rappelle
+   dessine(), et on preleve le SVG que la page vient de produire. Chaque bandeau
+   est donc exactement celui qu'on obtiendrait en selectionnant le modele dans la
+   liste, texte de portee depassee compris - ce qui est precisement ce qu'on veut
+   comparer d'un modele a l'autre. */
+function svgPile(){
+  const g0 = q('#gouttiere'), r0 = q('#ruban');
+  if(!g0 || !r0) return null;
+  const GG = +(g0.getAttribute('width') || 0);
+  const H  = +(r0.getAttribute('height') || 0);
+  if(!GG || !H) return null;
+
+  /* meme ordre que la liste deroulante : poids decroissant, donc maille
+     croissante depuis que la table suit la resolution */
+  const ids = Object.keys(DATA).sort(function(a,b){
+    const d = poidsBase(b) - poidsBase(a);
+    return d || nomModele(a).localeCompare(nomModele(b), 'fr');
+  });
+  const vues = [''].concat(ids);          /* le multimodele ouvre la pile */
+
+  const avant = MODELE_ACTIF;
+  const TITRE = 26, HAUT_GLOBAL = 34;
+  const parts = [];
+  let larg = 0;
+  try{
+    vues.forEach(function(id){
+      MODELE_ACTIF = id;
+      dessine();
+      const g = q('#gouttiere'), r = q('#ruban');
+      const W = +(r.getAttribute('width') || 0);
+      if(!W) return;
+      larg = Math.max(larg, GG + W);
+      let n = 0;
+      if(id){
+        const arr = (DATA[id].pts && DATA[id].pts[SCENARIO]) || [];
+        arr.forEach(e => { if(e && e.t!==null && e.t!==undefined) n++; });
+      }
+      parts.push({id: id, gout: g.innerHTML, ruban: r.innerHTML, w: W, pts: n});
+    });
+  } finally {
+    /* restauration systematique : une exception laisserait sinon la page bloquee
+       sur un modele isole, ce qui serait pire que l'absence d'export */
+    MODELE_ACTIF = avant;
+    dessine();
+  }
+  if(!parts.length) return null;
+
+  const p2 = v => String(v).padStart(2,'0');
+  const quand = ms => { const d = new Date(ms);
+    return p2(d.getDate())+'/'+p2(d.getMonth()+1)+' \u00e0 '+p2(d.getHours())+'h'+p2(d.getMinutes()); };
+  const esc = t => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  const total = HAUT_GLOBAL + parts.length * (TITRE + H);
+  const P = [];
+  P.push('<svg xmlns="http://www.w3.org/2000/svg" width="'+larg+'" height="'+total
+    +'" viewBox="0 0 '+larg+' '+total+'" font-family="ui-monospace,Menlo,Consolas,monospace">');
+  P.push('<rect width="'+larg+'" height="'+total+'" fill="'+PAL.fond+'"/>');
+  P.push('<text x="10" y="21" fill="'+PAL.texte+'" font-size="13" font-weight="700">'
+    +esc('\u00c9chapp\u00e9e Belle 2026 \u00b7 un trac\u00e9 par mod\u00e8le \u00b7 '
+        +'du plus r\u00e9solu au moins r\u00e9solu')+'</text>');
+
+  let y = HAUT_GLOBAL;
+  parts.forEach(function(p){
+    const nom = p.id? nomModele(p.id) : 'Multimod\u00e8le';
+    const ms  = p.id? (MAJ_MODELE[p.id] || TS_DONNEES) : TS_DONNEES;
+    const cou = p.id? (p.pts + '/' + POIS.length + ' points') : '';
+    const det = [ms? ('donn\u00e9es du '+quand(ms)) : '', cou].filter(Boolean).join(' \u00b7 ');
+    P.push('<rect x="0" y="'+y+'" width="'+larg+'" height="'+TITRE+'" fill="'+PAL.panneauExport+'"/>');
+    P.push('<text x="10" y="'+(y+17)+'" fill="'+PAL.texte
+      +'" font-size="12" font-weight="700">'+esc(nom)+'</text>');
+    if(det) P.push('<text x="'+(larg-10)+'" y="'+(y+17)+'" fill="'+PAL.texteFaible
+      +'" font-size="10" text-anchor="end">'+esc(det)+'</text>');
+    y += TITRE;
+    P.push('<g transform="translate(0,'+y+')">'+p.gout+'</g>');
+    P.push('<g transform="translate('+GG+','+y+')">'+p.ruban+'</g>');
+    y += H;
+  });
+  P.push('</svg>');
+  return {svg: P.join(''), w: larg, h: total, n: parts.length};
+}
+
+async function exportPile(){
+  const b = q('#exportpile');
+  if(b) b.textContent = 'Composition\u2026';
+  let fait = null;
+  try{ fait = svgPile(); }catch(e){}
+  if(!fait){ if(b) b.textContent = 'Export par mod\u00e8le'; log('Rien \u00e0 empiler.'); return; }
+  try{
+    /* Onze bandeaux depassent quatre mille pixels : a 2x le fichier ferait plus
+       de vingt megaoctets pour un gain invisible. L'echelle suit la hauteur. */
+    const ECH = fait.h <= 1600? 2 : (fait.h <= 3200? 1.5 : 1);
+    const url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(fait.svg);
+    const img = new Image();
+    await new Promise(function(ok, ko){
+      img.onload = ok; img.onerror = () => ko(new Error('svg illisible'));
+      img.src = url;
+    });
+    const cv = document.createElement('canvas');
+    cv.width = Math.round(fait.w*ECH); cv.height = Math.round(fait.h*ECH);
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = PAL.fond; ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.drawImage(img, 0, 0, cv.width, cv.height);
+    const blob = await new Promise(ok => cv.toBlob(ok, 'image/png'));
+    if(!blob) throw new Error('rasterisation vide');
+    const d = new Date(TS_DONNEES || Date.now()), q2 = v => String(v).padStart(2,'0');
+    const nom = 'EB26-modeles_' + d.getFullYear() + q2(d.getMonth()+1) + q2(d.getDate())
+              + '-' + q2(d.getHours()) + q2(d.getMinutes()) + '.png';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = nom;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    log('Image empil\u00e9e : '+fait.n+' bandeaux, '+nom);
+  }catch(e){
+    log('Export empil\u00e9 impossible : '+e.message);
+  }
+  if(b) b.textContent = 'Export par mod\u00e8le';
+}
+
 async function exportPNG(){
   const b = q('#exportpng');
   const fait = svgExport();
@@ -5015,6 +5135,7 @@ let DEPART_ACTUEL = DEPART_REF;
   q('#smscopie').onclick=copierSMS;
   q('#exportmd').onclick=exportMD;
   q('#exportpng').onclick=exportPNG;
+  q('#exportpile').onclick=exportPile;
   q('#smscourt').onclick=()=>{ q('#smscourt').setAttribute('aria-pressed','true');
     q('#smscomplet').setAttribute('aria-pressed','false'); majSMS(); };
   q('#smscomplet').onclick=()=>{ q('#smscomplet').setAttribute('aria-pressed','true');
