@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v138 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v142 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -13,6 +13,10 @@
      survit au changement de theme - c'est ce qui rendait deux lignes du tableau
      illisibles en mode clair */
   --surlign:#1E2B44;
+  /* Les trois statistiques de la ligne de synthese. Un rouge PROPRE et non
+     --alerte : cette derniere signale un danger partout ailleurs, et la poser sur
+     la moyenne de chaque segment peindrait tout le tableau en alarme. */
+  --statmoy:#E08A8A; --statcum:#6FB6E8; --statmax:#7FCFA4;
   --mono:ui-monospace,"SF Mono","JetBrains Mono","Roboto Mono",Menlo,Consolas,monospace;
   --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
 }
@@ -24,6 +28,7 @@ html[data-theme="clair"]{
   --froid:#0E6E96; --chaud:#8F4E06; --pluie:#4632B4; --alerte:#A82A17; --accord:#0F6E48;
   /* meme teinte que la ligne de consensus en clair : rien de nouveau a accorder */
   --surlign:#DCE6F4;
+  --statmoy:#A33A3A; --statcum:#175F8C; --statmax:#1B6B45;
 }
 html[data-theme="clair"] .cel b, html[data-theme="clair"] .gros b{color:var(--neige)}
 html[data-theme="clair"] tr.consensus td{background:#DCE6F4}
@@ -290,7 +295,9 @@ const MODELES = [
   ["dwd_icon_d2","ICON-D2 2,2 km",2.0],
   ["dwd_icon_eu","ICON-EU 7 km",5.0],
   ["dwd_icon_global","ICON global 11 km",7.5],
-  ["meteoswiss_icon_ch1","ICON-CH1 1 km",1.4],
+  /* 33 h exactement, soit 1,375 j - portee annoncee par MeteoSwiss et reprise par
+     Open-Meteo. L'arrondi a 1,4 le declarait joignable 0,6 h trop tot. */
+  ["meteoswiss_icon_ch1","ICON-CH1 1 km",1.375],
   ["meteoswiss_icon_ch2","ICON-CH2 2 km",5.0],
   ["italia_meteo_arpae_icon_2i","ICON-2I 2,2 km",3.0],
   ["knmi_harmonie_arome_europe","HARMONIE-AROME 5,5 km",2.5],
@@ -2382,7 +2389,7 @@ async function ensembles(points, cible){
   const jours=(new Date(POIS[0].t[SCENARIO]) - Date.now())/864e5;
   const modeles=[['ecmwf_ifs025','ECMWF ENS',15],['gfs025','GEFS',16],
                  ['icon_eu','ICON-EU EPS',5],['meteoswiss_icon_ch2','ICON-CH2 EPS',5],
-                 ['meteoswiss_icon_ch1','ICON-CH1 EPS',1.4],
+                 ['meteoswiss_icon_ch1','ICON-CH1 EPS',1.375],
                  ['meteofrance_arpege_europe','ARPEGE EPS',4]]
                 .filter(m=>m[2]>=jours);
   const acc={};
@@ -3117,7 +3124,7 @@ function dessine(){
   /* chemin du trait de base, rejoue par-dessus le relief : sans cela il
      disparaissait des que la base passait sous la ligne de crete, c'est-a-dire
      precisement la ou il repond a "suis-je dans la nuee ?" */
-  let DB_BASE = '';
+  let DB_BASE = '';                 /* accumule sur tous les regimes */
   (function(){
     const col = [];
     for(let hh=h0; hh<=h1; hh++){
@@ -3294,9 +3301,13 @@ function dessine(){
       /* Tirete et net : un trait plein se lit comme une courbe de donnee, un
          tirete comme une limite. Non floute, c'est la seule grandeur precise
          du dessin, celle qui decide si on est dedans ou dessous. */
-      /* memorise pour le rejeu par-dessus le relief : voir plus bas, meme
-         mecanique que NUES pour les bancs nuageux */
-      DB_BASE = db.trim();
+      /* On ACCUMULE, on n'ecrase pas : ce trait se construit regime par regime -
+         brouillard, convectif, nuage ordinaire - et une simple affectation ne
+         gardait que le dernier fragment. Mesure : 1 sommet contre 28 pour la
+         premiere passe. En vue isolee un seul regime couvre presque tout le
+         parcours, si bien que le dernier fragment ETAIT le trait et que le
+         defaut ne se voyait qu'en multimodele. */
+      if(db) DB_BASE += (DB_BASE? ' ' : '') + db.trim();
       if(db){
         /* Liseré au ton du fond puis tirete au ton du texte : le premier detache
            le trait de la masse nuageuse claire au-dessus, le second du ciel
@@ -3498,7 +3509,7 @@ function dessine(){
          sommets, et la legende masquait "Belledonne". Une plaque au ton du fond
          garantit le contraste quelle que soit la masse nuageuse derriere. */
       const ent = [];
-      if(segs.length) ent.push(['nuee', 'je suis dans la nu\u00e9e']);
+      if(segs.length) ent.push(['nuee', 'dans le brouillard']);
       if(segsHaut.length) ent.push(['dessus', 'au-dessus, ciel d\u00e9gag\u00e9']);
       ent.push(['base', PLAFOND_MED!==null
                         ? 'base des nuages \u00b7 ~'+PLAFOND_MED+' m'
@@ -3917,21 +3928,32 @@ function descMeteo(s, alt){
   /* Air sature : le coureur est DANS le nuage. C'est ce qu'un proche comprend,
      et ce qui change la conduite - on ne cherche pas quelqu'un de la meme facon
      dans la purée. Voir airSature(). */
-  if(airSature(m('nu'), m('t'), m('ros'), m('nub'), m('pr'))) ciel='dans la nuee';
+  if(airSature(m('nu'), m('t'), m('ros'), m('nub'), m('pr'))) ciel='brouillard';
   if(ciel) p.push(ciel);
+  /* Le mot "pluie" apparaissait deux fois en six mots - "pluie faible, pluie
+     2.4mm" - parce que le ciel derive le dit deja. Quand c'est le cas, le chiffre
+     se passe de son etiquette. */
   const prS = pluieAffichee(s);
-  if(prS!==null && prS>=0.05) p.push('pluie '+prS.toFixed(1)+'mm');
+  if(prS!==null && prS>=0.05){
+    const mm = prS.toFixed(1)+'mm';
+    /* le chiffre se COLLE au mot du ciel plutot que de former un membre a part :
+       "pluie faible 2.4mm" et non "pluie faible, 2.4mm" */
+    if(p.length && /pluie|averse|bruine/.test(ciel)) p[p.length-1] += ' '+mm;
+    else p.push('pluie '+mm);
+  }
   if(s.neige&&s.neige.m>=0.2) p.push('neige '+s.neige.m.toFixed(1)+'cm');
-  if(s.v&&s.v.m!==null){
-    let v='vent '+Math.round(s.v.m);
-    if(s.raf&&s.raf.m!==null) v+=' raf '+Math.round(s.raf.m);
-    p.push(v+'km/h');
-  }
-  if(s.t&&s.t.m!==null){
-    let t=Math.round(s.t.m)+'\u00b0';
-    if(s.res&&s.res.m!==null&&Math.abs(s.res.m-s.t.m)>=2) t+=' ressenti '+Math.round(s.res.m)+'\u00b0';
-    p.push(t);
-  }
+  /* Un vent faible n'est pas une information : "vent 3 raf 11km/h" n'apprend rien
+     a personne. On ne l'ecrit que lorsqu'il change la conduite - rafales a partir
+     de 40 km/h, le seuil deja employe par les alertes de la fiche, ou vent moyen
+     a partir de 25. */
+  const vMoy = (s.v && s.v.m!==null)? s.v.m : null;
+  const vRaf = (s.raf && s.raf.m!==null)? s.raf.m : null;
+  if(vRaf!==null && vRaf>=40) p.push('raf '+Math.round(vRaf)+'km/h');
+  else if(vMoy!==null && vMoy>=25) p.push('vent '+Math.round(vMoy)+'km/h');
+  /* Seul le ressenti compte quand on court : c'est lui qui dit s'il faut une
+     veste. La temperature seche ne sert que de repli, faute de ressenti. */
+  if(s.res&&s.res.m!==null) p.push('ressenti '+Math.round(s.res.m)+'\u00b0');
+  else if(s.t&&s.t.m!==null) p.push(Math.round(s.t.m)+'\u00b0');
   if(s.vis&&s.vis.m!==null&&s.vis.m<1200) p.push('visi '+(s.vis.m/1000).toFixed(1)+'km');
   /* inutile de répéter : si le ciel dit déjà « orage », on n'ajoute rien */
   /* Le code brut pouvait valoir 0 alors que le ciel derive dit deja orage : le
@@ -5208,16 +5230,87 @@ function tableauTous(){
   let h='<tr><th>Point</th><th>km</th><th>Alt</th><th>Passage</th><th>T</th><th>Ress.</th>'
    +'<th>Hum.</th><th>Nuages</th><th>Soleil</th><th>Pluie</th><th>Vent</th><th>Raf.</th><th>Dir.</th></tr>';
   const V=(o,d=0)=> (o&&o.m!==null&&o.m!==undefined)? o.m.toFixed(d) : '\u2014';
-  let segCourant=-1;
+
+  /* Poids en TRAPEZES : un point pese la moitie de l'intervalle qui le precede
+     plus la moitie de celui qui le suit, les extremites ne comptant que leur
+     demi-intervalle interieur. La somme vaut exactement la duree du segment.
+
+     Pourquoi ponderer : les points du road book ne sont pas equidistants dans le
+     temps - dix minutes entre deux cols, trois heures sur une traversee. Une
+     moyenne arithmetique donnerait le meme poids aux deux. */
+  const poidsDuree = idx => {
+    const t = idx.map(i => new Date(POIS[i].t[SCENARIO]).getTime());
+    return t.map(function(_, k){
+      const av = (k>0)? (t[k]-t[k-1])/2 : 0;
+      const ap = (k<t.length-1)? (t[k+1]-t[k])/2 : 0;
+      return (av+ap)/36e5;                       /* en heures */
+    });
+  };
+  /* Une ligne de synthese par segment. Le libelle porte son propre code couleur,
+     ce qui evite une legende separee que personne ne relie a la ligne. */
+  const ligneSynthese = function(idx){
+    if(idx.length < 2) return '';
+    const w = poidsDuree(idx), duree = w.reduce((a,b)=>a+b,0);
+    if(!(duree > 0)) return '';
+    const sondes = idx.map(i => Object.keys(DATA).length? sonde(i) : null);
+    /* moyenne ponderee d'une variable, sur les seuls points qui la portent */
+    const moy = function(lire){
+      let sw=0, sv=0;
+      sondes.forEach(function(s,k){ const v = s? lire(s) : null;
+        if(v===null || v===undefined || !isFinite(v)) return; sw+=w[k]; sv+=w[k]*v; });
+      return sw>0? sv/sw : null;
+    };
+    const q = k => moy(s => (s[k] && s[k].m!==null && s[k].m!==undefined)? s[k].m : null);
+    /* Cumul de pluie : la colonne est en mm/h, donc le cumul est l'integrale
+       intensite x duree. Une somme des valeurs affichees n'aurait pas d'unite. */
+    let cumul = null;
+    sondes.forEach(function(s,k){
+      const v = s && s.pr_moy && s.pr_moy.m!==null? s.pr_moy.m
+              : (s && s.pr && s.pr.m!==null? s.pr.m : null);
+      if(v===null) return; cumul = (cumul===null? 0 : cumul) + v*w[k];
+    });
+    /* Maximum de rafales sur les valeurs de la COLONNE, donc les medianes : la
+       ligne doit dire ce que le tableau montre. Prendre l'enveloppe ici
+       reintroduirait ce que la v129 en a retire. */
+    let rafMax = null;
+    sondes.forEach(function(s){ const v = s && s.raf && s.raf.m!==null? s.raf.m : null;
+      if(v===null) return; rafMax = (rafMax===null || v>rafMax)? v : rafMax; });
+    const sol = moy(s => (s.sol && s.sol.m!==null)? s.sol.m/36 : null);
+    const F=(v,d=0)=> (v===null||v===undefined)? '\u2014' : v.toFixed(d);
+    const cM='color:var(--statmoy)', cC='color:var(--statcum)', cX='color:var(--statmax)';
+    const hh=Math.floor(duree), mm=Math.round((duree-hh)*60);
+    return '<tr style="background:var(--panneau);font-size:11px">'
+      +'<td><span style="'+cM+'">moyenne</span> \u00b7 <span style="'+cC+'">cumul</span>'
+      +' \u00b7 <span style="'+cX+'">max</span></td>'
+      +'<td></td><td></td><td>'+hh+' h '+String(mm).padStart(2,'0')+'</td>'
+      +'<td style="'+cM+'">'+F(q('t'),1)+'</td>'
+      +'<td style="'+cM+'">'+F(q('res'),1)+'</td>'
+      +'<td style="'+cM+'">'+F(q('hum'))+'</td>'
+      +'<td style="'+cM+'">'+F(q('nu'))+'</td>'
+      +'<td style="'+cM+'">'+F(sol)+'</td>'
+      +'<td style="'+cC+'">'+(cumul===null? '\u2014' : cumul.toFixed(1))+'</td>'
+      +'<td style="'+cM+'">'+F(q('v'))+'</td>'
+      +'<td style="'+cX+'">'+F(rafMax)+'</td>'
+      /* pas de moyenne de direction : une moyenne de caps n'est pas une moyenne
+         de nombres, et 180 entre 350 et 10 serait faux */
+      +'<td></td></tr>';
+  };
+
+  let segCourant=-1, idxSeg=[];
   segPois().forEach(function(i){
     const p=POIS[i];
     if(!SEG){
       const tr=SEGMENTS.filter(s=>p.km>s.km0-0.4&&p.km<=s.km1+0.4)[0];
-      if(tr&&tr.n!==segCourant){ segCourant=tr.n;
+      if(tr&&tr.n!==segCourant){
+        /* le segment precedent se referme sur sa synthese avant qu'un autre ouvre */
+        if(idxSeg.length) h+=ligneSynthese(idxSeg);
+        idxSeg=[];
+        segCourant=tr.n;
         h+='<tr><td colspan="13" style="background:var(--panneau);color:var(--chaud);font-size:11px;padding:6px">S'
          +String(tr.n).padStart(2,'0')+' \u00b7 '+tr.de+' \u2192 '+tr.vers+' \u00b7 '
          +tr.dist.toFixed(1)+' km \u00b7 +'+tr.dp+' m</td></tr>'; }
     }
+    idxSeg.push(i);
     const s=Object.keys(DATA).length? sonde(i):null;
     const sol = s&&s.sol&&s.sol.m!==null? Math.round(s.sol.m/36) : null;
     h+='<tr'+(i===SEL?' style="background:var(--surlign)"':'')+'><td>'+p.nom+'</td><td>'+p.km.toFixed(1)+'</td>'
@@ -5230,6 +5323,8 @@ function tableauTous(){
      +'<td'+(s&&s.raf&&s.raf.m>50?' style="color:var(--alerte)"':'')+'>'+(s?V(s.raf):'\u2014')+'</td>'
      +'<td>'+(s&&s.dir?cap(s.dir.m):'\u2014')+'</td></tr>';
   });
+  /* le dernier segment n'est referme par aucun suivant */
+  if(idxSeg.length) h+=ligneSynthese(idxSeg);
   tb.innerHTML=h;
 }
 
