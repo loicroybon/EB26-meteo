@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v121 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v122 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -4467,7 +4467,13 @@ function risqueOrage(s, sLarge){
   const q = (k, w) => (s[k] && s[k][w]!==null && s[k][w]!==undefined)? s[k][w] : null;
   const src = sLarge || s;
   const qL = (k, w) => (src[k] && src[k][w]!==null && src[k][w]!==undefined)? src[k][w] : null;
-  const capeHi = q('cape','hi'), capeM = q('cape','m'), li = qL('li','m');
+  const capeHi = q('cape','hi'), capeM = q('cape','m');
+  /* Deux lectures distinctes de l'indice de soulevement, et c'est tout l'objet :
+     liFin  - mailles fines seules, seul autorise a ACCUSER ;
+     liVeto - tous modeles, seul autorise a DISCULPER.
+     Les confondre faisait accuser GFS a 13 km, dont le LI de -2 portait a lui
+     seul un niveau modere que ni ICON-CH2 ni ICON-2I ne voyaient. */
+  const liFin = q('li','m'), liVeto = qL('li','m');
   const code = cielCoherent(s);
   if(capeHi===null && li===null && (code===null||code<95)) return null;
   let n = 0;
@@ -4481,10 +4487,15 @@ function risqueOrage(s, sLarge){
     else if(capeHi >= 1000) n = Math.max(n, 2);
     else if(capeHi >= 300) n = Math.max(n, 1);
   }
-  if(li!==null){
-    if(li <= -5) n = Math.max(n, 3);
-    else if(li <= -2) n = Math.max(n, 2);
-    else if(li < 0)   n = Math.max(n, 1);
+  /* Escalade : mailles fines uniquement. */
+  if(liFin!==null){
+    if(liFin <= -5) n = Math.max(n, 3);
+    else if(liFin <= -2) n = Math.max(n, 2);
+    else if(liFin < 0)   n = Math.max(n, 1);
+  }
+  /* Veto : n'importe quel modele. Un LI positif dit que la masse d'air est capee
+     sur des dizaines de kilometres, ce qu'une maille large decrit correctement. */
+  if(liVeto!==null){
     /* Veto de stabilite. La CAPE dit l'energie disponible, le LI dit si une
        parcelle peut monter : un LI franchement positif signifie une atmosphere
        capee, ou l'energie reste enfermee sous l'inversion. Les deux grandeurs
@@ -4494,9 +4505,10 @@ function risqueOrage(s, sLarge){
        plus frequente du parcours.
        Exception necessaire : un code temps d'orage n'est pas contredit par un
        indice que seul GFS fournit. */
-    else if(li >= 1 && (code===null || code < 95)) n = Math.min(n, 1);
+    if(liVeto >= 1 && (code===null || code < 95)) n = Math.min(n, 1);
   }
-  return {n: n, mot: ORAGE_MOTS[n], cape: capeM, capeHi: capeHi, li: li};
+  return {n: n, mot: ORAGE_MOTS[n], cape: capeM, capeHi: capeHi,
+          li: liFin, liVeto: liVeto};
 }
 
 /* Synthese sur la fenetre. On distingue le PIC de la periode de surveillance :
