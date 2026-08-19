@@ -3,12 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v133 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v136 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
   --neige:#E9EEF6; --brume:#7A8AA5;
   --froid:#5FC8E8; --chaud:#F0A24B; --pluie:#8E7CF0; --alerte:#F0553D; --accord:#5FD3A0;
+  /* fond de la ligne selectionnee : un jeton et non un littéral, sans quoi il
+     survit au changement de theme - c'est ce qui rendait deux lignes du tableau
+     illisibles en mode clair */
+  --surlign:#1E2B44;
   --mono:ui-monospace,"SF Mono","JetBrains Mono","Roboto Mono",Menlo,Consolas,monospace;
   --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
 }
@@ -18,6 +22,8 @@ html[data-theme="clair"]{
   --nuit:#FFFFFF; --roche:#FFFFFF; --panneau:#EDF1F7; --trace:#9FADBF;
   --neige:#0A1018; --brume:#41506A;
   --froid:#0E6E96; --chaud:#8F4E06; --pluie:#4632B4; --alerte:#A82A17; --accord:#0F6E48;
+  /* meme teinte que la ligne de consensus en clair : rien de nouveau a accorder */
+  --surlign:#DCE6F4;
 }
 html[data-theme="clair"] .cel b, html[data-theme="clair"] .gros b{color:var(--neige)}
 html[data-theme="clair"] tr.consensus td{background:#DCE6F4}
@@ -1607,11 +1613,16 @@ function extraitJalonD(d, k){
   });
   return enrichir(m, J.alt, null, J);
 }
-function sondeJalon(k, filtre){
+let CIEL_EMPRUNTE = false;
+/* tousModeles : ignore MODELE_ACTIF. Nomme explicitement et lu a un seul endroit
+   - le repli de ciel - pour qu'aucun appel ne franchisse la vue isolee par
+   inadvertance. C'est la vue isolee qui garantit qu'un modele ne parle jamais au
+   nom d'un autre ; on ne l'ouvre qu'a decouvert. */
+function sondeJalon(k, filtre, tousModeles){
   if(!JALONS[k]) return null;
   const out=[];
   for(const id in DATA_J){
-    if(MODELE_ACTIF && id!==MODELE_ACTIF) continue;
+    if(MODELE_ACTIF && !tousModeles && id!==MODELE_ACTIF) continue;
     if(filtre && !filtre(id)) continue;
     const e=extraitJalonD(DATA_J[id], k);
     if(e) out.push({id, nom:nomModele(id), ...e}); }
@@ -2935,6 +2946,9 @@ function dessine(){
   const hLoc=hh=>{ const d=new Date(t0+hh*3.6e6); return d.getHours()+d.getMinutes()/60; };
   const j=k=>sondeJalon(k);
   const S=[];
+  /* remis a zero a chaque dessin : un drapeau qui survit d'un rendu a l'autre
+     ferait mentir la mention sur un modele qui, lui, fournit son ciel */
+  CIEL_EMPRUNTE = false;
   const pas = px>=70? 1 : (px>=46? (SEG?1:2) : 2);
 
   S.push('<defs><linearGradient id="gCiel" x1="0" x2="1">');
@@ -2973,11 +2987,29 @@ function dessine(){
        suffit que cinq modeles sur neuf renvoient 0 pour que le mode bascule.
        Meme seuil que contraste() pour la teinte : on regarde le fond
        reellement peint a cette heure-la, pas le theme. */
-    S.push(picto(cielCoherent(s), x(hh), 22, 11, nuit,
-                 luminance(couleurCiel(hLoc(hh))) <= 0.42));
+    /* Un modele qui ne dit rien du ciel n'en dessine pas moins un picto : Loic le
+       demande, et une bande vide n'apprend rien. Mais l'emprunt se voit. Afficher
+       les donnees d'un modele sous l'etiquette d'un autre est exactement le
+       defaut de la v126 ; le faire a opacite reduite, et le dire dans la bande,
+       est une autre affaire. */
+    let cc = cielCoherent(s), emprunte = false;
+    if((cc===null || cc===undefined) && MODELE_ACTIF){
+      const sTous = sondeJalon(hh, null, true);
+      const cTous = cielCoherent(sTous);
+      if(cTous!==null && cTous!==undefined){ cc = cTous; emprunte = true; CIEL_EMPRUNTE = true; }
+    }
+    S.push((emprunte? '<g opacity=".45">' : '')
+      + picto(cc, x(hh), 22, 11, nuit,
+              luminance(couleurCiel(hLoc(hh))) <= 0.42)
+      + (emprunte? '</g>' : ''));
     if(s.t&&s.t.m!==null) S.push('<text x="'+x(hh)+'" y="45" fill="'+contraste(couleurCiel(hLoc(hh)))
       +'" font-size="12.5" font-weight="700" text-anchor="middle">'+s.t.m.toFixed(0)+'\u00b0</text>');
   }
+
+  /* La bande le dit une fois, plutot que de le repeter a chaque heure. */
+  if(CIEL_EMPRUNTE) S.push('<text x="'+(GUT+10)+'" y="57" fill="'+PAL.brume
+    +'" font-size="9" font-family="'+"var(--sans)"+'">ciel : consensus des autres mod\u00e8les'
+    +' \u2014 celui-ci ne fournit pas de n\u00e9bulosit\u00e9</text>');
 
   /* ---- Couverture nuageuse, base calculee et intensite ----
      Deux choses que des etages fixes ne disaient pas.
@@ -3078,6 +3110,10 @@ function dessine(){
   let PLAFOND_MED = null;
   /* les bancs sont rejoues apres le relief, decoupes par sa silhouette */
   const NUES = [];
+  /* chemin du trait de base, rejoue par-dessus le relief : sans cela il
+     disparaissait des que la base passait sous la ligne de crete, c'est-a-dire
+     precisement la ou il repond a "suis-je dans la nuee ?" */
+  let DB_BASE = '';
   (function(){
     const col = [];
     for(let hh=h0; hh<=h1; hh++){
@@ -3254,6 +3290,9 @@ function dessine(){
       /* Tirete et net : un trait plein se lit comme une courbe de donnee, un
          tirete comme une limite. Non floute, c'est la seule grandeur precise
          du dessin, celle qui decide si on est dedans ou dessous. */
+      /* memorise pour le rejeu par-dessus le relief : voir plus bas, meme
+         mecanique que NUES pour les bancs nuageux */
+      DB_BASE = db.trim();
       if(db){
         /* Liseré au ton du fond puis tirete au ton du texte : le premier detache
            le trait de la masse nuageuse claire au-dessus, le second du ciel
@@ -3354,6 +3393,16 @@ function dessine(){
         S.push('<path d="'+n.d+'" fill="url(#'+n.gid+')" opacity="'
           +(n.op*0.62).toFixed(2)+'" filter="url(#flouNu)"/>');
       });
+      /* Le trait de base, rejoue devant la roche. Plus discret que sur le ciel :
+         meme objet, deux fonds opposes. Sans cette seconde passe il s'arretait
+         net au pied de chaque montagne. */
+      if(DB_BASE){
+        S.push('<path d="'+DB_BASE+'" fill="none" stroke="'+PAL.fond
+          +'" stroke-width="3" opacity=".30" stroke-linecap="round"/>');
+        S.push('<path d="'+DB_BASE+'" fill="none" stroke="'+PAL.plafond
+          +'" stroke-width="1.5" stroke-dasharray="6 5" opacity=".72"'
+          +' stroke-linecap="round"/>');
+      }
       S.push('</g>');
     }
 
@@ -4813,9 +4862,29 @@ function orageFenetre(niveaux, heures){
           pire>=3? 'var(--alerte)' : 'var(--chaud)'];
 }
 
+/* Couverture totale. Certains modeles - AROME HD notamment - ne la publient pas
+   mais publient les trois etages. Elle se reconstitue alors comme la probabilite
+   qu'au moins une couche soit presente, en recouvrement aleatoire.
+
+   La formule n'est pas supposee, elle est MESUREE : sur les 398 heures ou onze de
+   nos modeles fournissent a la fois le total et les etages, le recouvrement
+   aleatoire donne 3,20 points d'erreur moyenne et +0,17 de biais, quand le simple
+   maximum donne 6,66 points et sous-estime de 5,64. */
+function nuTotale(s){
+  if(!s) return null;
+  const g = k => (s[k] && s[k].m!==null && s[k].m!==undefined)? s[k].m : null;
+  const nu = g('nu');
+  if(nu!==null) return nu;
+  const b = g('nub'), m = g('num'), h = g('nuh');
+  if(b===null && m===null && h===null) return null;
+  const q = v => (v===null? 0 : Math.max(0, Math.min(100, v))/100);
+  return 100*(1 - (1-q(b))*(1-q(m))*(1-q(h)));
+}
 function cielCoherent(s){
   if(!s) return null;
-  const nu = (s.nu && s.nu.m!==null && s.nu.m!==undefined)? s.nu.m : null;
+  /* nuTotale et non s.nu : sinon AROME HD, qui ne publie que les etages, ne
+     produisait aucun ciel et le graphe restait sans pictogramme. */
+  const nu = nuTotale(s);
   if(nu===null) return (s.code!==null&&s.code!==undefined)? s.code : null;
   const pr = (s.pr && s.pr.m!==null)? s.pr.m
            : ((s.pr_moy && s.pr_moy.m!==null)? s.pr_moy.m : 0);
@@ -5141,13 +5210,13 @@ function tableauTous(){
     if(!SEG){
       const tr=SEGMENTS.filter(s=>p.km>s.km0-0.4&&p.km<=s.km1+0.4)[0];
       if(tr&&tr.n!==segCourant){ segCourant=tr.n;
-        h+='<tr><td colspan="13" style="background:#1A2438;color:var(--chaud);font-size:11px;padding:6px">S'
+        h+='<tr><td colspan="13" style="background:var(--panneau);color:var(--chaud);font-size:11px;padding:6px">S'
          +String(tr.n).padStart(2,'0')+' \u00b7 '+tr.de+' \u2192 '+tr.vers+' \u00b7 '
          +tr.dist.toFixed(1)+' km \u00b7 +'+tr.dp+' m</td></tr>'; }
     }
     const s=Object.keys(DATA).length? sonde(i):null;
     const sol = s&&s.sol&&s.sol.m!==null? Math.round(s.sol.m/36) : null;
-    h+='<tr'+(i===SEL?' style="background:#1E2B44"':'')+'><td>'+p.nom+'</td><td>'+p.km.toFixed(1)+'</td>'
+    h+='<tr'+(i===SEL?' style="background:var(--surlign)"':'')+'><td>'+p.nom+'</td><td>'+p.km.toFixed(1)+'</td>'
      +'<td>'+p.alt+'</td><td>'+hhmm(p.t[SCENARIO])+'</td>'
      +'<td'+(s&&s.t&&s.t.m!==null?' style="color:'+couleurT(s.t.m)+'"':'')+'>'+(s?V(s.t,1):'\u2014')+'</td>'
      +'<td>'+(s?V(s.res,1):'\u2014')+'</td><td>'+(s?V(s.hum):'\u2014')+'</td>'
