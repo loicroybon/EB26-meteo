@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v151 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v152 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -263,8 +263,6 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
 
 <div class="fiche" id="segresume"></div>
 
-<div class="fiche" id="tenue"></div>
-
 <div class="hero" id="hero"></div>
 <div class="heures" id="heures"></div>
 
@@ -288,6 +286,8 @@ ul.dispo li span:first-child{flex:1;white-space:nowrap;overflow:hidden;text-over
     <button id="raz" title="Effacer l'historique">Vider</button>
   </div>
 </div>
+
+<div class="fiche" id="tenue"></div>
 
 <h2>Modèles</h2>
 <ul class="dispo" id="dispo"><li><span class="ko">En attente d'interrogation.</span></li></ul>
@@ -4093,9 +4093,7 @@ function tenueRender(){
   for(let i=1;i<POIS.length;i++)
     if(tnCle(r.ch[i]) !== tnCle(r.ch[i-1])) stations.push(i);
   let h = '<div class="rtete"><b>Ligne de tenue \u00b7 '+stations.length+' changement'
-    +(stations.length>1?'s':'')+'</b><span>MC \u00b7 ML \u00b7 GILET \u00b7 IMPER'
-    +' \u2014 le m\u00e9rinos de secours reste dans le sac'
-    +' \u00b7 ressenti de d\u00e9cision, plus prudent que celui du graphe</span></div>';
+    +(stations.length>1?'s':'')+'</b></div>';
   h += '<div class="tmetro"><div class="tvoie">';
   for(let k=0;k<stations.length;k++){
     const i = stations[k];
@@ -4267,7 +4265,14 @@ function texteSMS(complet){
        lorsqu'un point suit - en mode court, un segment sans point retenu n'a pas
        a annoncer le vide. */
     if(!SEG){
-      const tr=SEGMENTS.filter(g=>p.km>g.km0-0.4&&p.km<=g.km1+0.4)[0];
+      /* Un point qui OUVRE un segment se reconnait a son NOM, pas a sa distance :
+         Arselle est au km 17,3 quand S02 commence au km 18, et la tolerance de
+         0,4 km ne les rapproche pas - les bornes des segments sont arrondies, les
+         points ne le sont pas. SEGMENTS porte deja le nom du point de depart dans
+         son champ `de`. On l'interroge d'abord ; le kilometrage ne sert plus que
+         pour les points intermediaires. */
+      const ouvre=SEGMENTS.filter(g=>g.de===p.nom)[0];
+      const tr=ouvre||SEGMENTS.filter(g=>p.km>g.km0-0.4&&p.km<=g.km1+0.4)[0];
       if(tr && tr.n!==segPrec){ segPrec=tr.n;
         L.push('- S'+String(tr.n).padStart(2,'0')+' -'); }
     }
