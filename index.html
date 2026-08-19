@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v128 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v129 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -1502,9 +1502,18 @@ function agrege(out){
     const w1=w0.map((w,i)=>w*pen[i]);
     if(k==='t') out.forEach((o,i)=>{ if(pen[i]<0.7) o.divergent=true; });
     const m=medPond(vals.map((v,i)=>[v,w1[i]]));
-    S[k]={ m:m, lo:Math.min.apply(null,bruts), hi:Math.max.apply(null,bruts),
+    const tri=bruts.slice().sort((a,b)=>a-b);
+    /* Extremes CORROBORES : la valeur la plus extreme qu'au moins deux modeles
+       atteignent, soit la deuxieme la plus extreme. Un maximum sur echantillon
+       croit mecaniquement avec le nombre de modeles - en passant de sept a treize
+       la page s'alarmait davantage sans que la meteo change ; un extremum
+       corrobore, non. Les verdicts se prononcent sur ceux-la, l'enveloppe brute
+       reste exposee pour dire le desaccord. */
+    S[k]={ m:m, lo:tri[0], hi:tri[tri.length-1],
+           loC: tri.length>1? tri[1] : tri[0],
+           hiC: tri.length>1? tri[tri.length-2] : tri[tri.length-1],
            n:bruts.length,
-           brut: bruts.slice().sort((a,b)=>a-b)[Math.floor(bruts.length/2)] };
+           brut: tri[Math.floor(tri.length/2)] };
   });
 
   /* Pour la pluie, la médiane pondérée sous-estime : la variable est
@@ -4753,8 +4762,12 @@ function phraseMeteo(s, p){
 
 function alertesSimples(s, p){
   const A=[];
-  if(s.raf&&s.raf.hi>60) A.push(['\u26a0','Rafales jusqu\'\u00e0 '+Math.round(s.raf.hi)+' km/h']);
-  else if(s.raf&&s.raf.hi>40) A.push(['\u2691','Rafales '+Math.round(s.raf.hi)+' km/h']);
+  /* hiC et non hi : au point 11, hi valait 95 km/h sur le seul HARMONIE quand le
+     deuxieme modele disait 36. Une valeur annoncee doit etre atteinte par deux
+     modeles au moins. */
+  const rafH = (s.raf && s.raf.hiC!==null && s.raf.hiC!==undefined)? s.raf.hiC : null;
+  if(rafH!==null && rafH>60) A.push(['\u26a0','Rafales jusqu\'\u00e0 '+Math.round(rafH)+' km/h']);
+  else if(rafH!==null && rafH>40) A.push(['\u2691','Rafales '+Math.round(rafH)+' km/h']);
   /* meme derivation que partout ailleurs : le code brut pouvait valoir 0 sur un
      ciel d'orage et l'alerte ne se levait pas */
   /* L'alerte d'orage se lit sur les seules mailles fines, comme partout
@@ -4766,8 +4779,10 @@ function alertesSimples(s, p){
   const rO = risqueOrage(sO, s);
   if(rO && rO.n >= 2) A.push(['\u26a1','Risque d\'orage \u2014 '+rO.mot]);
   if(s.cbase&&s.cbase.m!==null&&s.cbase.m<p.alt) A.push(['\u2601','Vous serez dans les nuages']);
-  if(s.res&&s.res.lo!==null&&s.res.lo<3) A.push(['\u2744','Ressenti possible \u00e0 '+Math.round(s.res.lo)+'\u00b0']);
-  if(s.pr&&s.pr.hi>2) A.push(['\u2614','Averses jusqu\'\u00e0 '+s.pr.hi.toFixed(1)+' mm/h']);
+  if(s.res&&s.res.loC!==null&&s.res.loC!==undefined&&s.res.loC<3)
+    A.push(['\u2744','Ressenti possible \u00e0 '+Math.round(s.res.loC)+'\u00b0']);
+  if(s.pr&&s.pr.hiC!==null&&s.pr.hiC!==undefined&&s.pr.hiC>2)
+    A.push(['\u2614','Averses jusqu\'\u00e0 '+s.pr.hiC.toFixed(1)+' mm/h']);
   return A;
 }
 
@@ -4978,14 +4993,21 @@ function fiche(){
     risques.push('potentiel orageux '+rO.mot
       +(ing.length? ' \u2014 '+ing.join(', ') : ' \u2014 code convectif d\'un mod\u00e8le fin'));
   }
-  if(s.raf&&s.raf.hi>55) risques.push('rafales possibles à '+s.raf.hi.toFixed(0)+' km/h');
-  if(s.iso0&&s.iso0.lo!==null&&s.iso0.lo<p.alt+200) risques.push('isotherme 0 °C proche du point ('+s.iso0.lo.toFixed(0)+' m)');
-  if(s.res&&s.res.lo!==null&&s.res.lo<3) risques.push('ressenti jusqu\'à '+s.res.lo.toFixed(0)+' °C');
+  /* Lue sur l'enveloppe, cette alerte franchissait 55 km/h a SEPT points du
+     parcours ; sur la statistique centrale, a UN seul. Et six modeles differents
+     se relayaient pour porter le maximum. */
+  if(s.raf&&s.raf.hiC!==null&&s.raf.hiC!==undefined&&s.raf.hiC>55)
+    risques.push('rafales possibles à '+s.raf.hiC.toFixed(0)+' km/h');
+  if(s.iso0&&s.iso0.loC!==null&&s.iso0.loC!==undefined&&s.iso0.loC<p.alt+200)
+    risques.push('isotherme 0 °C proche du point ('+s.iso0.loC.toFixed(0)+' m)');
+  if(s.res&&s.res.loC!==null&&s.res.loC!==undefined&&s.res.loC<3)
+    risques.push('ressenti jusqu\'à '+s.res.loC.toFixed(0)+' °C');
   if(s.ressT&&s.res&&s.ressT.m!==null&&s.ressT.m<s.res.m-1.5)
     risques.push('creux par nuit claire : '+(s.res.m-s.ressT.m).toFixed(0)+' °C sous la maille');
   if(s.speedup&&s.speedup.m>1.35)
     risques.push('vent accéléré ×'+s.speedup.m.toFixed(2)+' par le relief');
-  if(s.vis&&s.vis.lo!==null&&s.vis.lo<500) risques.push('visibilité réduite à '+(s.vis.lo/1000).toFixed(1)+' km');
+  if(s.vis&&s.vis.loC!==null&&s.vis.loC!==undefined&&s.vis.loC<500)
+    risques.push('visibilité réduite à '+(s.vis.loC/1000).toFixed(1)+' km');
   if(s.t&&s.t.hi-s.t.lo>8) risques.push('désaccord des modèles : '+(s.t.hi-s.t.lo).toFixed(0)+' °C d\'écart');
   if(risques.length) h+='<div class="note alerte" style="margin:10px 0">⚠ '+risques.join(' · ')+'</div>';
 
