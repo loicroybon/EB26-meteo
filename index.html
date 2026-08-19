@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v126 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v128 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -1520,13 +1520,31 @@ function agrege(out){
     S.pr_moy = n? {m:Math.round(sv/sw*100)/100, lo:null, hi:null, n:n} : null;
   })();
 
-  const codes=out.filter(o=>!o.doublon).map(o=>[o.code, o.poids])
-    .filter(c=>c[0]!==null&&c[0]!==undefined);
+  /* Un code convectif ne compte que depuis une maille admissible. On refuse le
+     vote ICI, en amont, parce que c'est le seul endroit ou la ligne porte encore
+     son identifiant : cielCoherent, qui leve le drapeau d'orage, recoit une
+     sonde deja agregee et ne peut plus savoir d'ou vient le code. Le modele
+     ecarte continue de voter pleinement sur sa pluie, ses nuages et sa neige,
+     qui sont ce que cielCoherent recombine - on ne perd rien, on refuse une
+     seule affirmation. Voir finPourOrage() et la v122. */
+  const codes=out.filter(o=>!o.doublon).map(o=>[o.code, o.poids, o.id])
+    .filter(c=>c[0]!==null&&c[0]!==undefined)
+    .filter(c=>c[0]<95 || finPourOrage(c[2]));
   if(codes.length){
     const score={};
     codes.forEach(c=>{ score[c[0]]=(score[c[0]]||0)+c[1]; });
     S.code = +Object.keys(score).sort((a,b)=>score[b]-score[a]||b-a)[0];
   } else S.code=null;
+
+  /* La CAPE des seules mailles admissibles, pour les consommateurs qui en tirent
+     une affirmation convective. Meme statistique que S.cape - mediane ponderee
+     et non maximum - pour ne pas durcir le signal en le corrigeant. */
+  (function(){
+    const v = out.filter(o=>!o.doublon && finPourOrage(o.id)
+                            && o.cape!==null && o.cape!==undefined)
+                 .map(o=>[o.cape, o.poids]);
+    S.capeAdmis = v.length? medPond(v) : null;
+  })();
 
   /* confiance : nombre de familles indépendantes présentes, et resserrement en T */
   const familles={}; out.filter(o=>!o.doublon).forEach(o=>familles[famille(o.id)]=1);
@@ -3047,7 +3065,9 @@ function dessine(){
          declencher. Mesure a l'appui avant correction. */
       const code = (s0.code===null || s0.code===undefined)? null : +s0.code;
       const nu = g('nu'), t = g('t'), ros = g('ros');
-      const cape = g('cape'), vis = g('vis');
+      /* capeAdmis : sinon la CAPE d'un modele global dessinait des enclumes. */
+      const cape = (s0.capeAdmis===null || s0.capeAdmis===undefined)? null : s0.capeAdmis;
+      const vis = g('vis');
       const nub = g('nub'), pr = g('pr');
       const brouillard = (code===45 || code===48 || (vis!==null && vis < 900));
       /* Le brouillard se dessine meme si la couverture totale est faible : c'est
@@ -3808,7 +3828,9 @@ function descMeteo(s, alt){
   /* Le code brut pouvait valoir 0 alors que le ciel derive dit deja orage : le
      SMS ajoutait donc "risque orage" a la suite du mot orage. On compare au meme
      ciel que celui qui est ecrit juste avant. */
-  if((cc===null || cc<95) && s.cape && s.cape.hi>900) p.push('risque orage');
+  /* meme regle de maille que partout ailleurs */
+  if((cc===null || cc<95) && s.capeAdmis!==null && s.capeAdmis!==undefined
+     && s.capeAdmis>900) p.push('risque orage');
   return p.join(', ');
 }
 
@@ -4626,7 +4648,17 @@ function risqueOrage(s, sLarge){
      GRIB, n'a pas de CAPE et faisait echouer dessine() en silence. */
   if(capeHi===null && liFin===null && liVeto===null && (code===null||code<95)) return null;
   let n = 0;
-  if(code!==null && code>=95) n = 3;
+  /* Un code convectif ACCUSE l'occurrence, il ne prononce pas l'intensite. Il
+     posait le sommet de l'echelle a lui seul : mesure aux points 5 et 6, "orage
+     fort" sur 30 J/kg de CAPE et sans indice de soulevement. Or 95 vaut "orage
+     faible ou modere" dans la nomenclature WMO elle-meme, et les crans de grele
+     sont distincts. Le code pose donc un PLANCHER, et l'energie escalade depuis
+     ce plancher par les seuils qui la justifient - voir plus bas. */
+  if(code!==null && code>=95){
+    if(code>=99) n = Math.max(n, 3);        /* orage avec forte grele */
+    else if(code>=96) n = Math.max(n, 2);   /* orage avec grele legere */
+    else n = Math.max(n, 1);                /* 95 : orage faible ou modere */
+  }
   /* Seuils de l'usage operationnel, et non abaisses "pour la montagne". La
      precaution montagnarde est deja portee par le choix du quantile HAUT : la
      compter une seconde fois en divisant les seuils par deux decalait tout le
@@ -4699,8 +4731,10 @@ function cielCoherent(s){
   const pr = (s.pr && s.pr.m!==null)? s.pr.m
            : ((s.pr_moy && s.pr_moy.m!==null)? s.pr_moy.m : 0);
   const neige = (s.neige && s.neige.m!==null)? s.neige.m : 0;
+  /* capeAdmis et non cape : la CAPE d'une maille large ne suffit pas a dire
+     qu'un orage eclate ICI. Le code, lui, est deja filtre dans agrege(). */
   const orage = (s.code!==null && s.code>=95)
-             || (s.cape && s.cape.m!==null && s.cape.m>900);
+             || (s.capeAdmis!==null && s.capeAdmis!==undefined && s.capeAdmis>900);
   return mbCode(pr||0, nu, neige, !!orage);
 }
 function phraseMeteo(s, p){
@@ -4837,6 +4871,10 @@ function fiche(){
   const V=(o,d=1,su='')=> (o&&o.m!==null&&o.m!==undefined)? o.m.toFixed(d)+su : '—';
   const E=(o,d=0,su='')=> (o&&o.lo!==null&&o.lo!==undefined)? o.lo.toFixed(d)+' à '+o.hi.toFixed(d)+su : '';
 
+  /* Le verdict d'orage de la fiche vient du moteur, il ne s'invente pas ici.
+     Meme sonde de maille fine que le bandeau et que les alertes. */
+  const sO = sonde(SEL, finPourOrage);
+  const rO = risqueOrage(sO, s);
   const ccF=cielCoherent(s);
   if(ccF!==null) h+='<div style="margin:10px 0 2px;font-size:15px">'+(WMO[ccF]||'—')+'</div>';
   if(!MODELE_ACTIF && s.lignes.length<nDispo)
@@ -4901,9 +4939,19 @@ function fiche(){
       (s.iso0&&s.iso0.m!==null? (s.iso0.m-p.alt).toFixed(0)
        : (s.iso0calc&&s.iso0calc.m!==null? (s.iso0calc.m-p.alt).toFixed(0):null))!==null?
       'au-dessus du point':'au-dessus du sommet du profil'],
-    ['indice de soul\u00e8vement', V(s.li,1), s.li&&s.li.m<-2?'atmosph\u00e8re instable':''],
-    ['risque d\u2019orage', s.cape&&s.cape.m!==null? (s.cape.m>800?'\u00e9lev\u00e9':s.cape.m>300?'mod\u00e9r\u00e9':'faible'):'\u2014',
-      s.cape&&s.cape.m!==null? V(s.cape,0,' J/kg')+' de CAPE':''],
+    /* La valeur de l'indice reste celle de tous les modeles - c'est une mesure,
+       elle est honnete telle quelle. Le VERDICT d'instabilite, lui, est une
+       accusation : il se lit sur les mailles fines, comme partout ailleurs. */
+    ['indice de soul\u00e8vement', V(s.li,1),
+      (rO && rO.li!==null && rO.li<-2)?'atmosph\u00e8re instable':''],
+    /* Le mot du moteur, et non une seconde echelle. L'ancienne case ne savait pas
+       dire "nul" : sous 300 J/kg elle ecrivait "faible", si bien que la fiche de
+       CHAQUE point annoncait un risque d'orage permanent, sur des seuils qui
+       n'etaient pas ceux du moteur et sans filtre de maille. Faute de donnee
+       admissible elle vaut tiret, et le filtre en fin de tableau la retire. */
+    ['risque d\u2019orage', rO? rO.mot : '\u2014',
+      (rO && rO.capeHi!==null && rO.capeHi!==undefined)?
+        Math.round(rO.capeHi)+' J/kg de CAPE (mailles fines)':''],
     ['neige', V(s.neige,1,' cm'), ''],
     ['pression', V(s.pres,0,' hPa'), '']
   ].filter(c=>c[1]!=='—');
@@ -4914,7 +4962,22 @@ function fiche(){
   h+='</div>';
 
   const risques=[];
-  if(s.cape&&s.cape.hi>800) risques.push('CAPE jusqu\'à '+s.cape.hi.toFixed(0)+' J/kg — potentiel orageux');
+  /* Cette ligne se levait sur la CAPE maximale de TOUS les modeles : le plus
+     convectif des globaux suffisait a l'ecrire. Elle suit desormais le seuil du
+     moteur, sur les seules mailles fines, et ne parait qu'a partir de "modere". */
+  if(rO && rO.n>=2){
+    /* Nommer le declencheur reel. La phrase precedente attribuait le verdict a la
+       CAPE en toute circonstance, et affichait "CAPE jusqu'a 30 J/kg - potentiel
+       orageux" quand c'etait le code temps qui avait parle. Une justification qui
+       contredit son propre chiffre ruine la confiance dans toute la page. */
+    const ing=[];
+    if(rO.capeHi!==null && rO.capeHi!==undefined && rO.capeHi>=1000)
+      ing.push('CAPE '+Math.round(rO.capeHi)+' J/kg');
+    if(rO.li!==null && rO.li!==undefined && rO.li<=-2)
+      ing.push('indice de soul\u00e8vement '+rO.li.toFixed(1));
+    risques.push('potentiel orageux '+rO.mot
+      +(ing.length? ' \u2014 '+ing.join(', ') : ' \u2014 code convectif d\'un mod\u00e8le fin'));
+  }
   if(s.raf&&s.raf.hi>55) risques.push('rafales possibles à '+s.raf.hi.toFixed(0)+' km/h');
   if(s.iso0&&s.iso0.lo!==null&&s.iso0.lo<p.alt+200) risques.push('isotherme 0 °C proche du point ('+s.iso0.lo.toFixed(0)+' m)');
   if(s.res&&s.res.lo!==null&&s.res.lo<3) risques.push('ressenti jusqu\'à '+s.res.lo.toFixed(0)+' °C');
