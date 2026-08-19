@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v131 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v132 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -2796,6 +2796,22 @@ function airSature(nu, t, ros, nub, pr){
   return false;
 }
 /* Base du nuage, en metres au-dessus du niveau de la mer. */
+/* Sommet de la couche. Extrait du dessin pour que la synthese lise la meme
+   physique que le graphe, comme airSature() et baseNuage() l'ont ete avant lui.
+   L'epaisseur est bornee par le regime : un stratus fait quelques centaines de
+   metres, un cumulonimbus plusieurs milliers. */
+function hautNuage(sol, base, nuE, sature, convectif, brouillard){
+  const ep = convectif  ? 900 + 2300*(nuE/100)
+           : brouillard ? 140 +  520*(nuE/100)
+                        : 320 + 1000*(nuE/100);
+  let haut = Math.min(ALT_MAX, base + ep);
+  /* Un coureur ne peut pas etre a la fois dans le nuage et au-dessus de son
+     sommet. Quand l'air est sature, la couche l'englobe : son sommet passe au
+     moins 600 m au-dessus de lui. Sans cela, entre Vizille et Arselle, le dessin
+     annoncait "dans la nuee" avec un sommet 200 m sous la crete. */
+  if(sature) haut = Math.min(ALT_MAX, Math.max(haut, sol + 600));
+  return haut;
+}
 function baseNuage(sol, t, ros, nu, nub, pr, brouillard){
   let b = (t!==null && ros!==null)? sol + 125*Math.max(0, t-ros) : sol + 300;
   if(airSature(nu, t, ros, nub, pr)) b = sol - 150 - 350*((nub===null? 60 : nub)/100);
@@ -3101,15 +3117,11 @@ function dessine(){
       /* La couche peut monter plus haut qu'avant sans mentir, puisque son sommet
          se dissout au lieu de s'arreter net : c'est la densite qui porte
          l'information, plus une frontiere inventee. */
-      const ep = convectif  ? 900 + 2300*(nuE/100)
-               : brouillard ? 140 +  520*(nuE/100)
-                            : 320 + 1000*(nuE/100);
-      let haut = Math.min(ALT_MAX, base + ep);
-      /* Un coureur ne peut pas etre a la fois dans le nuage et au-dessus de son
-         sommet. Quand l'air est sature, la couche l'englobe : son sommet passe
-         au moins 600 m au-dessus de lui. Sans cela, entre Vizille et Arselle, le
-         dessin annoncait "dans la nuee" avec un sommet 200 m sous la crete. */
-      if(sature) haut = Math.min(ALT_MAX, Math.max(haut, sol + 600));
+      /* voir hautNuage() : sorti du dessin pour que la synthese lise la MEME
+         physique. Elle en inventait une autre - l'altitude comparee a la
+         frontiere OMM des 2000 m - et annoncait "au-dessus des nuages" a un
+         coureur enfoui de 470 m dans la nuee. */
+      const haut = hautNuage(sol, base, nuE, sature, convectif, brouillard);
       /* Base de DESSIN, distincte de la base de donnee. Depuis que la base peut
          passer sous le coureur, la moitie dense du degrade se peignait derriere
          la montagne : il ne restait au-dessus de la crete que la partie
@@ -3708,7 +3720,9 @@ function resumeSegment(){
 
   const bornes=fenetre(); const T=[],RES=[],P=[],PP=[],R=[],N=[],C=[],V=[],D=[];
   /* etages et altitude du coureur : de quoi repondre a "puis-je percer ?" */
-  const NUB=[], NUM=[], ALTH=[];
+  /* les sondes elles-memes, et non trois tableaux de valeurs : merDeNuages a
+     besoin de recalculer base et sommet par les memes fonctions que le graphe */
+  const MER=[];
   /* niveaux de risque orageux heure par heure, et l'heure correspondante */
   const ORAGE=[], ORAGE_H=[];
   for(let hh=bornes[0];hh<=bornes[1];hh++){ const jj=sondeJalon(hh); if(!jj) continue;
@@ -3730,9 +3744,7 @@ function resumeSegment(){
     const ro = risqueOrage(sondeJalon(hh, finPourOrage), jj);
     ORAGE.push(ro? ro.n : null);
     ORAGE_H.push(hhmm(new Date(new Date(POIS[0].t[SCENARIO]).getTime()+hh*3.6e6)));
-    NUB.push(jj.nub&&jj.nub.m!==null? jj.nub.m : null);
-    NUM.push(jj.num&&jj.num.m!==null? jj.num.m : null);
-    ALTH.push(JALONS[hh]? (JALONS[hh].alt||0) : null); }
+    MER.push({s: jj, alt: JALONS[hh]? (JALONS[hh].alt||0) : null}); }
   /* La couverture reelle du modele n'est connue qu'ici, apres la boucle : c'est
      pourquoi l'en-tete est bati a cet endroit et non avant. Un modele qui ne
      couvre que les premieres heures affichait son cumul et son "aucune pluie"
@@ -3787,7 +3799,7 @@ function resumeSegment(){
       PP.length? 'risque pluie '+Math.round(med(PP))+' %':'', ''],
     ['point haut', altMax+' m', '', ''],
     ['pire ciel', pire!==null? (WMO[pire]||'\u2014'):'\u2014', '', pire>=95?'var(--alerte)':''],
-    merDeNuages(NUB, NUM, ALTH),
+    merDeNuages(MER),
     orageFenetre(ORAGE, ORAGE_H)
   ];
   h+='<div class="rgrille">';
@@ -4352,18 +4364,44 @@ function motVent(v){ if(v===null||v===undefined) return '';
    crete au-dessus d'elle, et un etage moyen degage - sinon on emerge sous une
    autre couche et le soleil reste cache. Le motif d'echec distingue les deux cas
    qui n'appellent pas la meme conduite. */
-function merDeNuages(nub, num, alt){
-  let heures = 0, coucheBasse = 0, moyenCouvrant = 0, n = 0;
-  for(let i=0;i<nub.length;i++){
-    const b = nub[i], m = num[i], a = alt[i];
-    if(b===null || b===undefined || a===null) continue;
+/* Etre au-dessus de la mer de nuages, c'est depasser le SOMMET de la couche.
+   L'ancien test comparait l'altitude du coureur a la frontiere OMM de l'etage bas,
+   2000 m : une categorie, pas une position. Mesure aux quatre heures qu'il
+   declarait percees - coureur a 2232 m pour une base a 1763 m et un air sature,
+   donc 469 m a l'interieur de la nuee ; ou coureur a 2246 m sous une base a
+   2434 m, donc dessous. Les quatre etaient fausses, et de deux facons opposees.
+
+   On recoit les sondes et non des tableaux de valeurs, pour pouvoir calculer la
+   base et le sommet par les memes fonctions que le graphe. */
+function merDeNuages(rangs){
+  let heures = 0, coucheBasse = 0, moyenCouvrant = 0;
+  let dansLaNuee = 0, sousLaCouche = 0, n = 0;
+  for(let i=0;i<rangs.length;i++){
+    const s = rangs[i] && rangs[i].s, a = rangs[i] && rangs[i].alt;
+    if(!s || a===null || a===undefined) continue;
+    const g = k => (s[k] && s[k].m!==null && s[k].m!==undefined)? s[k].m : null;
+    const b = g('nub');
+    if(b===null) continue;
     n++;
     const deck = b >= 50;
     if(deck) coucheBasse++;
-    const degage = (m===null || m===undefined || m < 40);
+    const m = g('num');
+    const degage = (m===null || m < 40);
     if(deck && !degage) moyenCouvrant++;
-    /* sommet de couche basse : borne OMM de l'etage, ramenee a l'echelle */
-    if(deck && degage && a > 2000) heures++;
+    if(!deck || !degage) continue;
+    /* meme physique que le dessin : voir baseNuage() et hautNuage() */
+    const nu = g('nu'), t = g('t'), ros = g('ros'), pr = g('pr'), vis = g('vis');
+    const code = (s.code===null || s.code===undefined)? null : +s.code;
+    const brouillard = (code===45 || code===48 || (vis!==null && vis < 900));
+    const nuE = (nu===null)? 90 : nu;
+    const sature = airSature(nu, t, ros, b, pr);
+    const cape = (s.capeAdmis===null || s.capeAdmis===undefined)? null : s.capeAdmis;
+    const convectif = (code!==null && code>=95) || (cape!==null && cape>300);
+    const base = baseNuage(a, t, ros, nu, b, pr, brouillard);
+    const haut = hautNuage(a, base, nuE, sature, convectif, brouillard);
+    if(a > haut) heures++;
+    else if(a >= base) dansLaNuee++;
+    else sousLaCouche++;
   }
   if(!n) return ['au-dessus des nuages', '\u2014', '', ''];
   if(heures) return ['au-dessus des nuages', heures+' h',
@@ -4373,6 +4411,13 @@ function merDeNuages(nub, num, alt){
   if(moyenCouvrant >= coucheBasse*0.8)
     return ['au-dessus des nuages', 'jamais',
             '\u00e9tage moyen couvrant sur '+moyenCouvrant+' h', ''];
+  /* dire POURQUOI ce n'est pas perce est plus utile que "jamais" tout court */
+  if(dansLaNuee >= sousLaCouche && dansLaNuee)
+    return ['au-dessus des nuages', 'jamais',
+            'cr\u00eate dans la couche '+dansLaNuee+' h', ''];
+  if(sousLaCouche)
+    return ['au-dessus des nuages', 'jamais',
+            'cr\u00eate sous la base '+sousLaCouche+' h', ''];
   return ['au-dessus des nuages', 'jamais', 'cr\u00eate toujours sous la couche', ''];
 }
 
