@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v142 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v143 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -3930,16 +3930,28 @@ function descMeteo(s, alt){
      dans la purée. Voir airSature(). */
   if(airSature(m('nu'), m('t'), m('ros'), m('nub'), m('pr'))) ciel='brouillard';
   if(ciel) p.push(ciel);
-  /* Le mot "pluie" apparaissait deux fois en six mots - "pluie faible, pluie
-     2.4mm" - parce que le ciel derive le dit deja. Quand c'est le cas, le chiffre
-     se passe de son etiquette. */
+  /* L'intensite se NOMME, une seule fois, a partir du seul chiffre. Le SMS
+     mariait deux sources pour dire la meme chose - le mot venait du code WMO
+     derive, le chiffre de l'intensite mesuree - et les deux se contredisaient :
+     "pluie faible" sur 0,1 mm/h, qui est du crachin et non de la pluie.
+
+     L'echelle prolonge les constantes deja posees plus haut, PLUIE_LEGERE a 0,3
+     et PLUIE_MODEREE a 1,5, plutot que d'en inventer d'autres. Les deux premiers
+     crans se passent du chiffre : sur du crachin, 0,1 ou 0,2 mm/h ne change rien
+     a ce qu'on fait. A partir de "pluie legere" il revient, parce que l'ecart
+     entre 0,6 et 3,8 mm/h se sent. */
   const prS = pluieAffichee(s);
   if(prS!==null && prS>=0.05){
     const mm = prS.toFixed(1)+'mm';
-    /* le chiffre se COLLE au mot du ciel plutot que de former un membre a part :
-       "pluie faible 2.4mm" et non "pluie faible, 2.4mm" */
-    if(p.length && /pluie|averse|bruine/.test(ciel)) p[p.length-1] += ' '+mm;
-    else p.push('pluie '+mm);
+    const mot = prS<0.3? 'bruine l\u00e9g\u00e8re'
+              : prS<0.5? 'bruine'
+              : prS<1.5? 'pluie l\u00e9g\u00e8re '+mm
+              : prS<4  ? 'pluie '+mm
+                       : 'pluie forte '+mm;
+    /* le mot d'intensite REMPLACE celui du ciel quand celui-ci parlait deja de
+       pluie : sinon on lirait "pluie faible, bruine legere" */
+    if(p.length && /pluie|averse|bruine/.test(ciel)) p[p.length-1] = mot;
+    else p.push(mot);
   }
   if(s.neige&&s.neige.m>=0.2) p.push('neige '+s.neige.m.toFixed(1)+'cm');
   /* Un vent faible n'est pas une information : "vent 3 raf 11km/h" n'apprend rien
