@@ -75,7 +75,10 @@ for (const jours of [6, 5, 4, 3, 2, 1]) {
 
 console.log('\n=== cas permanent : MET Norway ===');
 const j4 = selection(4);
-dit(j4.ecartes.includes('MET Norway'),
+/* On teste par PREFIXE et non par egalite : le libelle porte desormais la
+   resolution ou la nature du modele, et il changera encore. Ce que ce harnais
+   protege est le mecanisme de doublon, pas l'orthographe d'un nom. */
+dit(j4.ecartes.some(n => n.startsWith('MET Norway')),
   'MET Norway ecarte a J-4 (echo strict d ECMWF IFS, portee 15 j)');
 dit(j4.retenus.some(r => r[0] === 'ecmwf_ifs025'),
   'ECMWF IFS bien conserve comme source');

@@ -37,7 +37,11 @@
        employée par relevé — voir `clePrincipale` plus bas. */
     meteoblue: liste('EB26_METEOBLUE_CLES', [
       'QTysmp2OSKP7ba3j',
-      'wA5K7fDv1VmIF6US'
+      'wA5K7fDv1VmIF6US',
+      /* ajoutees le 19/08, les deux premieres etant a court de credits */
+      't5F1AvkNhmfzIZuE',
+      'GKbzRLOD3f5tWmZh',
+      'zjlK1CUDvGf8Ah4Y'
     ]),
 
     /* Windy point-forecast : offre gratuite.

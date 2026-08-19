@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>v114 — Sonde météo — Échappée Belle Intégrale 2026</title>
+<title>v116 — Sonde météo — Échappée Belle Intégrale 2026</title>
 <style>
 :root{
   --nuit:#0A101C; --roche:#131C2C; --panneau:#182338; --trace:#26344E;
@@ -271,7 +271,7 @@ const SEGMENTS = [{"n":1,"de":"Vizille","vers":"R1 Arselle","km0":0.0,"km1":17.5
 let SEG = 0;
 
 const MODELES = [
-  ["meteoblue","meteoblue MOS",7],
+  ["meteoblue","meteoblue MOS \u00b7 point",7],
   ["meteofrance_arome_france_hd","AROME HD 1,3 km",2.1],
   ["meteofrance_arome_france","AROME 2,5 km",2.1],
   ["meteofrance_arpege_europe","ARPEGE Europe 11 km",4.2],
@@ -283,11 +283,11 @@ const MODELES = [
   ["italia_meteo_arpae_icon_2i","ICON-2I 2,2 km",3.0],
   ["knmi_harmonie_arome_europe","HARMONIE-AROME 5,5 km",2.5],
   ["ecmwf_ifs025","ECMWF IFS 9 km",15],
-  ["ecmwf_aifs025_single","ECMWF AIFS (IA)",15],
+  ["ecmwf_aifs025_single","ECMWF AIFS 28 km (IA)",15],
   ["ukmo_global_deterministic_10km","UKMO Global 10 km",6.5],
-  ["gfs_seamless","GFS (NOAA)",16],
-  ["metno_seamless","MET Norway",9.5],
-  ["metno_direct","MET Norway direct",9.5],
+  ["gfs_seamless","GFS 13 km (NOAA)",16],
+  ["metno_seamless","MET Norway \u00b7 ECMWF post-trait\u00e9",9.5],
+  ["metno_direct","MET Norway direct \u00b7 post-trait\u00e9 ECMWF",9.5],
   ["arome_direct","AROME 1,3 km direct",2.1]
 ];
 const VARS = ["temperature_2m","apparent_temperature","dew_point_2m","relative_humidity_2m",
@@ -1000,7 +1000,16 @@ function majSelecteurModele(){
   if(!dispo.length){ MODELE_ACTIF=''; }
   else if(dispo.length===1 && !MODELE_ACTIF){ /* un seul modèle : ce n'est pas un consensus */ }
 
-  const ordre=dispo.slice().sort((a,b)=>poidsBase(b)-poidsBase(a));
+  /* Tri par poids decroissant - donc par finesse de maille, depuis que la table
+     des poids suit la resolution. A poids egal on departage par le NOM : sans
+     cela l'ordre relatif suit celui d'arrivee des reponses reseau et change d'un
+     relevé a l'autre, ce qui rend la liste immemorisable. Arbitraire mais
+     stable, et c'est la seule qualite qui compte pour departager. */
+  const nomDe = id => (DATA[id] && DATA[id].nom) || id;
+  const ordre=dispo.slice().sort(function(a,b){
+    const d = poidsBase(b) - poidsBase(a);
+    return d || nomDe(a).localeCompare(nomDe(b), 'fr');
+  });
   /* le nombre de modèles flatte : ce qui compte, ce sont les sources indépendantes */
   const fam={}; dispo.forEach(function(id){
     const d=DOUBLON[id];
@@ -1011,8 +1020,16 @@ function majSelecteurModele(){
        +(dispo.length>1? 'Multimodèle \u00b7 '+nSrc+' source'+(nSrc>1?'s':'') : 'Multimodèle')
        +'</option>';
   ordre.forEach(id=>{
+    /* Couverture annoncee quand elle est partielle : sans cela on selectionne le
+       modele et on decouvre un graphe a moitie vide, ce qui est arrive hier avec
+       ARPEGE a 4 points sur 52. La portee de certaines mailles fines s'arrete au
+       milieu de la course, et c'est une information, pas un defaut. */
+    const arr = (DATA[id].pts && DATA[id].pts[SCENARIO]) || [];
+    let n = 0;
+    arr.forEach(e => { if(e && e.t!==null && e.t!==undefined) n++; });
+    const part = (n && n < POIS.length)? ' \u00b7 '+n+'/'+POIS.length+' pts' : '';
     h+='<option value="'+id+'"'+(MODELE_ACTIF===id?' selected':'')+'>'
-      +(DATA[id].nom||id)+'</option>';
+      +nomDe(id)+part+'</option>';
   });
   if(!dispo.length) h='<option value="">Aucun modèle</option>';
   sel.innerHTML=h;
